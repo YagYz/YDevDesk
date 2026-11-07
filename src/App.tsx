@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { CanvasAddon } from "@xterm/addon-canvas";
@@ -507,7 +506,7 @@ export default function App() {
 
   const handleWindowMinimize = async () => {
     try {
-      await getCurrentWindow().minimize();
+      await invoke("app_window_minimize");
     } catch (e) {
       console.error(e);
     }
@@ -515,7 +514,7 @@ export default function App() {
 
   const handleWindowMaximize = async () => {
     try {
-      await getCurrentWindow().toggleMaximize();
+      await invoke("app_window_toggle_maximize");
     } catch (e) {
       console.error(e);
     }
@@ -523,7 +522,7 @@ export default function App() {
 
   const handleWindowClose = async () => {
     try {
-      await getCurrentWindow().close();
+      await invoke("app_window_close");
     } catch (e) {
       console.error(e);
     }

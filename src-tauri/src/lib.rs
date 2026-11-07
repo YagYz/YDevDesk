@@ -463,6 +463,25 @@ async fn create_homelab_knowledge(url: String, key: String, service_tag: String,
     Ok(json)
 }
 
+#[tauri::command]
+fn app_window_close(window: tauri::Window) -> Result<(), String> {
+    window.close().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn app_window_minimize(window: tauri::Window) -> Result<(), String> {
+    window.minimize().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn app_window_toggle_maximize(window: tauri::Window) -> Result<(), String> {
+    if window.is_maximized().unwrap_or(false) {
+        window.unmaximize().map_err(|e| e.to_string())
+    } else {
+        window.maximize().map_err(|e| e.to_string())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -474,6 +493,9 @@ pub fn run() {
             start_pty,
             write_pty,
             close_pty,
+            app_window_close,
+            app_window_minimize,
+            app_window_toggle_maximize,
             load_homelab_config,
             get_agent_status,
             fetch_homelab_notes,
