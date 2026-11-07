@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 
 pub struct TerminalState {
-    // Map of session_id -> writer
     writers: Arc<Mutex<HashMap<String, Box<dyn Write + Send>>>>,
 }
 
@@ -203,7 +202,7 @@ fn get_agent_status() -> AgentStatus {
         }
     }
 
-    // Disk üzerindeki tüm beyin (brain) oturumlarını tara: aktif/yeni oturumları bul
+    // Disk üzerindeki tüm beyin (brain) oturumlarını tara
     let mut session_list: Vec<ActiveAgentSession> = Vec::new();
     let mut primary_transcript_path: Option<std::path::PathBuf> = None;
     let now = std::time::SystemTime::now();
@@ -226,7 +225,6 @@ fn get_agent_status() -> AgentStatus {
             }
         }
 
-        // En son güncellenen oturumları sırala
         found_sessions.sort_by_key(|s| s.0);
 
         for (diff_secs, session_id, t_path) in found_sessions {
@@ -234,77 +232,76 @@ fn get_agent_status() -> AgentStatus {
                 primary_transcript_path = Some(t_path.clone());
             }
 
-            let is_active = diff_secs < 300; // Son 5 dakikada hareket var mı?
+            let is_active = diff_secs < 300;
             session_list.push(ActiveAgentSession {
                 session_id: if session_id.len() > 8 { session_id[..8].to_string() } else { session_id },
                 is_active,
-                model: "Gemini Pro/Flash".to_string(),
+                model: "Gemini 3.8 Flash".to_string(),
                 last_tool: "working".to_string(),
                 updated_ago_secs: diff_secs,
             });
-            if session_list.len() >= 5 {
+            if session_list.len() >= 6 {
                 break;
             }
         }
     }
 
-    // Son çağrılan araçları (tool_calls) birincil aktif transkriptten topla
+    // Son çağrılan araçları (tool_calls) transkriptten topla (args ve argumentsJson uyumlu)
     let mut recent_tools = Vec::new();
     if let Some(t_path) = primary_transcript_path {
         if let Ok(t_content) = std::fs::read_to_string(t_path) {
-            let lines: Vec<&str> = t_content.lines().rev().take(40).collect();
+            let lines: Vec<&str> = t_content.lines().rev().take(50).collect();
             for line in lines {
                 if let Ok(entry) = serde_json::from_str::<serde_json::Value>(line) {
                     if let Some(calls) = entry.get("tool_calls").and_then(|c| c.as_array()) {
                         let created_at = entry.get("created_at").and_then(|t| t.as_str()).unwrap_or("").to_string();
                         for call in calls {
                             let name = call.get("name").and_then(|n| n.as_str()).unwrap_or("tool").to_string();
+                            
+                            // Check args object or argumentsJson string
+                            let args_obj = call.get("args");
+                            let parsed_args = call.get("argumentsJson")
+                                .and_then(|a| a.as_str())
+                                .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok());
+
+                            let get_field = |k: &str| -> Option<String> {
+                                if let Some(v) = args_obj.and_then(|o| o.get(k)).and_then(|val| val.as_str()) {
+                                    return Some(v.trim_matches('"').to_string());
+                                }
+                                if let Some(v) = parsed_args.as_ref().and_then(|o| o.get(k)).and_then(|val| val.as_str()) {
+                                    return Some(v.trim_matches('"').to_string());
+                                }
+                                None
+                            };
+
                             let detail = match name.as_str() {
                                 "run_command" => {
-                                    if let Some(a_str) = call.get("argumentsJson").and_then(|a| a.as_str()) {
-                                        if let Ok(j) = serde_json::from_str::<serde_json::Value>(a_str) {
-                                            j.get("toolSummary")
-                                                .or_else(|| j.get("CommandLine"))
-                                                .and_then(|s| s.as_str())
-                                                .unwrap_or("exec")
-                                                .to_string()
-                                        } else {
-                                            "exec".to_string()
-                                        }
-                                    } else {
-                                        "exec".to_string()
-                                    }
+                                    get_field("toolSummary")
+                                        .or_else(|| get_field("CommandLine"))
+                                        .unwrap_or_else(|| "Komut yürütüldü".to_string())
                                 }
                                 "read_file" | "edit_file" | "write_file" => {
-                                    if let Some(a_str) = call.get("argumentsJson").and_then(|a| a.as_str()) {
-                                        if let Ok(j) = serde_json::from_str::<serde_json::Value>(a_str) {
-                                            j.get("Path")
-                                                .and_then(|s| s.as_str())
-                                                .map(|p| p.split('/').last().unwrap_or(p))
-                                                .unwrap_or("file")
-                                                .to_string()
-                                        } else {
-                                            "file".to_string()
-                                        }
-                                    } else {
-                                        "file".to_string()
-                                    }
+                                    get_field("Path")
+                                        .map(|p| p.split('/').last().unwrap_or(&p).to_string())
+                                        .unwrap_or_else(|| "Dosya işlemi".to_string())
                                 }
-                                "search_web" => "web query".to_string(),
-                                _ => "call".to_string(),
+                                "search_web" => get_field("query").unwrap_or_else(|| "Web araması".to_string()),
+                                _ => "İşlem yapıldı".to_string(),
                             };
+
                             recent_tools.push(RecentToolCall {
                                 name,
                                 timestamp: created_at.clone(),
                                 detail,
                             });
-                            if recent_tools.len() >= 6 {
+
+                            if recent_tools.len() >= 8 {
                                 break;
                             }
                         }
                     }
                 }
-                if recent_tools.len() >= 6 {
+                if recent_tools.len() >= 8 {
                     break;
                 }
             }
@@ -329,7 +326,7 @@ fn get_agent_status() -> AgentStatus {
     }
 }
 
-// 6. Homelab Proxy İstekleri
+// 6. Homelab İstekleri
 #[tauri::command]
 async fn fetch_homelab_notes(url: String, key: String) -> Result<serde_json::Value, String> {
     let client = reqwest::Client::new();
@@ -372,6 +369,51 @@ async fn fetch_ynetmon_summary(url: String, key: String) -> Result<serde_json::V
     Ok(json)
 }
 
+// 7. Hızlı Görev ve Bilgi Ağı Kaydetme (Omni-Bar IPC)
+#[tauri::command]
+async fn create_homelab_note(url: String, key: String, content: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "content": content,
+        "priority": "medium",
+        "source": "ydevdesk"
+    });
+
+    let res = client
+        .post(format!("{}/api/v1/notes", url.trim_end_matches('/')))
+        .header("X-API-Key", key)
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let json = res.json::<serde_json::Value>().await.map_err(|e| e.to_string())?;
+    Ok(json)
+}
+
+#[tauri::command]
+async fn create_homelab_knowledge(url: String, key: String, service_tag: String, title: String, summary: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "service_tag": service_tag,
+        "title": title,
+        "summary": summary
+    });
+
+    let res = client
+        .post(format!("{}/api/v1/knowledge", url.trim_end_matches('/')))
+        .header("X-API-Key", key)
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let json = res.json::<serde_json::Value>().await.map_err(|e| e.to_string())?;
+    Ok(json)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -387,7 +429,9 @@ pub fn run() {
             get_agent_status,
             fetch_homelab_notes,
             fetch_homelab_knowledge,
-            fetch_ynetmon_summary
+            fetch_ynetmon_summary,
+            create_homelab_note,
+            create_homelab_knowledge
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
