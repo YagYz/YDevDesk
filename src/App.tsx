@@ -35,6 +35,7 @@ import {
   Layers,
   Save,
   Trash2,
+  GripVertical,
 } from "lucide-react";
 import "./App.css";
 
@@ -175,6 +176,24 @@ export default function App() {
   const [bandwidthHistory, setBandwidthHistory] = useState<number[]>([]);
   const [showSidePanel, setShowSidePanel] = useState(true);
   const [showLeftRail, setShowLeftRail] = useState(true);
+  const [leftWidth, setLeftWidth] = useState<number>(() => {
+    const saved = localStorage.getItem("ydevdesk_left_width");
+    return saved ? Number(saved) : 230;
+  });
+  const [rightWidth, setRightWidth] = useState<number>(() => {
+    const saved = localStorage.getItem("ydevdesk_right_width");
+    return saved ? Number(saved) : 380;
+  });
+
+  const [moduleOrder, setModuleOrder] = useState<string[]>(() => {
+    const saved = localStorage.getItem("ydevdesk_module_order");
+    return saved
+      ? JSON.parse(saved)
+      : ["quick_actions", "recent_tools", "file_heat", "homelab_net", "tasks", "knowledge"];
+  });
+
+  const [draggedModule, setDraggedModule] = useState<string | null>(null);
+
   const [showSettings, setShowSettings] = useState(false);
   const [tempConfig, setTempConfig] = useState<HomelabConfig>({
     ydevhub_url: "http://10.10.50.1:3080",
@@ -395,7 +414,79 @@ export default function App() {
       if (inst) inst.fit.fit();
     }, 100);
     return () => clearTimeout(timer);
-  }, [activeTabId, showSidePanel]);
+  }, [activeTabId, showSidePanel, showLeftRail, leftWidth, rightWidth]);
+
+  const startLeftResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = leftWidth;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const newW = Math.max(160, Math.min(450, startW + (moveEvent.clientX - startX)));
+      setLeftWidth(newW);
+      localStorage.setItem("ydevdesk_left_width", String(newW));
+    };
+
+    const onMouseUp = () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      setTimeout(() => {
+        const inst = termInstances.current[activeTabId];
+        if (inst) inst.fit.fit();
+      }, 50);
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
+
+  const startRightResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = rightWidth;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const newW = Math.max(260, Math.min(650, startW - (moveEvent.clientX - startX)));
+      setRightWidth(newW);
+      localStorage.setItem("ydevdesk_right_width", String(newW));
+    };
+
+    const onMouseUp = () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      setTimeout(() => {
+        const inst = termInstances.current[activeTabId];
+        if (inst) inst.fit.fit();
+      }, 50);
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
+
+  const handleDragStart = (id: string) => {
+    setDraggedModule(id);
+  };
+
+  const handleDragOver = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!draggedModule || draggedModule === targetId) return;
+
+    setModuleOrder((prev) => {
+      const oldIdx = prev.indexOf(draggedModule);
+      const newIdx = prev.indexOf(targetId);
+      if (oldIdx === -1 || newIdx === -1) return prev;
+      const copy = [...prev];
+      copy.splice(oldIdx, 1);
+      copy.splice(newIdx, 0, draggedModule);
+      localStorage.setItem("ydevdesk_module_order", JSON.stringify(copy));
+      return copy;
+    });
+  };
+
+  const handleDragEnd = () => {
+    setDraggedModule(null);
+  };
 
   const formatSpeed = (bps: number) => {
     if (bps >= 1024 * 1024) return `${(bps / (1024 * 1024)).toFixed(1)} MB/s`;
@@ -756,9 +847,12 @@ export default function App() {
 
       {/* 3. MAIN WORKSPACE */}
       <div className="flex flex-1 overflow-hidden relative">
-        {/* LEFT COMPACT RAIL (DOCK & AGENTS) */}
+        {/* LEFT COMPACT RAIL (DOCK & AGENTS - RESIZABLE) */}
         {showLeftRail && (
-          <aside className="w-56 border-r border-[#162638] bg-[#0a111a]/95 flex flex-col backdrop-blur-2xl overflow-hidden font-mono text-xs select-none">
+          <aside
+            style={{ width: `${leftWidth}px` }}
+            className="border-r border-[#162638] bg-[#0a111a]/95 flex flex-col backdrop-blur-2xl overflow-hidden font-mono text-xs select-none relative shrink-0"
+          >
             {/* Active Sessions List */}
             <div className="p-2.5 border-b border-[#162638] bg-[#0f1926]/40 flex items-center justify-between">
               <span className="text-[10px] font-bold text-[#7d8b99] uppercase tracking-wider flex items-center gap-1.5">
@@ -834,6 +928,12 @@ export default function App() {
                 )}
               </div>
             </div>
+
+            {/* Left Resize Handle */}
+            <div
+              onMouseDown={startLeftResize}
+              className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-[#00d2ff]/40 transition-colors z-20"
+            />
           </aside>
         )}
 
@@ -933,9 +1033,18 @@ export default function App() {
           </div>
         </div>
 
-        {/* RIGHT HUD FEED (DEEP NAVY / PETROL) */}
+        {/* RIGHT HUD FEED (DEEP NAVY / PETROL - RESIZABLE & REORDERABLE) */}
         {showSidePanel && (
-          <aside className="w-[380px] border-l border-[#162638] bg-[#0a111a]/95 flex flex-col backdrop-blur-2xl overflow-hidden shadow-2xl">
+          <aside
+            style={{ width: `${rightWidth}px` }}
+            className="border-l border-[#162638] bg-[#0a111a]/95 flex flex-col backdrop-blur-2xl overflow-hidden shadow-2xl relative shrink-0"
+          >
+            {/* Right Resize Handle */}
+            <div
+              onMouseDown={startRightResize}
+              className="absolute top-0 left-0 w-1.5 h-full cursor-col-resize hover:bg-[#00d2ff]/40 transition-colors z-20"
+            />
+
             <div className="px-3.5 py-2 border-b border-[#162638] bg-[#0f1926]/70 flex items-center justify-between">
               <span className="text-xs font-bold font-mono tracking-wider uppercase text-[#00d2ff]">
                 komuta.paneli
@@ -947,216 +1056,285 @@ export default function App() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-3 space-y-3 font-mono">
-              {/* 0. HUD QUICK AGENT INTERACTIVE ACTIONS */}
-              <div className="navy-card p-3 space-y-2">
-                <div className="flex items-center justify-between text-xs text-[#00d2ff]">
-                  <span className="font-bold flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-[#00d2ff]" />
-                    hızlı.eylemler
-                  </span>
-                  <span className="text-[10px] text-[#7d8b99]">ajan / shell</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-1.5">
-                  <button
-                    onClick={() => dispatchToActiveTerm("ydev status")}
-                    className="p-1.5 rounded bg-[#06090e] border border-[#162638] hover:border-[#00d2ff]/40 text-[10px] text-left hover:text-[#00d2ff] transition-all flex items-center justify-between"
-                  >
-                    <span>ydev status</span>
-                    <Play className="w-2.5 h-2.5 text-[#00d2ff] opacity-60" />
-                  </button>
-                  <button
-                    onClick={() => dispatchToActiveTerm("git status -s")}
-                    className="p-1.5 rounded bg-[#06090e] border border-[#162638] hover:border-[#00d2ff]/40 text-[10px] text-left hover:text-[#00d2ff] transition-all flex items-center justify-between"
-                  >
-                    <span>git status</span>
-                    <Play className="w-2.5 h-2.5 text-[#00d2ff] opacity-60" />
-                  </button>
-                  <button
-                    onClick={() => dispatchToActiveTerm("git diff --stat")}
-                    className="p-1.5 rounded bg-[#06090e] border border-[#162638] hover:border-[#00d2ff]/40 text-[10px] text-left hover:text-[#00d2ff] transition-all flex items-center justify-between"
-                  >
-                    <span>git diff</span>
-                    <Play className="w-2.5 h-2.5 text-[#00d2ff] opacity-60" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      fetchAgentStatus();
-                      if (config) {
-                        fetchLiveNetwork(config);
-                        fetchStaticHomelabData(config);
-                      }
-                    }}
-                    className="p-1.5 rounded bg-[#06090e] border border-[#162638] hover:border-[#2ed573]/40 text-[10px] text-left hover:text-[#2ed573] transition-all flex items-center justify-between"
-                  >
-                    <span>verileri tazele</span>
-                    <RotateCcw className="w-2.5 h-2.5 text-[#2ed573] opacity-60" />
-                  </button>
-                </div>
-              </div>
-
-              {/* 1. SESSION & TOOL CALLS STREAM */}
-              <div className="navy-card p-3 space-y-2">
-                <div className="flex items-center justify-between text-xs text-[#00d2ff]">
-                  <span className="font-bold flex items-center gap-1.5">
-                    <Bot className="w-3.5 h-3.5 text-[#00d2ff]" />
-                    son.araç.çağrıları
-                  </span>
-                  <span className="text-[10px] text-[#7d8b99]">{agentStatus.recent_tools.length} işlem</span>
-                </div>
-
-                <div className="space-y-1">
-                  {agentStatus.recent_tools.length === 0 ? (
-                    <div className="text-[11px] text-[#7d8b99] text-center py-2">Araç çağrısı bekleniyor...</div>
-                  ) : (
-                    agentStatus.recent_tools.slice(0, 5).map((t, idx) => (
-                      <div
-                        key={idx}
-                        className="p-1.5 rounded bg-[#06090e] border border-[#162638] flex items-center justify-between text-[11px]"
-                      >
-                        <div className="flex items-center gap-1.5 truncate">
-                          <span className="text-[#00d2ff] font-bold">{t.name}</span>
-                          <span className="text-[#7d8b99] truncate max-w-[170px]">{t.detail}</span>
-                        </div>
-                        <CheckCircle2 className="w-3 h-3 text-[#2ed573] shrink-0" />
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* 1.5. AGENT ACTIVE FILE HEATMAP */}
-              <div className="navy-card p-3 space-y-2">
-                <div className="flex items-center justify-between text-xs text-[#00d2ff]">
-                  <span className="font-bold flex items-center gap-1.5">
-                    <Flame className="w-3.5 h-3.5 text-[#00d2ff]" />
-                    dosya.yoğunluğu
-                  </span>
-                  <span className="text-[10px] text-[#7d8b99]">en aktif 5 dosya</span>
-                </div>
-
-                <div className="space-y-1.5">
-                  {agentStatus.file_heat && agentStatus.file_heat.length > 0 ? (
-                    agentStatus.file_heat.map((f, idx) => {
-                      const maxCount = agentStatus.file_heat[0]?.count || 1;
-                      const pct = Math.min(100, Math.max(15, (f.count / maxCount) * 100));
-                      return (
-                        <div key={idx} className="space-y-0.5">
-                          <div className="flex justify-between text-[10px]">
-                            <span className="text-[#f0f6fc] font-bold truncate max-w-[200px]">{f.name}</span>
-                            <span className="text-[#00d2ff] font-mono">{f.count} işlem</span>
-                          </div>
-                          <div className="w-full bg-[#06090e] h-1.5 rounded-full overflow-hidden border border-[#162638]">
-                            <div
-                              style={{ width: `${pct}%` }}
-                              className="h-full bg-gradient-to-r from-[#00838f] to-[#00d2ff] rounded-full transition-all duration-300"
-                            />
-                          </div>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="text-[11px] text-[#7d8b99] text-center py-1">Dosya geçmişi taranıyor...</div>
-                  )}
-                </div>
-              </div>
-
-              {/* 2. HOMELAB NETWORK GRAPH (YNETMON) */}
-              <div className="navy-card p-3 space-y-2">
-                <div className="flex items-center justify-between text-xs text-[#00d2ff]">
-                  <span className="font-bold flex items-center gap-1.5">
-                    <Activity className="w-3.5 h-3.5 text-[#00d2ff]" />
-                    homelab.ağ.durumu
-                  </span>
-                  <span className="text-[10px] text-[#7d8b99]">{networkData.devices} cihaz</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-center text-xs">
-                  <div className="p-2 rounded bg-[#06090e] border border-[#162638]">
-                    <span className="text-[10px] text-[#7d8b99] block">İndirme (RX)</span>
-                    <span className="font-bold text-[#00d2ff]">{networkData.rx_str}</span>
-                  </div>
-                  <div className="p-2 rounded bg-[#06090e] border border-[#162638]">
-                    <span className="text-[10px] text-[#7d8b99] block">Yükleme (TX)</span>
-                    <span className="font-bold text-[#2ed573]">{networkData.tx_str}</span>
-                  </div>
-                </div>
-
-                {/* Equalizer Wave */}
-                <div className="flex items-end gap-1 h-7 p-1 rounded bg-[#06090e] border border-[#162638]">
-                  {bandwidthHistory.map((val, idx) => {
-                    const maxVal = Math.max(...bandwidthHistory, 5000);
-                    const heightPct = Math.min(100, Math.max(15, (val / maxVal) * 100));
-                    return (
-                      <div
-                        key={idx}
-                        style={{ height: `${heightPct}%` }}
-                        className="flex-1 rounded-xs bg-gradient-to-t from-[#00838f]/40 to-[#00d2ff] transition-all duration-300"
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 3. TASKS & NOTES (YDEVHUB) */}
-              <div className="navy-card p-3 space-y-2">
-                <div className="flex items-center justify-between text-xs text-[#00d2ff]">
-                  <span className="font-bold flex items-center gap-1.5">
-                    <CheckSquare className="w-3.5 h-3.5 text-[#00d2ff]" />
-                    ydevhub.görevler
-                  </span>
-                  <span className="text-[10px] text-[#7d8b99]">{notes.length} not</span>
-                </div>
-
-                <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
-                  {notes.slice(0, 4).map((n) => (
+              {moduleOrder.map((modId) => {
+                if (modId === "quick_actions") {
+                  return (
                     <div
-                      key={n.id}
-                      className="p-1.5 rounded bg-[#06090e] border border-[#162638] flex items-start gap-2 text-[11px]"
+                      key="quick_actions"
+                      draggable
+                      onDragStart={() => handleDragStart("quick_actions")}
+                      onDragOver={(e) => handleDragOver(e, "quick_actions")}
+                      onDragEnd={handleDragEnd}
+                      className="navy-card p-3 space-y-2 cursor-grab active:cursor-grabbing border hover:border-[#00d2ff]/40 transition-colors"
                     >
-                      <input
-                        type="checkbox"
-                        checked={n.is_done}
-                        readOnly
-                        className="mt-0.5 rounded border-[#162638] bg-[#0f1926] text-[#00d2ff] focus:ring-0"
-                      />
-                      <span className={n.is_done ? "line-through text-[#7d8b99]" : "text-[#f0f6fc]"}>
-                        {n.content}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 4. KNOWLEDGE GRAPH NODES (ZETTELKASTEN) */}
-              <div className="navy-card p-3 space-y-2">
-                <div className="flex items-center justify-between text-xs text-[#70a1ff]">
-                  <span className="font-bold flex items-center gap-1.5">
-                    <Brain className="w-3.5 h-3.5 text-[#70a1ff]" />
-                    bilgi.ağı.hafıza
-                  </span>
-                  <span className="text-[10px] text-[#7d8b99]">{knowledgeList.length} düğüm</span>
-                </div>
-
-                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                  {knowledgeList.slice(0, 3).map((kb) => (
-                    <div
-                      key={kb.id}
-                      onClick={() => setSelectedKb(kb)}
-                      className="p-2 rounded bg-[#06090e] border border-[#162638] hover:border-[#00d2ff]/40 transition-all cursor-pointer group"
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-[#00d2ff]/15 text-[#00d2ff]">
-                          {kb.service_tag}
+                      <div className="flex items-center justify-between text-xs text-[#00d2ff]">
+                        <span className="font-bold flex items-center gap-1.5">
+                          <GripVertical className="w-3 h-3 text-[#7d8b99]" />
+                          <Sparkles className="w-3.5 h-3.5 text-[#00d2ff]" />
+                          hızlı.eylemler
                         </span>
-                        <ChevronRight className="w-3 h-3 text-[#7d8b99] group-hover:text-[#00d2ff]" />
+                        <span className="text-[10px] text-[#7d8b99]">sürükle & bırak</span>
                       </div>
-                      <h4 className="text-[11px] font-bold text-[#f0f6fc] truncate">{kb.title}</h4>
-                      <p className="text-[10px] text-[#7d8b99] line-clamp-1 mt-0.5">{kb.summary}</p>
+
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                          onClick={() => dispatchToActiveTerm("ydev status")}
+                          className="p-1.5 rounded bg-[#06090e] border border-[#162638] hover:border-[#00d2ff]/40 text-[10px] text-left hover:text-[#00d2ff] transition-all flex items-center justify-between"
+                        >
+                          <span>ydev status</span>
+                          <Play className="w-2.5 h-2.5 text-[#00d2ff] opacity-60" />
+                        </button>
+                        <button
+                          onClick={() => dispatchToActiveTerm("git status -s")}
+                          className="p-1.5 rounded bg-[#06090e] border border-[#162638] hover:border-[#00d2ff]/40 text-[10px] text-left hover:text-[#00d2ff] transition-all flex items-center justify-between"
+                        >
+                          <span>git status</span>
+                          <Play className="w-2.5 h-2.5 text-[#00d2ff] opacity-60" />
+                        </button>
+                        <button
+                          onClick={() => dispatchToActiveTerm("git diff --stat")}
+                          className="p-1.5 rounded bg-[#06090e] border border-[#162638] hover:border-[#00d2ff]/40 text-[10px] text-left hover:text-[#00d2ff] transition-all flex items-center justify-between"
+                        >
+                          <span>git diff</span>
+                          <Play className="w-2.5 h-2.5 text-[#00d2ff] opacity-60" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            fetchAgentStatus();
+                            if (config) {
+                              fetchLiveNetwork(config);
+                              fetchStaticHomelabData(config);
+                            }
+                          }}
+                          className="p-1.5 rounded bg-[#06090e] border border-[#162638] hover:border-[#2ed573]/40 text-[10px] text-left hover:text-[#2ed573] transition-all flex items-center justify-between"
+                        >
+                          <span>verileri tazele</span>
+                          <RotateCcw className="w-2.5 h-2.5 text-[#2ed573] opacity-60" />
+                        </button>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
+                  );
+                }
+
+                if (modId === "recent_tools") {
+                  return (
+                    <div
+                      key="recent_tools"
+                      draggable
+                      onDragStart={() => handleDragStart("recent_tools")}
+                      onDragOver={(e) => handleDragOver(e, "recent_tools")}
+                      onDragEnd={handleDragEnd}
+                      className="navy-card p-3 space-y-2 cursor-grab active:cursor-grabbing border hover:border-[#00d2ff]/40 transition-colors"
+                    >
+                      <div className="flex items-center justify-between text-xs text-[#00d2ff]">
+                        <span className="font-bold flex items-center gap-1.5">
+                          <GripVertical className="w-3 h-3 text-[#7d8b99]" />
+                          <Bot className="w-3.5 h-3.5 text-[#00d2ff]" />
+                          son.araç.çağrıları
+                        </span>
+                        <span className="text-[10px] text-[#7d8b99]">{agentStatus.recent_tools.length} işlem</span>
+                      </div>
+
+                      <div className="space-y-1">
+                        {agentStatus.recent_tools.length === 0 ? (
+                          <div className="text-[11px] text-[#7d8b99] text-center py-2">Araç çağrısı bekleniyor...</div>
+                        ) : (
+                          agentStatus.recent_tools.slice(0, 5).map((t, idx) => (
+                            <div
+                              key={idx}
+                              className="p-1.5 rounded bg-[#06090e] border border-[#162638] flex items-center justify-between text-[11px]"
+                            >
+                              <div className="flex items-center gap-1.5 truncate">
+                                <span className="text-[#00d2ff] font-bold">{t.name}</span>
+                                <span className="text-[#7d8b99] truncate max-w-[170px]">{t.detail}</span>
+                              </div>
+                              <CheckCircle2 className="w-3 h-3 text-[#2ed573] shrink-0" />
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (modId === "file_heat") {
+                  return (
+                    <div
+                      key="file_heat"
+                      draggable
+                      onDragStart={() => handleDragStart("file_heat")}
+                      onDragOver={(e) => handleDragOver(e, "file_heat")}
+                      onDragEnd={handleDragEnd}
+                      className="navy-card p-3 space-y-2 cursor-grab active:cursor-grabbing border hover:border-[#00d2ff]/40 transition-colors"
+                    >
+                      <div className="flex items-center justify-between text-xs text-[#00d2ff]">
+                        <span className="font-bold flex items-center gap-1.5">
+                          <GripVertical className="w-3 h-3 text-[#7d8b99]" />
+                          <Flame className="w-3.5 h-3.5 text-[#00d2ff]" />
+                          dosya.yoğunluğu
+                        </span>
+                        <span className="text-[10px] text-[#7d8b99]">en aktif 5 dosya</span>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        {agentStatus.file_heat && agentStatus.file_heat.length > 0 ? (
+                          agentStatus.file_heat.map((f, idx) => {
+                            const maxCount = agentStatus.file_heat[0]?.count || 1;
+                            const pct = Math.min(100, Math.max(15, (f.count / maxCount) * 100));
+                            return (
+                              <div key={idx} className="space-y-0.5">
+                                <div className="flex justify-between text-[10px]">
+                                  <span className="text-[#f0f6fc] font-bold truncate max-w-[200px]">{f.name}</span>
+                                  <span className="text-[#00d2ff] font-mono">{f.count} işlem</span>
+                                </div>
+                                <div className="w-full bg-[#06090e] h-1.5 rounded-full overflow-hidden border border-[#162638]">
+                                  <div
+                                    style={{ width: `${pct}%` }}
+                                    className="h-full bg-gradient-to-r from-[#00838f] to-[#00d2ff] rounded-full transition-all duration-300"
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="text-[11px] text-[#7d8b99] text-center py-1">Dosya geçmişi taranıyor...</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (modId === "homelab_net") {
+                  return (
+                    <div
+                      key="homelab_net"
+                      draggable
+                      onDragStart={() => handleDragStart("homelab_net")}
+                      onDragOver={(e) => handleDragOver(e, "homelab_net")}
+                      onDragEnd={handleDragEnd}
+                      className="navy-card p-3 space-y-2 cursor-grab active:cursor-grabbing border hover:border-[#00d2ff]/40 transition-colors"
+                    >
+                      <div className="flex items-center justify-between text-xs text-[#00d2ff]">
+                        <span className="font-bold flex items-center gap-1.5">
+                          <GripVertical className="w-3 h-3 text-[#7d8b99]" />
+                          <Activity className="w-3.5 h-3.5 text-[#00d2ff]" />
+                          homelab.ağ.durumu
+                        </span>
+                        <span className="text-[10px] text-[#7d8b99]">{networkData.devices} cihaz</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-center text-xs">
+                        <div className="p-2 rounded bg-[#06090e] border border-[#162638]">
+                          <span className="text-[10px] text-[#7d8b99] block">İndirme (RX)</span>
+                          <span className="font-bold text-[#00d2ff]">{networkData.rx_str}</span>
+                        </div>
+                        <div className="p-2 rounded bg-[#06090e] border border-[#162638]">
+                          <span className="text-[10px] text-[#7d8b99] block">Yükleme (TX)</span>
+                          <span className="font-bold text-[#2ed573]">{networkData.tx_str}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-end gap-1 h-7 p-1 rounded bg-[#06090e] border border-[#162638]">
+                        {bandwidthHistory.map((val, idx) => {
+                          const maxVal = Math.max(...bandwidthHistory, 5000);
+                          const heightPct = Math.min(100, Math.max(15, (val / maxVal) * 100));
+                          return (
+                            <div
+                              key={idx}
+                              style={{ height: `${heightPct}%` }}
+                              className="flex-1 rounded-xs bg-gradient-to-t from-[#00838f]/40 to-[#00d2ff] transition-all duration-300"
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (modId === "tasks") {
+                  return (
+                    <div
+                      key="tasks"
+                      draggable
+                      onDragStart={() => handleDragStart("tasks")}
+                      onDragOver={(e) => handleDragOver(e, "tasks")}
+                      onDragEnd={handleDragEnd}
+                      className="navy-card p-3 space-y-2 cursor-grab active:cursor-grabbing border hover:border-[#00d2ff]/40 transition-colors"
+                    >
+                      <div className="flex items-center justify-between text-xs text-[#00d2ff]">
+                        <span className="font-bold flex items-center gap-1.5">
+                          <GripVertical className="w-3 h-3 text-[#7d8b99]" />
+                          <CheckSquare className="w-3.5 h-3.5 text-[#00d2ff]" />
+                          ydevhub.görevler
+                        </span>
+                        <span className="text-[10px] text-[#7d8b99]">{notes.length} not</span>
+                      </div>
+
+                      <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                        {notes.slice(0, 4).map((n) => (
+                          <div
+                            key={n.id}
+                            className="p-1.5 rounded bg-[#06090e] border border-[#162638] flex items-start gap-2 text-[11px]"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={n.is_done}
+                              readOnly
+                              className="mt-0.5 rounded border-[#162638] bg-[#0f1926] text-[#00d2ff] focus:ring-0"
+                            />
+                            <span className={n.is_done ? "line-through text-[#7d8b99]" : "text-[#f0f6fc]"}>
+                              {n.content}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (modId === "knowledge") {
+                  return (
+                    <div
+                      key="knowledge"
+                      draggable
+                      onDragStart={() => handleDragStart("knowledge")}
+                      onDragOver={(e) => handleDragOver(e, "knowledge")}
+                      onDragEnd={handleDragEnd}
+                      className="navy-card p-3 space-y-2 cursor-grab active:cursor-grabbing border hover:border-[#00d2ff]/40 transition-colors"
+                    >
+                      <div className="flex items-center justify-between text-xs text-[#70a1ff]">
+                        <span className="font-bold flex items-center gap-1.5">
+                          <GripVertical className="w-3 h-3 text-[#7d8b99]" />
+                          <Brain className="w-3.5 h-3.5 text-[#70a1ff]" />
+                          bilgi.ağı.hafıza
+                        </span>
+                        <span className="text-[10px] text-[#7d8b99]">{knowledgeList.length} düğüm</span>
+                      </div>
+
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                        {knowledgeList.slice(0, 3).map((kb) => (
+                          <div
+                            key={kb.id}
+                            onClick={() => setSelectedKb(kb)}
+                            className="p-2 rounded bg-[#06090e] border border-[#162638] hover:border-[#00d2ff]/40 transition-all cursor-pointer group"
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-[#00d2ff]/15 text-[#00d2ff]">
+                                {kb.service_tag}
+                              </span>
+                              <ChevronRight className="w-3 h-3 text-[#7d8b99] group-hover:text-[#00d2ff]" />
+                            </div>
+                            <h4 className="text-[11px] font-bold text-[#f0f6fc] truncate">{kb.title}</h4>
+                            <p className="text-[10px] text-[#7d8b99] line-clamp-1 mt-0.5">{kb.summary}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+
+                return null;
+              })}
             </div>
           </aside>
         )}
