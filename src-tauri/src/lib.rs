@@ -104,6 +104,111 @@ fn load_homelab_config() -> HomelabConfig {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct AgentStatus {
+    pub model: String,
+    pub used_percentage: f64,
+    pub session_cost: f64,
+    pub total_input_tokens: u64,
+    pub total_output_tokens: u64,
+    pub mode: String,
+}
+
+// 4. Antigravity Agent Durumunu Okuma
+#[tauri::command]
+fn get_agent_status() -> AgentStatus {
+    let home = dirs::home_dir().unwrap_or_default();
+    let cache_path = home.join(".gemini").join("antigravity-cli").join("cache").join("last_statusline.json");
+
+    if let Ok(content) = std::fs::read_to_string(cache_path) {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) {
+            let model = v.get("model")
+                .and_then(|m| m.get("display_name").or_else(|| m.get("id")))
+                .and_then(|s| s.as_str())
+                .unwrap_or("AGY")
+                .to_string();
+
+            let used_percentage = v.get("context_window")
+                .and_then(|cw| cw.get("used_percentage"))
+                .and_then(|p| p.as_f64())
+                .unwrap_or(0.0);
+
+            let inp = v.get("context_window")
+                .and_then(|cw| cw.get("total_input_tokens"))
+                .and_then(|t| t.as_u64())
+                .unwrap_or(0);
+
+            let out = v.get("context_window")
+                .and_then(|cw| cw.get("total_output_tokens"))
+                .and_then(|t| t.as_u64())
+                .unwrap_or(0);
+
+            let cost = (inp as f64 / 1_000_000.0) * 0.15 + (out as f64 / 1_000_000.0) * 0.60;
+
+            return AgentStatus {
+                model,
+                used_percentage,
+                session_cost: (cost * 1000.0).round() / 1000.0,
+                total_input_tokens: inp,
+                total_output_tokens: out,
+                mode: "CAVEMAN".to_string(),
+            };
+        }
+    }
+
+    AgentStatus {
+        model: "Hazır".to_string(),
+        used_percentage: 0.0,
+        session_cost: 0.0,
+        total_input_tokens: 0,
+        total_output_tokens: 0,
+        mode: "IDLE".to_string(),
+    }
+}
+
+// 5. Homelab Proxy İstekleri (CORS kısıtlarını aşmak için Rust üzerinden doğrudan istemci)
+#[tauri::command]
+async fn fetch_homelab_notes(url: String, key: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let res = client
+        .get(format!("{}/api/v1/notes?limit=15", url.trim_end_matches('/')))
+        .header("X-API-Key", key)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let json = res.json::<serde_json::Value>().await.map_err(|e| e.to_string())?;
+    Ok(json)
+}
+
+#[tauri::command]
+async fn fetch_homelab_knowledge(url: String, key: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let res = client
+        .get(format!("{}/api/v1/knowledge?limit=15", url.trim_end_matches('/')))
+        .header("X-API-Key", key)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let json = res.json::<serde_json::Value>().await.map_err(|e| e.to_string())?;
+    Ok(json)
+}
+
+#[tauri::command]
+async fn fetch_ynetmon_summary(url: String, key: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let res = client
+        .get(format!("{}/api/v1/integration/summary", url.trim_end_matches('/')))
+        .header("X-API-Key", key)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let json = res.json::<serde_json::Value>().await.map_err(|e| e.to_string())?;
+    Ok(json)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -114,7 +219,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             start_pty,
             write_pty,
-            load_homelab_config
+            load_homelab_config,
+            get_agent_status,
+            fetch_homelab_notes,
+            fetch_homelab_knowledge,
+            fetch_ynetmon_summary
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

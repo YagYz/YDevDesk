@@ -40,6 +40,15 @@ type Knowledge = {
   linked_topics: string[];
 };
 
+type AgentStatus = {
+  model: string;
+  used_percentage: number;
+  session_cost: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  mode: string;
+};
+
 export default function App() {
   const terminalRef = useRef<HTMLDivElement>(null);
   const termInstance = useRef<Terminal | null>(null);
@@ -49,10 +58,19 @@ export default function App() {
   const [config, setConfig] = useState<HomelabConfig | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [knowledgeList, setKnowledgeList] = useState<Knowledge[]>([]);
-  const [networkStats, setNetworkStats] = useState<{ rx: string; tx: string; status: string }>({
+  const [agentStatus, setAgentStatus] = useState<AgentStatus>({
+    model: "Gemini",
+    used_percentage: 0,
+    session_cost: 0,
+    total_input_tokens: 0,
+    total_output_tokens: 0,
+    mode: "CAVEMAN",
+  });
+  const [networkStats, setNetworkStats] = useState<{ rx: string; tx: string; status: string; devices: number }>({
     rx: "0 B/s",
     tx: "0 B/s",
     status: "Bağlanıyor...",
+    devices: 0,
   });
 
   // UI Panels Toggle (Warp / Grid customizability)
@@ -141,46 +159,73 @@ export default function App() {
         fetchHomelabData(cfg);
       })
       .catch(console.error);
+
+    fetchAgentStatus();
+
+    const interval = setInterval(() => {
+      fetchAgentStatus();
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, []);
+
+  const fetchAgentStatus = async () => {
+    try {
+      const status = await invoke<AgentStatus>("get_agent_status");
+      setAgentStatus(status);
+    } catch (e) {
+      console.error("Agent status fetch error:", e);
+    }
+  };
 
   const fetchHomelabData = async (cfg: HomelabConfig) => {
     if (!cfg.ydevhub_url || !cfg.ydevhub_key) return;
 
     try {
-      // Fetch daily notes
-      const notesRes = await fetch(`${cfg.ydevhub_url}/api/v1/notes?limit=10`, {
-        headers: { "X-API-Key": cfg.ydevhub_key },
+      // 1. Daily notes via Rust proxy
+      const notesData: any = await invoke("fetch_homelab_notes", {
+        url: cfg.ydevhub_url,
+        key: cfg.ydevhub_key,
       });
-      const notesData = await notesRes.json();
-      if (notesData.success) {
+      if (notesData && notesData.success) {
         setNotes(notesData.notes || []);
       }
 
-      // Fetch knowledge graph
-      const kbRes = await fetch(`${cfg.ydevhub_url}/api/v1/knowledge?limit=10`, {
-        headers: { "X-API-Key": cfg.ydevhub_key },
+      // 2. Knowledge graph via Rust proxy
+      const kbData: any = await invoke("fetch_homelab_knowledge", {
+        url: cfg.ydevhub_url,
+        key: cfg.ydevhub_key,
       });
-      const kbData = await kbRes.json();
-      if (kbData.success) {
+      if (kbData && kbData.success) {
         setKnowledgeList(kbData.knowledge || []);
       }
 
-      // Fetch YNetMon summary
+      // 3. YNetMon summary via Rust proxy
       if (cfg.ynetmon_url && cfg.ynetmon_key) {
-        const netRes = await fetch(`${cfg.ynetmon_url}/api/v1/integration/summary`, {
-          headers: { "X-API-Key": cfg.ynetmon_key },
+        const netData: any = await invoke("fetch_ynetmon_summary", {
+          url: cfg.ynetmon_url,
+          key: cfg.ynetmon_key,
         });
-        const netData = await netRes.json();
-        if (netData.service === "YNetMon") {
+        if (netData && netData.service === "YNetMon") {
+          const rxBps = netData.rx_bps || 0;
+          const txBps = netData.tx_bps || 0;
+          const formatSpeed = (bps: number) => {
+            if (bps > 1024 * 1024) return `${(bps / (1024 * 1024)).toFixed(1)} MB/s`;
+            if (bps > 1024) return `${(bps / 1024).toFixed(1)} KB/s`;
+            return `${bps.toFixed(0)} B/s`;
+          };
+
           setNetworkStats({
-            rx: "1.2 MB/s",
-            tx: "350 KB/s",
+            rx: formatSpeed(rxBps),
+            tx: formatSpeed(txBps),
             status: "Canlı L7 OSI",
+            devices: netData.storage?.devices_count || 0,
           });
         }
       }
     } catch (e) {
       console.error("Homelab fetch error:", e);
+      setNetworkStats((prev) => ({ ...prev, status: "Hata" }));
     }
   };
 
@@ -199,21 +244,39 @@ export default function App() {
 
         {/* Live Network & Token stats pill */}
         <div className="flex items-center gap-3 text-xs font-mono">
+          {/* Agent Badge */}
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-purple-500/10 border border-purple-500/20 text-purple-300">
+            <Brain className="w-3.5 h-3.5 text-purple-400" />
+            <span>{agentStatus.model}</span>
+            <span className="text-[10px] px-1 py-0.2 rounded bg-purple-500/20 text-purple-200">{agentStatus.mode}</span>
+            <span className="text-zinc-500">|</span>
+            <span className="text-emerald-400 font-semibold">${agentStatus.session_cost}</span>
+            <span className="text-zinc-400">({agentStatus.used_percentage.toFixed(1)}%)</span>
+          </div>
+
+          <span className="text-zinc-700">│</span>
+
           <div className="flex items-center gap-1.5 text-zinc-400">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span>Debian (10.10.50.1)</span>
           </div>
 
-          <span className="text-zinc-600">│</span>
+          <span className="text-zinc-700">│</span>
 
-          <div className="flex items-center gap-1 text-cyan-400">
+          <div className="flex items-center gap-1.5 text-cyan-400">
             <Activity className="w-3.5 h-3.5" />
             <span>{networkStats.status}</span>
+            {networkStats.status === "Canlı L7 OSI" && (
+              <span className="text-[11px] text-zinc-400">
+                (↓{networkStats.rx} ↑{networkStats.tx} • {networkStats.devices} cihaz)
+              </span>
+            )}
           </div>
 
           <button
             onClick={() => {
               if (config) fetchHomelabData(config);
+              fetchAgentStatus();
             }}
             className="p-1 rounded-md text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-all"
             title="Verileri Yenile"
