@@ -24,6 +24,7 @@ import {
   Globe,
   Wrench,
   CheckCircle2,
+  Radio,
 } from "lucide-react";
 import "./App.css";
 
@@ -50,6 +51,14 @@ type Knowledge = {
   linked_topics: string[];
 };
 
+type ActiveAgentSession = {
+  session_id: string;
+  is_active: boolean;
+  model: string;
+  last_tool: string;
+  updated_ago_secs: number;
+};
+
 type SubagentInfo = {
   name: string;
   role: string;
@@ -70,6 +79,8 @@ type AgentStatus = {
   total_output_tokens: number;
   mode: string;
   agent_state: string;
+  active_sessions_count: number;
+  sessions: ActiveAgentSession[];
   subagents: SubagentInfo[];
   recent_tools: RecentToolCall[];
 };
@@ -92,13 +103,12 @@ type TabSession = {
 };
 
 export default function App() {
-  // Tabs State
   const [tabs, setTabs] = useState<TabSession[]>([
     { id: "term-1", title: "Shell 1", type: "terminal" },
   ]);
   const [activeTabId, setActiveTabId] = useState<string>("term-1");
 
-  // Terminal instance tracking per tab
+  // Terminal instances and containers ref
   const terminalContainers = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const termInstances = useRef<{ [key: string]: { term: Terminal; fit: FitAddon } }>({});
   const unlistenMap = useRef<{ [key: string]: () => void }>({});
@@ -115,6 +125,8 @@ export default function App() {
     total_output_tokens: 0,
     mode: "CAVEMAN",
     agent_state: "idle",
+    active_sessions_count: 1,
+    sessions: [],
     subagents: [],
     recent_tools: [],
   });
@@ -198,7 +210,6 @@ export default function App() {
       console.error("PTY start error:", e);
     }
 
-    // Listen to data from backend for this specific session
     const unlisten = await listen<string>(`pty-data-${sessionId}`, (event) => {
       term.write(event.payload);
     });
@@ -207,6 +218,18 @@ export default function App() {
     term.onData((data) => {
       invoke("write_pty", { sessionId, data }).catch(console.error);
     });
+  };
+
+  // Switch tab and immediately fit xterm
+  const switchTab = (tabId: string) => {
+    setActiveTabId(tabId);
+    setTimeout(() => {
+      const inst = termInstances.current[tabId];
+      if (inst) {
+        inst.fit.fit();
+        inst.term.focus();
+      }
+    }, 60);
   };
 
   // Add a new tab
@@ -225,7 +248,7 @@ export default function App() {
   // Close tab
   const closeTab = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (tabs.length === 1) return; // Keep at least one
+    if (tabs.length === 1) return;
 
     if (termInstances.current[id]) {
       termInstances.current[id].term.dispose();
@@ -235,33 +258,39 @@ export default function App() {
       unlistenMap.current[id]();
       delete unlistenMap.current[id];
     }
+    if (terminalContainers.current[id]) {
+      delete terminalContainers.current[id];
+    }
     invoke("close_pty", { sessionId: id }).catch(console.error);
 
     const remaining = tabs.filter((t) => t.id !== id);
     setTabs(remaining);
     if (activeTabId === id) {
-      setActiveTabId(remaining[remaining.length - 1].id);
+      switchTab(remaining[remaining.length - 1].id);
     }
   };
 
-  // Handle resize for active terminal
+  // Window resize handler
   useEffect(() => {
     const handleResize = () => {
-      if (termInstances.current[activeTabId]) {
-        termInstances.current[activeTabId].fit.fit();
+      const inst = termInstances.current[activeTabId];
+      if (inst) {
+        inst.fit.fit();
       }
     };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, [activeTabId]);
 
-  // Fit on active tab switch
+  // Fit when active tab or side panel changes
   useEffect(() => {
-    setTimeout(() => {
-      if (termInstances.current[activeTabId]) {
-        termInstances.current[activeTabId].fit.fit();
+    const timer = setTimeout(() => {
+      const inst = termInstances.current[activeTabId];
+      if (inst) {
+        inst.fit.fit();
       }
-    }, 50);
+    }, 100);
+    return () => clearTimeout(timer);
   }, [activeTabId, showSidePanel]);
 
   // Format bytes
@@ -292,7 +321,7 @@ export default function App() {
 
     const agentInterval = setInterval(() => {
       fetchAgentStatus();
-    }, 3000);
+    }, 2500);
 
     return () => {
       active = false;
@@ -414,7 +443,7 @@ export default function App() {
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
           </div>
 
-          {/* Real-time Bandwidth Stream (Fixed width to prevent HUD jitter) */}
+          {/* Real-time Bandwidth Stream */}
           <div className="flex items-center gap-2 px-2.5 py-0.5 rounded-md bg-[#251200]/80 border border-[#00e5ff]/30 text-[#00e5ff] w-[260px] justify-between">
             <div className="flex items-center gap-1.5 min-w-0">
               <Activity className="w-3.5 h-3.5 shrink-0 animate-pulse" />
@@ -447,9 +476,8 @@ export default function App() {
             onClick={() => {
               setShowSidePanel(!showSidePanel);
               setTimeout(() => {
-                if (termInstances.current[activeTabId]) {
-                  termInstances.current[activeTabId].fit.fit();
-                }
+                const inst = termInstances.current[activeTabId];
+                if (inst) inst.fit.fit();
               }, 150);
             }}
             className={`p-1.5 rounded-md transition-all border ${
@@ -475,7 +503,7 @@ export default function App() {
               return (
                 <div
                   key={tab.id}
-                  onClick={() => setActiveTabId(tab.id)}
+                  onClick={() => switchTab(tab.id)}
                   className={`flex items-center gap-2 px-3 py-1 rounded-md text-xs font-mono transition-all cursor-pointer border ${
                     isActive
                       ? "bg-[#251200] text-[#ffd9a8] border-[#f88008]/40 shadow-[0_0_8px_rgba(248,128,8,0.2)]"
@@ -505,15 +533,16 @@ export default function App() {
             </button>
           </div>
 
-          {/* ACTIVE & BACKGROUND TERMINALS CONTAINER */}
+          {/* ACTIVE & BACKGROUND TERMINALS CONTAINER (Visibility toggle ensures DOM preserves terminal layout) */}
           <div className="flex-1 p-2.5 relative overflow-hidden">
             {tabs.map((tab) => {
               const isActive = tab.id === activeTabId;
               return (
                 <div
                   key={tab.id}
-                  style={{ display: isActive ? "block" : "none" }}
-                  className="w-full h-full rounded-xl overflow-hidden bg-[#0a0705] border border-[#f88008]/20 p-2 shadow-[inset_0_2px_12px_rgba(0,0,0,0.8)]"
+                  className={`w-full h-full rounded-xl overflow-hidden bg-[#0a0705] border border-[#f88008]/20 p-2 shadow-[inset_0_2px_12px_rgba(0,0,0,0.8)] absolute inset-2.5 ${
+                    isActive ? "visible opacity-100 z-10" : "invisible opacity-0 z-0 pointer-events-none"
+                  }`}
                   ref={(el) => {
                     if (el && !terminalContainers.current[tab.id]) {
                       terminalContainers.current[tab.id] = el;
@@ -542,29 +571,67 @@ export default function App() {
 
             {/* Scrollable Sequential Content */}
             <div className="flex-1 overflow-y-auto p-3 space-y-4">
-              {/* 1. SECTION: CANLI AGY AJAN VE TOOL İZLEYİCİ (CUSTOM HUD) */}
+              {/* 1. SECTION: CANLI AGY AJAN VE ÇOKLU OTURUM İZLEYİCİ */}
               <div className="rounded-xl border border-[#9d6bff]/30 bg-[#0a0705]/90 p-3 space-y-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.5)]">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-[#c084fc]">
                     <Bot className="w-3.5 h-3.5 text-[#9d6bff] animate-pulse" />
                     <span>Canlı AGY Ajan İzleyici</span>
                   </div>
-                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#9d6bff]/15 text-[#c084fc] border border-[#9d6bff]/30">
-                    {agentStatus.agent_state.toUpperCase()}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#9d6bff]/15 text-[#c084fc] border border-[#9d6bff]/30">
+                      {agentStatus.agent_state.toUpperCase()}
+                    </span>
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#f88008]/15 text-[#ffd9a8] border border-[#f88008]/30">
+                      {agentStatus.active_sessions_count} Oturum
+                    </span>
+                  </div>
                 </div>
 
-                {/* Subagents status pill */}
+                {/* Multiple Active Sessions Cards */}
+                {agentStatus.sessions && agentStatus.sessions.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    <span className="text-[10px] font-mono text-[#8f7a66] flex items-center gap-1">
+                      <Radio className="w-3 h-3 text-[#3dffa8]" />
+                      <span>Tespit Edilen Ajan Oturumları (Disk/Brain)</span>
+                    </span>
+                    <div className="space-y-1">
+                      {agentStatus.sessions.map((sess, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-1.5 rounded-lg bg-[#160d07] border border-[#9d6bff]/20 text-[10px] font-mono"
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={`w-2 h-2 rounded-full ${
+                                sess.is_active ? "bg-[#3dffa8] animate-ping" : "bg-zinc-600"
+                              }`}
+                            />
+                            <span className="text-[#ffd9a8] font-bold">{sess.session_id}</span>
+                            <span className="text-[#8f7a66]">{sess.model}</span>
+                          </div>
+                          <span className="text-[#8f7a66]">
+                            {sess.updated_ago_secs < 60
+                              ? `${sess.updated_ago_secs}s önce`
+                              : `${Math.floor(sess.updated_ago_secs / 60)}d önce`}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Subagents */}
                 {agentStatus.subagents && agentStatus.subagents.length > 0 && (
-                  <div className="space-y-1 pt-1">
-                    <span className="text-[10px] font-mono text-[#8f7a66] block">Aktif Alt Ajanlar</span>
+                  <div className="space-y-1 pt-1 border-t border-zinc-800/60">
+                    <span className="text-[10px] font-mono text-[#8f7a66] block">Alt Ajanlar (Subagents)</span>
                     <div className="flex flex-wrap gap-1.5">
                       {agentStatus.subagents.map((sub, sIdx) => (
                         <div
                           key={sIdx}
                           className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#251200] border border-[#9d6bff]/20 text-[10px]"
                         >
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#3dffa8] animate-ping" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#3dffa8]" />
                           <span className="font-mono text-[#ffd9a8]">{sub.name}</span>
                           <span className="text-[#8f7a66]">({sub.status})</span>
                         </div>
@@ -575,7 +642,7 @@ export default function App() {
 
                 {/* Recent Tool Execution Stream */}
                 <div className="space-y-1.5 pt-1 border-t border-zinc-800/60">
-                  <span className="text-[10px] font-mono text-[#8f7a66] block">Son Araç Çağrıları</span>
+                  <span className="text-[10px] font-mono text-[#8f7a66] block">Son Yürütülen Araçlar</span>
                   <div className="space-y-1">
                     {agentStatus.recent_tools && agentStatus.recent_tools.length > 0 ? (
                       agentStatus.recent_tools.map((t, idx) => (

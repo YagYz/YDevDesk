@@ -20,6 +20,15 @@ pub struct HomelabConfig {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
+pub struct ActiveAgentSession {
+    pub session_id: String,
+    pub is_active: bool,
+    pub model: String,
+    pub last_tool: String,
+    pub updated_ago_secs: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct SubagentInfo {
     pub name: String,
     pub role: String,
@@ -42,6 +51,8 @@ pub struct AgentStatus {
     pub total_output_tokens: u64,
     pub mode: String,
     pub agent_state: String,
+    pub active_sessions_count: usize,
+    pub sessions: Vec<ActiveAgentSession>,
     pub subagents: Vec<SubagentInfo>,
     pub recent_tools: Vec<RecentToolCall>,
 }
@@ -138,11 +149,13 @@ fn load_homelab_config() -> HomelabConfig {
     }
 }
 
-// 5. Antigravity Agent Durumu ve Canlı Tool Akışını Okuma
+// 5. Antigravity Agent Durumu ve Canlı Tool / Oturum Akışını Okuma
 #[tauri::command]
 fn get_agent_status() -> AgentStatus {
     let home = dirs::home_dir().unwrap_or_default();
-    let cache_path = home.join(".gemini").join("antigravity-cli").join("cache").join("last_statusline.json");
+    let agy_dir = home.join(".gemini").join("antigravity-cli");
+    let cache_path = agy_dir.join("cache").join("last_statusline.json");
+    let brain_dir = agy_dir.join("brain");
 
     let mut model = "AGY".to_string();
     let mut used_percentage = 0.0;
@@ -150,7 +163,6 @@ fn get_agent_status() -> AgentStatus {
     let mut out: u64 = 0;
     let mut agent_state = "idle".to_string();
     let mut subagents_list = Vec::new();
-    let mut transcript_path_opt: Option<String> = None;
 
     if let Ok(content) = std::fs::read_to_string(&cache_path) {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) {
@@ -180,8 +192,6 @@ fn get_agent_status() -> AgentStatus {
                 .unwrap_or("idle")
                 .to_string();
 
-            transcript_path_opt = v.get("transcript_path").and_then(|s| s.as_str()).map(|s| s.to_string());
-
             if let Some(subs) = v.get("subagents").and_then(|arr| arr.as_array()) {
                 for s in subs {
                     let name = s.get("name").and_then(|n| n.as_str()).unwrap_or("agent").to_string();
@@ -193,11 +203,56 @@ fn get_agent_status() -> AgentStatus {
         }
     }
 
-    // Son 10 Tool çağrısını transkript dosyasından ayrıştır
+    // Disk üzerindeki tüm beyin (brain) oturumlarını tara: aktif/yeni oturumları bul
+    let mut session_list: Vec<ActiveAgentSession> = Vec::new();
+    let mut primary_transcript_path: Option<std::path::PathBuf> = None;
+    let now = std::time::SystemTime::now();
+
+    if let Ok(entries) = std::fs::read_dir(&brain_dir) {
+        let mut found_sessions = Vec::new();
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                let t_path = path.join(".system_generated").join("logs").join("transcript.jsonl");
+                if t_path.exists() {
+                    if let Ok(metadata) = std::fs::metadata(&t_path) {
+                        if let Ok(mtime) = metadata.modified() {
+                            if let Ok(diff) = now.duration_since(mtime) {
+                                found_sessions.push((diff.as_secs(), entry.file_name().to_string_lossy().to_string(), t_path));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // En son güncellenen oturumları sırala
+        found_sessions.sort_by_key(|s| s.0);
+
+        for (diff_secs, session_id, t_path) in found_sessions {
+            if primary_transcript_path.is_none() {
+                primary_transcript_path = Some(t_path.clone());
+            }
+
+            let is_active = diff_secs < 300; // Son 5 dakikada hareket var mı?
+            session_list.push(ActiveAgentSession {
+                session_id: if session_id.len() > 8 { session_id[..8].to_string() } else { session_id },
+                is_active,
+                model: "Gemini Pro/Flash".to_string(),
+                last_tool: "working".to_string(),
+                updated_ago_secs: diff_secs,
+            });
+            if session_list.len() >= 5 {
+                break;
+            }
+        }
+    }
+
+    // Son çağrılan araçları (tool_calls) birincil aktif transkriptten topla
     let mut recent_tools = Vec::new();
-    if let Some(t_path) = transcript_path_opt {
+    if let Some(t_path) = primary_transcript_path {
         if let Ok(t_content) = std::fs::read_to_string(t_path) {
-            let lines: Vec<&str> = t_content.lines().rev().take(30).collect();
+            let lines: Vec<&str> = t_content.lines().rev().take(40).collect();
             for line in lines {
                 if let Ok(entry) = serde_json::from_str::<serde_json::Value>(line) {
                     if let Some(calls) = entry.get("tool_calls").and_then(|c| c.as_array()) {
@@ -257,6 +312,7 @@ fn get_agent_status() -> AgentStatus {
     }
 
     let cost = (inp as f64 / 1_000_000.0) * 0.15 + (out as f64 / 1_000_000.0) * 0.60;
+    let active_count = session_list.iter().filter(|s| s.is_active).count();
 
     AgentStatus {
         model,
@@ -265,7 +321,9 @@ fn get_agent_status() -> AgentStatus {
         total_input_tokens: inp,
         total_output_tokens: out,
         mode: "CAVEMAN".to_string(),
-        agent_state,
+        agent_state: if active_count > 0 { "working".to_string() } else { agent_state },
+        active_sessions_count: active_count.max(1),
+        sessions: session_list,
         subagents: subagents_list,
         recent_tools,
     }
