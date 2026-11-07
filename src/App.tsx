@@ -338,9 +338,11 @@ export default function App() {
     if (inst) inst.term.focus();
   };
 
-  const closeTab = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
+  const closeTab = (id: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
     if (tabs.length === 1) return;
 
     if (termInstances.current[id]) {
@@ -358,7 +360,12 @@ export default function App() {
 
     setTabs((prev) => {
       const remaining = prev.filter((t) => t.id !== id);
-      if (activeTabId === id && remaining.length > 0) {
+      return remaining;
+    });
+
+    if (activeTabId === id) {
+      const remaining = tabs.filter((t) => t.id !== id);
+      if (remaining.length > 0) {
         const nextActive = remaining[remaining.length - 1].id;
         setActiveTabId(nextActive);
         setTimeout(() => {
@@ -367,10 +374,9 @@ export default function App() {
             inst.fit.fit();
             inst.term.focus();
           }
-        }, 50);
+        }, 30);
       }
-      return remaining;
-    });
+    }
   };
 
   // Keyboard shortcut
@@ -890,13 +896,18 @@ export default function App() {
                       <span className="text-[11px] truncate">{tab.title}</span>
                     </div>
                     {tabs.length > 1 && (
-                      <button
-                        onClick={(e) => closeTab(tab.id, e)}
-                        className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-[#ff4757]/20 hover:text-[#ff4757] transition-all"
-                        title="Kapat"
+                      <span
+                        role="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          closeTab(tab.id, e);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[#ff4757]/20 hover:text-[#ff4757] transition-all cursor-pointer inline-flex items-center justify-center"
+                        title="Oturumu Kapat"
                       >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
+                        <Trash2 className="w-3 h-3 pointer-events-none" />
+                      </span>
                     )}
                   </div>
                 );
@@ -961,12 +972,18 @@ export default function App() {
                     )}
                     <span>{tab.title}</span>
                     {tabs.length > 1 && (
-                      <button
-                        onClick={(e) => closeTab(tab.id, e)}
-                        className="p-0.5 rounded hover:bg-[#ff4757]/20 hover:text-[#ff4757] ml-1"
+                      <span
+                        role="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          closeTab(tab.id, e);
+                        }}
+                        className="p-1 rounded hover:bg-[#ff4757]/20 hover:text-[#ff4757] ml-1 transition-colors cursor-pointer inline-flex items-center justify-center"
+                        title="Sekmeyi Kapat"
                       >
-                        <X className="w-3 h-3" />
-                      </button>
+                        <X className="w-3 h-3 pointer-events-none" />
+                      </span>
                     )}
                   </div>
                 );
