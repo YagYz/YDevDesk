@@ -25,6 +25,10 @@ import {
   Flame,
   Minus,
   Square,
+  Server,
+  Play,
+  RotateCcw,
+  Sparkles,
 } from "lucide-react";
 import "./App.css";
 
@@ -111,6 +115,7 @@ type TabSession = {
   id: string;
   title: string;
   type: "terminal" | "server" | "agent";
+  initCmd?: string;
 };
 
 export default function App() {
@@ -241,6 +246,7 @@ export default function App() {
         sessionId,
         cols: term.cols,
         rows: term.rows,
+        initCmd: tabs.find((t) => t.id === sessionId)?.initCmd || null,
       });
     } catch (e) {
       console.error("PTY start error:", e);
@@ -267,16 +273,26 @@ export default function App() {
     }, 60);
   };
 
-  const addTab = () => {
+  const addTab = (customTitle?: string, customType?: "terminal" | "server" | "agent", initCmd?: string) => {
     const nextIdx = tabs.length + 1;
     const newId = `term-${Date.now()}`;
     const newTab: TabSession = {
       id: newId,
-      title: `Terminal ${nextIdx}`,
-      type: "terminal",
+      title: customTitle || `Terminal ${nextIdx}`,
+      type: customType || "terminal",
+      initCmd,
     };
-    setTabs([...tabs, newTab]);
+    setTabs((prev) => [...prev, newTab]);
     setActiveTabId(newId);
+  };
+
+  const dispatchToActiveTerm = (cmd: string) => {
+    invoke("write_pty", {
+      sessionId: activeTabId,
+      data: cmd + "\r",
+    }).catch(console.error);
+    const inst = termInstances.current[activeTabId];
+    if (inst) inst.term.focus();
   };
 
   const closeTab = (id: string, e: React.MouseEvent) => {
@@ -662,41 +678,76 @@ export default function App() {
       <div className="flex flex-1 overflow-hidden relative">
         {/* CENTER PTY TERMINAL */}
         <div className="flex-1 flex flex-col bg-[#06090e] overflow-hidden">
-          {/* TAB BAR */}
-          <div className="h-8 border-b border-[#162638] bg-[#0a111a]/80 flex items-center px-3 gap-1.5 overflow-x-auto">
-            {tabs.map((tab) => {
-              const isActive = tab.id === activeTabId;
-              return (
-                <div
-                  key={tab.id}
-                  onClick={() => switchTab(tab.id)}
-                  className={`flex items-center gap-2 px-3 py-1 rounded-t-md text-xs font-mono transition-all cursor-pointer border-t border-x ${
-                    isActive
-                      ? "bg-[#0f1926] text-[#00d2ff] border-[#162638] shadow-sm font-semibold"
-                      : "text-[#7d8b99] border-transparent hover:text-[#f0f6fc] hover:bg-[#0a111a]"
-                  }`}
-                >
-                  <TermIcon className="w-3 h-3 text-[#00d2ff]" />
-                  <span>{tab.title}</span>
-                  {tabs.length > 1 && (
-                    <button
-                      onClick={(e) => closeTab(tab.id, e)}
-                      className="p-0.5 rounded hover:bg-[#ff4757]/20 hover:text-[#ff4757] ml-1"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
+          {/* TAB BAR & HOMELAB QUICK PRESETS */}
+          <div className="h-8 border-b border-[#162638] bg-[#0a111a]/80 flex items-center justify-between px-3 overflow-x-auto">
+            <div className="flex items-center gap-1.5">
+              {tabs.map((tab) => {
+                const isActive = tab.id === activeTabId;
+                return (
+                  <div
+                    key={tab.id}
+                    onClick={() => switchTab(tab.id)}
+                    className={`flex items-center gap-2 px-3 py-1 rounded-t-md text-xs font-mono transition-all cursor-pointer border-t border-x ${
+                      isActive
+                        ? "bg-[#0f1926] text-[#00d2ff] border-[#162638] shadow-sm font-semibold"
+                        : "text-[#7d8b99] border-transparent hover:text-[#f0f6fc] hover:bg-[#0a111a]"
+                    }`}
+                  >
+                    {tab.type === "server" ? (
+                      <Server className="w-3 h-3 text-[#2ed573]" />
+                    ) : (
+                      <TermIcon className="w-3 h-3 text-[#00d2ff]" />
+                    )}
+                    <span>{tab.title}</span>
+                    {tabs.length > 1 && (
+                      <button
+                        onClick={(e) => closeTab(tab.id, e)}
+                        className="p-0.5 rounded hover:bg-[#ff4757]/20 hover:text-[#ff4757] ml-1"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
 
-            <button
-              onClick={addTab}
-              className="p-1 rounded text-[#7d8b99] hover:text-[#00d2ff] hover:bg-[#0f1926] transition-all ml-1"
-              title="Yeni Terminal Aç"
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
+              <button
+                onClick={() => addTab()}
+                className="p-1 rounded text-[#7d8b99] hover:text-[#00d2ff] hover:bg-[#0f1926] transition-all ml-1"
+                title="Yeni Terminal Aç"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* QUICK PRESET BUTTONS (ONE-CLICK DEBIAN & APPS) */}
+            <div className="hidden lg:flex items-center gap-1.5 font-mono text-[10px]">
+              <span className="text-[#475569] text-[9px] uppercase tracking-wider mr-1">hızlı.bağlantı:</span>
+              <button
+                onClick={() => addTab("Debian Homelab", "server", "ssh debian")}
+                className="flex items-center gap-1 px-2 py-0.5 rounded bg-[#0f1926] border border-[#162638] hover:border-[#2ed573]/50 text-[#7d8b99] hover:text-[#2ed573] transition-all"
+                title="Debian 10.10.50.1 sunucusuna SSH oturumu aç"
+              >
+                <Server className="w-2.5 h-2.5 text-[#2ed573]" />
+                <span>ssh debian</span>
+              </button>
+              <button
+                onClick={() => addTab("YDevHub Logs", "server", "ssh debian -t 'docker logs -f ydevhub'")}
+                className="flex items-center gap-1 px-2 py-0.5 rounded bg-[#0f1926] border border-[#162638] hover:border-[#00d2ff]/50 text-[#7d8b99] hover:text-[#00d2ff] transition-all"
+                title="YDevHub konteyner canlı logları"
+              >
+                <Play className="w-2.5 h-2.5 text-[#00d2ff]" />
+                <span>ydevhub log</span>
+              </button>
+              <button
+                onClick={() => addTab("YNetMon App", "server", "ssh debian -t 'docker logs -f ynetmon-app'")}
+                className="flex items-center gap-1 px-2 py-0.5 rounded bg-[#0f1926] border border-[#162638] hover:border-[#70a1ff]/50 text-[#7d8b99] hover:text-[#70a1ff] transition-all"
+                title="YNetMon konteyner canlı logları"
+              >
+                <Activity className="w-2.5 h-2.5 text-[#70a1ff]" />
+                <span>ynetmon log</span>
+              </button>
+            </div>
           </div>
 
           {/* TERMINALS CONTAINER */}
@@ -735,6 +786,54 @@ export default function App() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-3 space-y-3 font-mono">
+              {/* 0. HUD QUICK AGENT INTERACTIVE ACTIONS */}
+              <div className="navy-card p-3 space-y-2">
+                <div className="flex items-center justify-between text-xs text-[#00d2ff]">
+                  <span className="font-bold flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#00d2ff]" />
+                    hızlı.eylemler
+                  </span>
+                  <span className="text-[10px] text-[#7d8b99]">ajan / shell</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    onClick={() => dispatchToActiveTerm("ydev status")}
+                    className="p-1.5 rounded bg-[#06090e] border border-[#162638] hover:border-[#00d2ff]/40 text-[10px] text-left hover:text-[#00d2ff] transition-all flex items-center justify-between"
+                  >
+                    <span>ydev status</span>
+                    <Play className="w-2.5 h-2.5 text-[#00d2ff] opacity-60" />
+                  </button>
+                  <button
+                    onClick={() => dispatchToActiveTerm("git status -s")}
+                    className="p-1.5 rounded bg-[#06090e] border border-[#162638] hover:border-[#00d2ff]/40 text-[10px] text-left hover:text-[#00d2ff] transition-all flex items-center justify-between"
+                  >
+                    <span>git status</span>
+                    <Play className="w-2.5 h-2.5 text-[#00d2ff] opacity-60" />
+                  </button>
+                  <button
+                    onClick={() => dispatchToActiveTerm("git diff --stat")}
+                    className="p-1.5 rounded bg-[#06090e] border border-[#162638] hover:border-[#00d2ff]/40 text-[10px] text-left hover:text-[#00d2ff] transition-all flex items-center justify-between"
+                  >
+                    <span>git diff</span>
+                    <Play className="w-2.5 h-2.5 text-[#00d2ff] opacity-60" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      fetchAgentStatus();
+                      if (config) {
+                        fetchLiveNetwork(config);
+                        fetchStaticHomelabData(config);
+                      }
+                    }}
+                    className="p-1.5 rounded bg-[#06090e] border border-[#162638] hover:border-[#2ed573]/40 text-[10px] text-left hover:text-[#2ed573] transition-all flex items-center justify-between"
+                  >
+                    <span>verileri tazele</span>
+                    <RotateCcw className="w-2.5 h-2.5 text-[#2ed573] opacity-60" />
+                  </button>
+                </div>
+              </div>
+
               {/* 1. SESSION & TOOL CALLS STREAM */}
               <div className="navy-card p-3 space-y-2">
                 <div className="flex items-center justify-between text-xs text-[#00d2ff]">

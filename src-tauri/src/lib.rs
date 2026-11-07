@@ -70,7 +70,7 @@ pub struct AgentStatus {
 
 // 1. Çoklu PTY Başlatma (macOS ve Linux uyumlu terminal oturumu)
 #[tauri::command]
-fn start_pty(app: AppHandle, state: State<'_, TerminalState>, session_id: String, cols: u16, rows: u16) -> Result<(), String> {
+fn start_pty(app: AppHandle, state: State<'_, TerminalState>, session_id: String, cols: u16, rows: u16, init_cmd: Option<String>) -> Result<(), String> {
     let pty_system = native_pty_system();
     let pair = pty_system
         .openpty(PtySize {
@@ -99,7 +99,12 @@ fn start_pty(app: AppHandle, state: State<'_, TerminalState>, session_id: String
 
     let _child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
-    let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
+    let mut writer = pair.master.take_writer().map_err(|e| e.to_string())?;
+
+    if let Some(initial_command) = init_cmd {
+        let _ = writer.write_all(format!("{}\r", initial_command).as_bytes());
+        let _ = writer.flush();
+    }
 
     {
         let mut writers = state.writers.lock().map_err(|e| e.to_string())?;
