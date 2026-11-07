@@ -343,40 +343,47 @@ export default function App() {
       e.stopPropagation();
       e.preventDefault();
     }
-    if (tabs.length === 1) return;
 
-    if (termInstances.current[id]) {
-      termInstances.current[id].term.dispose();
-      delete termInstances.current[id];
-    }
-    if (unlistenMap.current[id]) {
-      unlistenMap.current[id]();
-      delete unlistenMap.current[id];
-    }
-    if (terminalContainers.current[id]) {
-      delete terminalContainers.current[id];
-    }
-    invoke("close_pty", { sessionId: id }).catch(console.error);
+    setTabs((prevTabs) => {
+      if (prevTabs.length <= 1) return prevTabs;
 
-    setTabs((prev) => {
-      const remaining = prev.filter((t) => t.id !== id);
+      // Kaynakları temizle
+      if (termInstances.current[id]) {
+        try {
+          termInstances.current[id].term.dispose();
+        } catch {}
+        delete termInstances.current[id];
+      }
+      if (unlistenMap.current[id]) {
+        try {
+          unlistenMap.current[id]();
+        } catch {}
+        delete unlistenMap.current[id];
+      }
+      if (terminalContainers.current[id]) {
+        delete terminalContainers.current[id];
+      }
+      invoke("close_pty", { sessionId: id }).catch(console.error);
+
+      const remaining = prevTabs.filter((t) => t.id !== id);
+
+      // Aktif sekme kapanıyorsa diğerine geçir
+      if (activeTabId === id) {
+        const nextTab = remaining[remaining.length - 1];
+        if (nextTab) {
+          setActiveTabId(nextTab.id);
+          setTimeout(() => {
+            const inst = termInstances.current[nextTab.id];
+            if (inst) {
+              inst.fit.fit();
+              inst.term.focus();
+            }
+          }, 30);
+        }
+      }
+
       return remaining;
     });
-
-    if (activeTabId === id) {
-      const remaining = tabs.filter((t) => t.id !== id);
-      if (remaining.length > 0) {
-        const nextActive = remaining[remaining.length - 1].id;
-        setActiveTabId(nextActive);
-        setTimeout(() => {
-          const inst = termInstances.current[nextActive];
-          if (inst) {
-            inst.fit.fit();
-            inst.term.focus();
-          }
-        }, 30);
-      }
-    }
   };
 
   // Keyboard shortcut
@@ -898,6 +905,10 @@ export default function App() {
                     {tabs.length > 1 && (
                       <span
                         role="button"
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                        }}
                         onClick={(e) => {
                           e.stopPropagation();
                           e.preventDefault();
@@ -974,6 +985,10 @@ export default function App() {
                     {tabs.length > 1 && (
                       <span
                         role="button"
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                        }}
                         onClick={(e) => {
                           e.stopPropagation();
                           e.preventDefault();
