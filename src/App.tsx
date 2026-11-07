@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { CanvasAddon } from "@xterm/addon-canvas";
@@ -22,6 +23,9 @@ import {
   Command,
   Search,
   ChevronRight,
+  Flame,
+  Minus,
+  Square,
 } from "lucide-react";
 import "./App.css";
 
@@ -62,6 +66,11 @@ type SubagentInfo = {
   status: string;
 };
 
+type FileHeatItem = {
+  name: string;
+  count: number;
+};
+
 type RecentToolCall = {
   name: string;
   timestamp: string;
@@ -82,6 +91,7 @@ type AgentStatus = {
   tools_per_minute: number;
   marquee_text: string;
   ticker_squares: string[];
+  file_heat: FileHeatItem[];
   sessions: ActiveAgentSession[];
   subagents: SubagentInfo[];
   recent_tools: RecentToolCall[];
@@ -135,6 +145,7 @@ export default function App() {
     tools_per_minute: 0,
     marquee_text: "YDevDesk hazır.",
     ticker_squares: [],
+    file_heat: [],
     sessions: [],
     subagents: [],
     recent_tools: [],
@@ -494,11 +505,63 @@ export default function App() {
     }
   };
 
+  const handleWindowMinimize = async () => {
+    try {
+      await getCurrentWindow().minimize();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleWindowMaximize = async () => {
+    try {
+      await getCurrentWindow().toggleMaximize();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleWindowClose = async () => {
+    try {
+      await getCurrentWindow().close();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#06090e] text-[#f0f6fc] select-none overflow-hidden font-sans">
-      {/* 1. DEEP NAVY KPI HEADER */}
-      <header className="h-13 border-b border-[#162638] bg-[#0a111a]/95 px-4 flex items-center justify-between shadow-lg z-20 backdrop-blur-xl">
-        <div className="flex items-center gap-3">
+    <div className="flex flex-col h-screen w-screen bg-[#06090e] text-[#f0f6fc] select-none overflow-hidden font-sans border border-[#162638] rounded-xl shadow-2xl">
+      {/* 1. DEEP NAVY KPI HEADER (DRAGGABLE REGION & TRAFFIC LIGHTS) */}
+      <header
+        data-tauri-drag-region
+        className="h-12 border-b border-[#162638] bg-[#0a111a]/95 px-3.5 flex items-center justify-between shadow-lg z-20 backdrop-blur-xl select-none cursor-default"
+      >
+        <div className="flex items-center gap-3" data-tauri-drag-region>
+          {/* macOS / Frameless Window Controls */}
+          <div className="flex items-center gap-2 mr-1">
+            <button
+              onClick={handleWindowClose}
+              className="w-3 h-3 rounded-full bg-[#ff5f56] hover:bg-[#ff3b30] flex items-center justify-center group transition-colors shadow-sm"
+              title="Kapat"
+            >
+              <X className="w-2 h-2 text-black/60 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+            <button
+              onClick={handleWindowMinimize}
+              className="w-3 h-3 rounded-full bg-[#ffbd2e] hover:bg-[#e09e19] flex items-center justify-center group transition-colors shadow-sm"
+              title="Küçült"
+            >
+              <Minus className="w-2 h-2 text-black/60 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+            <button
+              onClick={handleWindowMaximize}
+              className="w-3 h-3 rounded-full bg-[#27c93f] hover:bg-[#1db832] flex items-center justify-center group transition-colors shadow-sm"
+              title="Büyüt / Geri Yükle"
+            >
+              <Square className="w-1.5 h-1.5 text-black/60 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+          </div>
+
           {/* Logo Badge */}
           <div className="flex items-center gap-2">
             <Zap className="w-4 h-4 text-[#00d2ff] fill-[#00d2ff]/30 animate-pulse" />
@@ -507,7 +570,7 @@ export default function App() {
               <span className="text-xs font-black tracking-wider text-[#00d2ff]">DESK</span>
             </div>
             <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-[#00d2ff]/15 text-[#00d2ff] border border-[#00d2ff]/30">
-              LIVE
+              HUD
             </span>
           </div>
 
@@ -699,6 +762,42 @@ export default function App() {
                         <CheckCircle2 className="w-3 h-3 text-[#2ed573] shrink-0" />
                       </div>
                     ))
+                  )}
+                </div>
+              </div>
+
+              {/* 1.5. AGENT ACTIVE FILE HEATMAP */}
+              <div className="navy-card p-3 space-y-2">
+                <div className="flex items-center justify-between text-xs text-[#00d2ff]">
+                  <span className="font-bold flex items-center gap-1.5">
+                    <Flame className="w-3.5 h-3.5 text-[#00d2ff]" />
+                    dosya.yoğunluğu
+                  </span>
+                  <span className="text-[10px] text-[#7d8b99]">en aktif 5 dosya</span>
+                </div>
+
+                <div className="space-y-1.5">
+                  {agentStatus.file_heat && agentStatus.file_heat.length > 0 ? (
+                    agentStatus.file_heat.map((f, idx) => {
+                      const maxCount = agentStatus.file_heat[0]?.count || 1;
+                      const pct = Math.min(100, Math.max(15, (f.count / maxCount) * 100));
+                      return (
+                        <div key={idx} className="space-y-0.5">
+                          <div className="flex justify-between text-[10px]">
+                            <span className="text-[#f0f6fc] font-bold truncate max-w-[200px]">{f.name}</span>
+                            <span className="text-[#00d2ff] font-mono">{f.count} işlem</span>
+                          </div>
+                          <div className="w-full bg-[#06090e] h-1.5 rounded-full overflow-hidden border border-[#162638]">
+                            <div
+                              style={{ width: `${pct}%` }}
+                              className="h-full bg-gradient-to-r from-[#00838f] to-[#00d2ff] rounded-full transition-all duration-300"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-[11px] text-[#7d8b99] text-center py-1">Dosya geçmişi taranıyor...</div>
                   )}
                 </div>
               </div>

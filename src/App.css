@@ -15,6 +15,14 @@
   --txt-dim: #475569;         /* Soluk Gri */
 }
 
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  background: transparent !important;
+}
+
 @layer base {
   body {
     background-color: var(--bg);

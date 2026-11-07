@@ -42,6 +42,12 @@ pub struct RecentToolCall {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
+pub struct FileHeatItem {
+    pub name: String,
+    pub count: u32,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct AgentStatus {
     pub model: String,
     pub used_percentage: f64,
@@ -55,7 +61,8 @@ pub struct AgentStatus {
     pub quota_weekly_percent: f64,
     pub tools_per_minute: u32,
     pub marquee_text: String,
-    pub ticker_squares: Vec<String>, // Son 60 tool ismi (renkli ticker için)
+    pub ticker_squares: Vec<String>,
+    pub file_heat: Vec<FileHeatItem>, // En çok dokunulan dosyalar
     pub sessions: Vec<ActiveAgentSession>,
     pub subagents: Vec<SubagentInfo>,
     pub recent_tools: Vec<RecentToolCall>,
@@ -74,7 +81,6 @@ fn start_pty(app: AppHandle, state: State<'_, TerminalState>, session_id: String
         })
         .map_err(|e| e.to_string())?;
 
-    // macOS Ventura & CachyOS: zsh veya SHELL env
     let shell = std::env::var("SHELL").unwrap_or_else(|_| {
         if cfg!(target_os = "macos") {
             "/bin/zsh".to_string()
@@ -136,7 +142,7 @@ fn close_pty(state: State<'_, TerminalState>, session_id: String) -> Result<(), 
     Ok(())
 }
 
-// 4. Yerel Homelab / YDevHub Yapılandırmasını Otomatik Okuma (macOS & Linux uyumlu)
+// 4. Yerel Homelab / YDevHub Yapılandırmasını Otomatik Okuma
 #[tauri::command]
 fn load_homelab_config() -> HomelabConfig {
     let home = dirs::home_dir().unwrap_or_default();
@@ -161,7 +167,7 @@ fn load_homelab_config() -> HomelabConfig {
     }
 }
 
-// 5. Antigravity Agent Durumu, Telemetri ve Ticker Verisini Okuma
+// 5. Antigravity Agent Durumu, Telemetri ve File Heat Verisini Okuma
 #[tauri::command]
 fn get_agent_status() -> AgentStatus {
     let home = dirs::home_dir().unwrap_or_default();
@@ -270,14 +276,14 @@ fn get_agent_status() -> AgentStatus {
         }
     }
 
-    // Transkriptten canlı araçları ve son 60 çağrılık ticker karelerini topla
     let mut recent_tools = Vec::new();
     let mut ticker_squares = Vec::new();
-    let mut marquee_text = "AGY beklemede... Canlı dinleme devrede.".to_string();
+    let mut file_map: HashMap<String, u32> = HashMap::new();
+    let mut marquee_text = "AGY hazır. Canlı telemetri akışı aktif.".to_string();
 
     if let Some(t_path) = primary_transcript_path {
         if let Ok(t_content) = std::fs::read_to_string(t_path) {
-            let lines: Vec<&str> = t_content.lines().rev().take(80).collect();
+            let lines: Vec<&str> = t_content.lines().rev().take(100).collect();
             for line in lines {
                 if let Ok(entry) = serde_json::from_str::<serde_json::Value>(line) {
                     if let Some(calls) = entry.get("tool_calls").and_then(|c| c.as_array()) {
@@ -308,9 +314,10 @@ fn get_agent_status() -> AgentStatus {
                                         .unwrap_or_else(|| "Komut yürütüldü".to_string())
                                 }
                                 "read_file" | "edit_file" | "write_file" => {
-                                    get_field("Path")
-                                        .map(|p| p.split('/').last().unwrap_or(&p).to_string())
-                                        .unwrap_or_else(|| "Dosya işlemi".to_string())
+                                    let raw_path = get_field("Path").unwrap_or_else(|| "dosya".to_string());
+                                    let filename = raw_path.split('/').last().unwrap_or(&raw_path).to_string();
+                                    *file_map.entry(filename.clone()).or_insert(0) += 1;
+                                    filename
                                 }
                                 "search_web" => get_field("query").unwrap_or_else(|| "Web araması".to_string()),
                                 _ => "İşlem yapıldı".to_string(),
@@ -337,6 +344,13 @@ fn get_agent_status() -> AgentStatus {
         marquee_text = format!("Ajan Aktif: {} → {}", first_tool.name, first_tool.detail);
     }
 
+    let mut file_heat: Vec<FileHeatItem> = file_map
+        .into_iter()
+        .map(|(name, count)| FileHeatItem { name, count })
+        .collect();
+    file_heat.sort_by(|a, b| b.count.cmp(&a.count));
+    file_heat.truncate(5);
+
     let cost = (inp as f64 / 1_000_000.0) * 0.15 + (out as f64 / 1_000_000.0) * 0.60;
     let active_count = session_list.iter().filter(|s| s.is_active).count();
 
@@ -354,6 +368,7 @@ fn get_agent_status() -> AgentStatus {
         tools_per_minute: (recent_tools.len() as u32) * 2,
         marquee_text,
         ticker_squares,
+        file_heat,
         sessions: session_list,
         subagents: subagents_list,
         recent_tools,
@@ -403,7 +418,7 @@ async fn fetch_ynetmon_summary(url: String, key: String) -> Result<serde_json::V
     Ok(json)
 }
 
-// 7. Hızlı Görev ve Bilgi Ağı Kaydetme (Omni-Bar IPC)
+// 7. Hızlı Görev ve Bilgi Ağı Kaydetme
 #[tauri::command]
 async fn create_homelab_note(url: String, key: String, content: String) -> Result<serde_json::Value, String> {
     let client = reqwest::Client::new();
