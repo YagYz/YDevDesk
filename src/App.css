@@ -2,42 +2,47 @@
 @import "@xterm/xterm/css/xterm.css";
 
 :root {
-  --bg: #090604;
-  --surface: #120b06;
-  --card: #180e08;
-  --accent: #f88008;
-  --accent-soft: #ffb057;
-  --cyan: #00e5ff;
-  --violet: #9d6bff;
-  --green: #3dffa8;
-  --txt: #f5ebe0;
-  --txt-dim: #8f7a66;
-  --border: rgba(248, 128, 8, 0.2);
+  /* Deep Navy & Petrol Theme */
+  --bg: #06090e;              /* Derin Gece Mavisi / Siyah */
+  --surface: #0a111a;         /* Petrol Mavisi Yüzey */
+  --surface-raised: #0f1926;  /* Kart Yüzeyi */
+  --border: #162638;          /* Soğuk Çelik Sınır */
+  --border-glow: #1f3a56;     /* Vurgulu Kenarlık */
+  --accent: #00d2ff;          /* Buz Mavisi / Cyan */
+  --petrol: #00838f;          /* Petrol Mavisi */
+  --txt-main: #f0f6fc;        /* Net Beyaz */
+  --txt-muted: #7d8b99;       /* Soğuk Gri */
+  --txt-dim: #475569;         /* Soluk Gri */
 }
 
 @layer base {
   body {
     background-color: var(--bg);
-    color: var(--txt);
+    color: var(--txt-main);
     user-select: none;
     overflow: hidden;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    letter-spacing: -0.01em;
   }
 }
 
-/* Glassmorphism card surfaces */
-.hud-card {
-  background: rgba(20, 12, 7, 0.85);
-  border: 1px solid rgba(248, 128, 8, 0.2);
+/* Minimalist Navy Glass Card */
+.navy-card {
+  background: rgba(10, 17, 26, 0.75);
+  border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+  transition: all 0.2s ease-in-out;
 }
 
-.hud-card:hover {
-  border-color: rgba(248, 128, 8, 0.4);
+.navy-card:hover {
+  border-color: var(--border-glow);
+  box-shadow: 0 6px 24px rgba(0, 210, 255, 0.06);
 }
 
-/* Custom Scrollbar */
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 4px;
   height: 4px;
@@ -46,14 +51,14 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(248, 128, 8, 0.25);
+  background: #1e3a5f;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(248, 128, 8, 0.55);
+  background: #00d2ff;
 }
 
-/* Marquee slide animation */
+/* Marquee */
 @keyframes marquee {
   0% { transform: translateX(100%); }
   100% { transform: translateX(-100%); }
