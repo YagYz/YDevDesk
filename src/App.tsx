@@ -15,6 +15,15 @@ import {
   Server,
   Zap,
   Layers,
+  Plus,
+  X,
+  Terminal as TermIcon,
+  Bot,
+  PlayCircle,
+  FileCode,
+  Globe,
+  Wrench,
+  CheckCircle2,
 } from "lucide-react";
 import "./App.css";
 
@@ -41,6 +50,18 @@ type Knowledge = {
   linked_topics: string[];
 };
 
+type SubagentInfo = {
+  name: string;
+  role: string;
+  status: string;
+};
+
+type RecentToolCall = {
+  name: string;
+  timestamp: string;
+  detail: string;
+};
+
 type AgentStatus = {
   model: string;
   used_percentage: number;
@@ -48,6 +69,9 @@ type AgentStatus = {
   total_input_tokens: number;
   total_output_tokens: number;
   mode: string;
+  agent_state: string;
+  subagents: SubagentInfo[];
+  recent_tools: RecentToolCall[];
 };
 
 type NetworkData = {
@@ -61,12 +85,25 @@ type NetworkData = {
   status: string;
 };
 
-export default function App() {
-  const terminalRef = useRef<HTMLDivElement>(null);
-  const termInstance = useRef<Terminal | null>(null);
-  const fitAddonRef = useRef<FitAddon | null>(null);
+type TabSession = {
+  id: string;
+  title: string;
+  type: "terminal" | "server" | "agent";
+};
 
-  // States
+export default function App() {
+  // Tabs State
+  const [tabs, setTabs] = useState<TabSession[]>([
+    { id: "term-1", title: "Shell 1", type: "terminal" },
+  ]);
+  const [activeTabId, setActiveTabId] = useState<string>("term-1");
+
+  // Terminal instance tracking per tab
+  const terminalContainers = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const termInstances = useRef<{ [key: string]: { term: Terminal; fit: FitAddon } }>({});
+  const unlistenMap = useRef<{ [key: string]: () => void }>({});
+
+  // Homelab & Agent states
   const [config, setConfig] = useState<HomelabConfig | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [knowledgeList, setKnowledgeList] = useState<Knowledge[]>([]);
@@ -77,6 +114,9 @@ export default function App() {
     total_input_tokens: 0,
     total_output_tokens: 0,
     mode: "CAVEMAN",
+    agent_state: "idle",
+    subagents: [],
+    recent_tools: [],
   });
 
   const [networkData, setNetworkData] = useState<NetworkData>({
@@ -90,13 +130,12 @@ export default function App() {
     status: "Bağlanıyor...",
   });
 
-  // Recent bandwidth trend for mini-visualizer
   const [bandwidthHistory, setBandwidthHistory] = useState<number[]>([]);
   const [showSidePanel, setShowSidePanel] = useState(true);
 
-  // 1. Initialize PTY & xterm.js (Atalay's Cyberpunk / Amber palette)
-  useEffect(() => {
-    if (!terminalRef.current || termInstance.current) return;
+  // Initialize a terminal session
+  const initTerminal = async (sessionId: string, container: HTMLDivElement) => {
+    if (termInstances.current[sessionId]) return;
 
     const term = new Terminal({
       cursorBlink: true,
@@ -140,48 +179,99 @@ export default function App() {
       const canvasAddon = new CanvasAddon();
       term.loadAddon(canvasAddon);
     } catch {
-      // Fallback to DOM renderer
+      // DOM fallback
     }
 
-    term.open(terminalRef.current);
+    term.open(container);
     fitAddon.fit();
 
-    termInstance.current = term;
-    fitAddonRef.current = fitAddon;
+    termInstances.current[sessionId] = { term, fit: fitAddon };
 
-    // Start PTY session
-    invoke("start_pty", { cols: term.cols, rows: term.rows }).catch(console.error);
+    // Start PTY in Rust backend with sessionId
+    try {
+      await invoke("start_pty", {
+        sessionId,
+        cols: term.cols,
+        rows: term.rows,
+      });
+    } catch (e) {
+      console.error("PTY start error:", e);
+    }
 
-    const unlisten = listen<string>("pty-data", (event) => {
+    // Listen to data from backend for this specific session
+    const unlisten = await listen<string>(`pty-data-${sessionId}`, (event) => {
       term.write(event.payload);
     });
+    unlistenMap.current[sessionId] = unlisten;
 
     term.onData((data) => {
-      invoke("write_pty", { data }).catch(console.error);
+      invoke("write_pty", { sessionId, data }).catch(console.error);
     });
+  };
 
+  // Add a new tab
+  const addTab = () => {
+    const nextIdx = tabs.length + 1;
+    const newId = `term-${Date.now()}`;
+    const newTab: TabSession = {
+      id: newId,
+      title: `Shell ${nextIdx}`,
+      type: "terminal",
+    };
+    setTabs([...tabs, newTab]);
+    setActiveTabId(newId);
+  };
+
+  // Close tab
+  const closeTab = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (tabs.length === 1) return; // Keep at least one
+
+    if (termInstances.current[id]) {
+      termInstances.current[id].term.dispose();
+      delete termInstances.current[id];
+    }
+    if (unlistenMap.current[id]) {
+      unlistenMap.current[id]();
+      delete unlistenMap.current[id];
+    }
+    invoke("close_pty", { sessionId: id }).catch(console.error);
+
+    const remaining = tabs.filter((t) => t.id !== id);
+    setTabs(remaining);
+    if (activeTabId === id) {
+      setActiveTabId(remaining[remaining.length - 1].id);
+    }
+  };
+
+  // Handle resize for active terminal
+  useEffect(() => {
     const handleResize = () => {
-      if (fitAddonRef.current) {
-        fitAddonRef.current.fit();
+      if (termInstances.current[activeTabId]) {
+        termInstances.current[activeTabId].fit.fit();
       }
     };
     window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [activeTabId]);
 
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      unlisten.then((fn) => fn());
-      term.dispose();
-    };
-  }, []);
+  // Fit on active tab switch
+  useEffect(() => {
+    setTimeout(() => {
+      if (termInstances.current[activeTabId]) {
+        termInstances.current[activeTabId].fit.fit();
+      }
+    }, 50);
+  }, [activeTabId, showSidePanel]);
 
-  // Format bytes to human readable
+  // Format bytes
   const formatSpeed = (bps: number) => {
     if (bps >= 1024 * 1024) return `${(bps / (1024 * 1024)).toFixed(1)} MB/s`;
     if (bps >= 1024) return `${(bps / 1024).toFixed(1)} KB/s`;
     return `${bps.toFixed(0)} B/s`;
   };
 
-  // Live polling (1.5s for network, 5s for agent & notes)
+  // Background pollers
   useEffect(() => {
     let active = true;
 
@@ -196,17 +286,13 @@ export default function App() {
 
     fetchAgentStatus();
 
-    // 1. Live network flow ticker (1.5 saniye periyodik akış)
     const netInterval = setInterval(() => {
-      if (config) {
-        fetchLiveNetwork(config);
-      }
+      if (config) fetchLiveNetwork(config);
     }, 1500);
 
-    // 2. Agent status ticker (4 saniye)
     const agentInterval = setInterval(() => {
       fetchAgentStatus();
-    }, 4000);
+    }, 3000);
 
     return () => {
       active = false;
@@ -283,18 +369,31 @@ export default function App() {
     }
   };
 
+  const renderToolIcon = (name: string) => {
+    switch (name) {
+      case "run_command":
+        return <PlayCircle className="w-3.5 h-3.5 text-[#f88008]" />;
+      case "read_file":
+      case "edit_file":
+      case "write_file":
+        return <FileCode className="w-3.5 h-3.5 text-[#00e5ff]" />;
+      case "search_web":
+        return <Globe className="w-3.5 h-3.5 text-[#3dffa8]" />;
+      default:
+        return <Wrench className="w-3.5 h-3.5 text-[#9d6bff]" />;
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen w-screen bg-[#0a0705] text-[#f5ebe0] select-none overflow-hidden font-sans">
-      {/* 1. ATALAY TERMINAL STYLE HUD HEADER */}
+      {/* 1. HUD HEADER */}
       <header className="h-11 border-b border-[#f88008]/20 bg-[#160d07]/90 px-3.5 flex items-center justify-between backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.6)] z-20">
         <div className="flex items-center gap-3">
-          {/* Logo Badge */}
           <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#f88008]/25 to-[#f88008]/5 border border-[#f88008]/40 shadow-[0_0_12px_rgba(248,128,8,0.25)]">
             <Zap className="w-3.5 h-3.5 text-[#f88008] fill-[#f88008]/40 animate-pulse" />
             <span className="font-bold text-xs tracking-wider text-[#ffd9a8]">YDEVDESK</span>
           </div>
 
-          {/* Active Model & Spend Pill */}
           <div className="hidden sm:flex items-center gap-2 px-2.5 py-0.5 rounded-lg bg-[#251200]/70 border border-[#f88008]/20 text-[11px] font-mono">
             <Brain className="w-3.5 h-3.5 text-[#9d6bff]" />
             <span className="text-[#f5ebe0] font-semibold">{agentStatus.model}</span>
@@ -309,21 +408,24 @@ export default function App() {
 
         {/* Live Network & Homelab HUD Stats */}
         <div className="flex items-center gap-3 text-xs font-mono">
-          {/* Debian Server Tag */}
           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#251200]/50 border border-emerald-500/30 text-zinc-300">
             <Server className="w-3 h-3 text-emerald-400" />
             <span className="text-zinc-200">10.10.50.1</span>
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
           </div>
 
-          {/* Real-time Bandwidth Stream */}
-          <div className="flex items-center gap-2 px-2.5 py-0.5 rounded-md bg-[#251200]/80 border border-[#00e5ff]/30 text-[#00e5ff]">
-            <Activity className="w-3.5 h-3.5 animate-pulse" />
-            <span className="font-semibold text-[11px]">
-              ↓ {networkData.rx_str} ↑ {networkData.tx_str}
-            </span>
-            <span className="text-[#8f7a66]">│</span>
-            <span className="text-zinc-300 text-[10px]">{networkData.devices} Cihaz</span>
+          {/* Real-time Bandwidth Stream (Fixed width to prevent HUD jitter) */}
+          <div className="flex items-center gap-2 px-2.5 py-0.5 rounded-md bg-[#251200]/80 border border-[#00e5ff]/30 text-[#00e5ff] w-[260px] justify-between">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Activity className="w-3.5 h-3.5 shrink-0 animate-pulse" />
+              <span className="font-semibold text-[11px] tabular-nums tracking-tight truncate">
+                ↓ {networkData.rx_str.padStart(9)} ↑ {networkData.tx_str.padStart(9)}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 text-[10px] text-[#8f7a66] shrink-0 border-l border-[#f88008]/20 pl-1.5">
+              <span className="text-zinc-300 tabular-nums">{networkData.devices}</span>
+              <span>Cihaz</span>
+            </div>
           </div>
 
           {/* Actions */}
@@ -344,7 +446,11 @@ export default function App() {
           <button
             onClick={() => {
               setShowSidePanel(!showSidePanel);
-              setTimeout(() => fitAddonRef.current?.fit(), 150);
+              setTimeout(() => {
+                if (termInstances.current[activeTabId]) {
+                  termInstances.current[activeTabId].fit.fit();
+                }
+              }, 150);
             }}
             className={`p-1.5 rounded-md transition-all border ${
               showSidePanel
@@ -360,12 +466,64 @@ export default function App() {
 
       {/* 2. MAIN WORKSPACE */}
       <div className="flex flex-1 overflow-hidden">
-        {/* CENTER PTY TERMINAL */}
-        <div className="flex-1 flex flex-col bg-[#0a0705] p-2.5 overflow-hidden">
-          <div
-            ref={terminalRef}
-            className="flex-1 w-full h-full rounded-xl overflow-hidden bg-[#0a0705] border border-[#f88008]/20 p-2 shadow-[inset_0_2px_12px_rgba(0,0,0,0.8)] relative"
-          />
+        {/* LEFT / CENTER: MULTI-TERMINAL TABS WORKSPACE */}
+        <div className="flex-1 flex flex-col bg-[#0a0705] overflow-hidden">
+          {/* TAB BAR (ATALAY HUD STYLE) */}
+          <div className="h-9 border-b border-[#f88008]/20 bg-[#160d07]/60 flex items-center px-2 gap-1.5 overflow-x-auto">
+            {tabs.map((tab) => {
+              const isActive = tab.id === activeTabId;
+              return (
+                <div
+                  key={tab.id}
+                  onClick={() => setActiveTabId(tab.id)}
+                  className={`flex items-center gap-2 px-3 py-1 rounded-md text-xs font-mono transition-all cursor-pointer border ${
+                    isActive
+                      ? "bg-[#251200] text-[#ffd9a8] border-[#f88008]/40 shadow-[0_0_8px_rgba(248,128,8,0.2)]"
+                      : "text-[#8f7a66] border-transparent hover:text-[#f5ebe0] hover:bg-[#1f1006]"
+                  }`}
+                >
+                  <TermIcon className="w-3 h-3 text-[#f88008]" />
+                  <span>{tab.title}</span>
+                  {tabs.length > 1 && (
+                    <button
+                      onClick={(e) => closeTab(tab.id, e)}
+                      className="p-0.5 rounded hover:bg-[#ff4d4d]/20 hover:text-[#ff4d4d] transition-colors ml-1"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+
+            <button
+              onClick={addTab}
+              className="p-1 rounded-md text-[#8f7a66] hover:text-[#ffd9a8] hover:bg-[#251200] border border-transparent hover:border-[#f88008]/30 transition-all ml-1"
+              title="Yeni Terminal Aç"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* ACTIVE & BACKGROUND TERMINALS CONTAINER */}
+          <div className="flex-1 p-2.5 relative overflow-hidden">
+            {tabs.map((tab) => {
+              const isActive = tab.id === activeTabId;
+              return (
+                <div
+                  key={tab.id}
+                  style={{ display: isActive ? "block" : "none" }}
+                  className="w-full h-full rounded-xl overflow-hidden bg-[#0a0705] border border-[#f88008]/20 p-2 shadow-[inset_0_2px_12px_rgba(0,0,0,0.8)]"
+                  ref={(el) => {
+                    if (el && !terminalContainers.current[tab.id]) {
+                      terminalContainers.current[tab.id] = el;
+                      initTerminal(tab.id, el);
+                    }
+                  }}
+                />
+              );
+            })}
+          </div>
         </div>
 
         {/* RIGHT SIDEBAR: UNIFIED SEQUENTIAL HUD FEED (NO TABS) */}
@@ -384,7 +542,65 @@ export default function App() {
 
             {/* Scrollable Sequential Content */}
             <div className="flex-1 overflow-y-auto p-3 space-y-4">
-              {/* 1. SECTION: CANLI AĞ & TRAFİK AKIŞI (YNETMON) */}
+              {/* 1. SECTION: CANLI AGY AJAN VE TOOL İZLEYİCİ (CUSTOM HUD) */}
+              <div className="rounded-xl border border-[#9d6bff]/30 bg-[#0a0705]/90 p-3 space-y-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.5)]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#c084fc]">
+                    <Bot className="w-3.5 h-3.5 text-[#9d6bff] animate-pulse" />
+                    <span>Canlı AGY Ajan İzleyici</span>
+                  </div>
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#9d6bff]/15 text-[#c084fc] border border-[#9d6bff]/30">
+                    {agentStatus.agent_state.toUpperCase()}
+                  </span>
+                </div>
+
+                {/* Subagents status pill */}
+                {agentStatus.subagents && agentStatus.subagents.length > 0 && (
+                  <div className="space-y-1 pt-1">
+                    <span className="text-[10px] font-mono text-[#8f7a66] block">Aktif Alt Ajanlar</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {agentStatus.subagents.map((sub, sIdx) => (
+                        <div
+                          key={sIdx}
+                          className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#251200] border border-[#9d6bff]/20 text-[10px]"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#3dffa8] animate-ping" />
+                          <span className="font-mono text-[#ffd9a8]">{sub.name}</span>
+                          <span className="text-[#8f7a66]">({sub.status})</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Recent Tool Execution Stream */}
+                <div className="space-y-1.5 pt-1 border-t border-zinc-800/60">
+                  <span className="text-[10px] font-mono text-[#8f7a66] block">Son Araç Çağrıları</span>
+                  <div className="space-y-1">
+                    {agentStatus.recent_tools && agentStatus.recent_tools.length > 0 ? (
+                      agentStatus.recent_tools.map((t, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-1.5 rounded-lg bg-[#160d07] border border-[#f88008]/15 text-[11px] font-mono"
+                        >
+                          <div className="flex items-center gap-1.5 truncate">
+                            {renderToolIcon(t.name)}
+                            <span className="text-[#ffd9a8] font-bold">{t.name}</span>
+                            <span className="text-[#8f7a66] truncate max-w-[140px]">
+                              {t.detail}
+                            </span>
+                          </div>
+                          <CheckCircle2 className="w-3 h-3 text-[#3dffa8] shrink-0" />
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-[11px] text-zinc-600 text-center py-1">Ajan beklemede</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. SECTION: CANLI AĞ & TRAFİK AKIŞI (YNETMON) */}
               <div className="rounded-xl border border-[#00e5ff]/25 bg-[#0a0705]/80 p-3 space-y-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.4)]">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-[#00e5ff]">
@@ -396,7 +612,6 @@ export default function App() {
                   </span>
                 </div>
 
-                {/* RX / TX Cards */}
                 <div className="grid grid-cols-2 gap-2 text-center">
                   <div className="p-2.5 rounded-lg bg-[#160d07] border border-[#00e5ff]/20">
                     <span className="text-[10px] text-[#8f7a66] block">İndirme (RX)</span>
@@ -412,7 +627,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Mini Audio/Traffic Equalizer Bars */}
                 <div className="p-2 rounded-lg bg-[#160d07]/60 border border-zinc-800/80">
                   <div className="flex items-center justify-between text-[10px] text-[#8f7a66] mb-1.5 font-mono">
                     <span>Trafik Dalgalanması</span>
@@ -436,15 +650,9 @@ export default function App() {
                     )}
                   </div>
                 </div>
-
-                {/* Additional stats pill */}
-                <div className="flex items-center justify-between text-[10px] font-mono text-[#8f7a66] pt-1 border-t border-zinc-800/60">
-                  <span>Toplam Paket: {networkData.db_packets.toLocaleString()}</span>
-                  <span>Bağlı Ajan: 1</span>
-                </div>
               </div>
 
-              {/* 2. SECTION: GÜNDELİK GÖREVLER (YDEVHUB TASKS) */}
+              {/* 3. SECTION: GÜNDELİK GÖREVLER (YDEVHUB TASKS) */}
               <div className="rounded-xl border border-[#f88008]/25 bg-[#0a0705]/80 p-3 space-y-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.4)]">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-[#ffd9a8]">
@@ -454,11 +662,11 @@ export default function App() {
                   <span className="text-[10px] font-mono text-[#8f7a66]">{notes.length} kayıt</span>
                 </div>
 
-                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
                   {notes.length === 0 ? (
                     <div className="text-[11px] text-zinc-600 text-center py-2">Görev bulunamadı</div>
                   ) : (
-                    notes.slice(0, 6).map((n) => (
+                    notes.slice(0, 5).map((n) => (
                       <div
                         key={n.id}
                         className="p-2 rounded-lg bg-[#160d07]/90 border border-[#f88008]/15 flex items-start gap-2 hover:border-[#f88008]/40 transition-all"
@@ -482,7 +690,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 3. SECTION: BİLGİ AĞI (ZETTELKASTEN KNOWLEDGE GRAPH) */}
+              {/* 4. SECTION: BİLGİ AĞI (ZETTELKASTEN KNOWLEDGE GRAPH) */}
               <div className="rounded-xl border border-[#9d6bff]/25 bg-[#0a0705]/80 p-3 space-y-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.4)]">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-[#c084fc]">
@@ -492,11 +700,11 @@ export default function App() {
                   <span className="text-[10px] font-mono text-[#8f7a66]">{knowledgeList.length} düğüm</span>
                 </div>
 
-                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                   {knowledgeList.length === 0 ? (
                     <div className="text-[11px] text-zinc-600 text-center py-2">Hafıza kaydı yok</div>
                   ) : (
-                    knowledgeList.slice(0, 5).map((kb) => (
+                    knowledgeList.slice(0, 4).map((kb) => (
                       <div
                         key={kb.id}
                         className="p-2.5 rounded-lg bg-[#160d07]/90 border border-[#9d6bff]/20 hover:border-[#9d6bff]/50 transition-all cursor-pointer group"
