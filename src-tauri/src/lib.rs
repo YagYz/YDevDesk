@@ -51,12 +51,17 @@ pub struct AgentStatus {
     pub mode: String,
     pub agent_state: String,
     pub active_sessions_count: usize,
+    pub quota_5h_percent: f64,
+    pub quota_weekly_percent: f64,
+    pub tools_per_minute: u32,
+    pub marquee_text: String,
+    pub ticker_squares: Vec<String>, // Son 60 tool ismi (renkli ticker için)
     pub sessions: Vec<ActiveAgentSession>,
     pub subagents: Vec<SubagentInfo>,
     pub recent_tools: Vec<RecentToolCall>,
 }
 
-// 1. Çoklu PTY Başlatma (Her oturum için benzersiz id)
+// 1. Çoklu PTY Başlatma (macOS ve Linux uyumlu terminal oturumu)
 #[tauri::command]
 fn start_pty(app: AppHandle, state: State<'_, TerminalState>, session_id: String, cols: u16, rows: u16) -> Result<(), String> {
     let pty_system = native_pty_system();
@@ -69,7 +74,15 @@ fn start_pty(app: AppHandle, state: State<'_, TerminalState>, session_id: String
         })
         .map_err(|e| e.to_string())?;
 
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string());
+    // macOS Ventura & CachyOS: zsh veya SHELL env
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| {
+        if cfg!(target_os = "macos") {
+            "/bin/zsh".to_string()
+        } else {
+            "/bin/bash".to_string()
+        }
+    });
+
     let mut cmd = CommandBuilder::new(&shell);
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
@@ -123,7 +136,7 @@ fn close_pty(state: State<'_, TerminalState>, session_id: String) -> Result<(), 
     Ok(())
 }
 
-// 4. Yerel Homelab / YDevHub Yapılandırmasını Otomatik Okuma
+// 4. Yerel Homelab / YDevHub Yapılandırmasını Otomatik Okuma (macOS & Linux uyumlu)
 #[tauri::command]
 fn load_homelab_config() -> HomelabConfig {
     let home = dirs::home_dir().unwrap_or_default();
@@ -148,7 +161,7 @@ fn load_homelab_config() -> HomelabConfig {
     }
 }
 
-// 5. Antigravity Agent Durumu ve Canlı Tool / Oturum Akışını Okuma
+// 5. Antigravity Agent Durumu, Telemetri ve Ticker Verisini Okuma
 #[tauri::command]
 fn get_agent_status() -> AgentStatus {
     let home = dirs::home_dir().unwrap_or_default();
@@ -162,6 +175,8 @@ fn get_agent_status() -> AgentStatus {
     let mut out: u64 = 0;
     let mut agent_state = "idle".to_string();
     let mut subagents_list = Vec::new();
+    let mut quota_5h = 100.0;
+    let mut quota_weekly = 100.0;
 
     if let Ok(content) = std::fs::read_to_string(&cache_path) {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) {
@@ -190,6 +205,15 @@ fn get_agent_status() -> AgentStatus {
                 .and_then(|s| s.as_str())
                 .unwrap_or("idle")
                 .to_string();
+
+            if let Some(quota) = v.get("quota") {
+                if let Some(g5h) = quota.get("gemini-5h").and_then(|q| q.get("remaining_fraction")).and_then(|f| f.as_f64()) {
+                    quota_5h = (g5h * 100.0).round();
+                }
+                if let Some(gwk) = quota.get("gemini-weekly").and_then(|q| q.get("remaining_fraction")).and_then(|f| f.as_f64()) {
+                    quota_weekly = (gwk * 100.0).round();
+                }
+            }
 
             if let Some(subs) = v.get("subagents").and_then(|arr| arr.as_array()) {
                 for s in subs {
@@ -236,7 +260,7 @@ fn get_agent_status() -> AgentStatus {
             session_list.push(ActiveAgentSession {
                 session_id: if session_id.len() > 8 { session_id[..8].to_string() } else { session_id },
                 is_active,
-                model: "Gemini 3.8 Flash".to_string(),
+                model: "Gemini Pro/Flash".to_string(),
                 last_tool: "working".to_string(),
                 updated_ago_secs: diff_secs,
             });
@@ -246,19 +270,22 @@ fn get_agent_status() -> AgentStatus {
         }
     }
 
-    // Son çağrılan araçları (tool_calls) transkriptten topla (args ve argumentsJson uyumlu)
+    // Transkriptten canlı araçları ve son 60 çağrılık ticker karelerini topla
     let mut recent_tools = Vec::new();
+    let mut ticker_squares = Vec::new();
+    let mut marquee_text = "AGY beklemede... Canlı dinleme devrede.".to_string();
+
     if let Some(t_path) = primary_transcript_path {
         if let Ok(t_content) = std::fs::read_to_string(t_path) {
-            let lines: Vec<&str> = t_content.lines().rev().take(50).collect();
+            let lines: Vec<&str> = t_content.lines().rev().take(80).collect();
             for line in lines {
                 if let Ok(entry) = serde_json::from_str::<serde_json::Value>(line) {
                     if let Some(calls) = entry.get("tool_calls").and_then(|c| c.as_array()) {
                         let created_at = entry.get("created_at").and_then(|t| t.as_str()).unwrap_or("").to_string();
                         for call in calls {
                             let name = call.get("name").and_then(|n| n.as_str()).unwrap_or("tool").to_string();
-                            
-                            // Check args object or argumentsJson string
+                            ticker_squares.push(name.clone());
+
                             let args_obj = call.get("args");
                             let parsed_args = call.get("argumentsJson")
                                 .and_then(|a| a.as_str())
@@ -289,23 +316,25 @@ fn get_agent_status() -> AgentStatus {
                                 _ => "İşlem yapıldı".to_string(),
                             };
 
-                            recent_tools.push(RecentToolCall {
-                                name,
-                                timestamp: created_at.clone(),
-                                detail,
-                            });
-
-                            if recent_tools.len() >= 8 {
-                                break;
+                            if recent_tools.len() < 8 {
+                                recent_tools.push(RecentToolCall {
+                                    name: name.clone(),
+                                    timestamp: created_at.clone(),
+                                    detail: detail.clone(),
+                                });
                             }
                         }
                     }
                 }
-                if recent_tools.len() >= 8 {
+                if ticker_squares.len() >= 60 {
                     break;
                 }
             }
         }
+    }
+
+    if let Some(first_tool) = recent_tools.first() {
+        marquee_text = format!("Ajan Aktif: {} → {}", first_tool.name, first_tool.detail);
     }
 
     let cost = (inp as f64 / 1_000_000.0) * 0.15 + (out as f64 / 1_000_000.0) * 0.60;
@@ -320,6 +349,11 @@ fn get_agent_status() -> AgentStatus {
         mode: "CAVEMAN".to_string(),
         agent_state: if active_count > 0 { "working".to_string() } else { agent_state },
         active_sessions_count: active_count.max(1),
+        quota_5h_percent: quota_5h,
+        quota_weekly_percent: quota_weekly,
+        tools_per_minute: (recent_tools.len() as u32) * 2,
+        marquee_text,
+        ticker_squares,
         sessions: session_list,
         subagents: subagents_list,
         recent_tools,

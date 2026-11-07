@@ -3,17 +3,16 @@
 
 :root {
   --bg: #090604;
-  --panel: rgba(18, 11, 6, 0.75);
-  --line: rgba(248, 128, 8, 0.22);
-  --line-strong: rgba(248, 128, 8, 0.45);
+  --surface: #120b06;
+  --card: #180e08;
   --accent: #f88008;
   --accent-soft: #ffb057;
   --cyan: #00e5ff;
   --violet: #9d6bff;
   --green: #3dffa8;
   --txt: #f5ebe0;
-  --txt-dim: #998370;
-  --surface: #140b05;
+  --txt-dim: #8f7a66;
+  --border: rgba(248, 128, 8, 0.2);
 }
 
 @layer base {
@@ -23,26 +22,19 @@
     user-select: none;
     overflow: hidden;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
-    letter-spacing: -0.01em;
   }
 }
 
 /* Glassmorphism card surfaces */
-.hud-glass {
-  background: linear-gradient(135deg, rgba(26, 14, 7, 0.85) 0%, rgba(14, 8, 4, 0.92) 100%);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(248, 128, 8, 0.18);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6), inset 0 1px 0 0 rgba(255, 217, 168, 0.08);
+.hud-card {
+  background: rgba(20, 12, 7, 0.85);
+  border: 1px solid rgba(248, 128, 8, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
-.hud-glass-interactive {
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.hud-glass-interactive:hover {
-  border-color: rgba(248, 128, 8, 0.45);
-  transform: translateY(-1px);
-  box-shadow: 0 12px 36px 0 rgba(248, 128, 8, 0.1), inset 0 1px 0 0 rgba(255, 217, 168, 0.15);
+.hud-card:hover {
+  border-color: rgba(248, 128, 8, 0.4);
 }
 
 /* Custom Scrollbar */
@@ -55,24 +47,20 @@
 }
 ::-webkit-scrollbar-thumb {
   background: rgba(248, 128, 8, 0.25);
-  border-radius: 9999px;
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(248, 128, 8, 0.55);
 }
 
-/* Subtle glow animations */
-@keyframes neon-pulse {
-  0%, 100% {
-    opacity: 0.9;
-    filter: drop-shadow(0 0 6px rgba(248, 128, 8, 0.4));
-  }
-  50% {
-    opacity: 0.5;
-    filter: drop-shadow(0 0 2px rgba(248, 128, 8, 0.2));
-  }
+/* Marquee slide animation */
+@keyframes marquee {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
 }
 
-.animate-neon {
-  animation: neon-pulse 3s infinite ease-in-out;
+.animate-marquee {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee 25s linear infinite;
 }

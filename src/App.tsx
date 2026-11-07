@@ -13,20 +13,12 @@ import {
   CheckSquare,
   Maximize2,
   Minimize2,
-  RefreshCw,
-  Server,
   Zap,
-  Layers,
   Plus,
   X,
   Terminal as TermIcon,
   Bot,
-  PlayCircle,
-  FileCode,
-  Globe,
-  Wrench,
   CheckCircle2,
-  Radio,
   Command,
   Search,
   ChevronRight,
@@ -85,6 +77,11 @@ type AgentStatus = {
   mode: string;
   agent_state: string;
   active_sessions_count: number;
+  quota_5h_percent: number;
+  quota_weekly_percent: number;
+  tools_per_minute: number;
+  marquee_text: string;
+  ticker_squares: string[];
   sessions: ActiveAgentSession[];
   subagents: SubagentInfo[];
   recent_tools: RecentToolCall[];
@@ -109,7 +106,7 @@ type TabSession = {
 
 export default function App() {
   const [tabs, setTabs] = useState<TabSession[]>([
-    { id: "term-1", title: "Shell 1", type: "terminal" },
+    { id: "term-1", title: "Terminal 1", type: "terminal" },
   ]);
   const [activeTabId, setActiveTabId] = useState<string>("term-1");
 
@@ -133,6 +130,11 @@ export default function App() {
     mode: "CAVEMAN",
     agent_state: "idle",
     active_sessions_count: 1,
+    quota_5h_percent: 100,
+    quota_weekly_percent: 100,
+    tools_per_minute: 0,
+    marquee_text: "YDevDesk hazır.",
+    ticker_squares: [],
     sessions: [],
     subagents: [],
     recent_tools: [],
@@ -152,13 +154,25 @@ export default function App() {
   const [bandwidthHistory, setBandwidthHistory] = useState<number[]>([]);
   const [showSidePanel, setShowSidePanel] = useState(true);
 
-  // Omni-Bar / Quick Command Palette (Ctrl+K)
+  // Omni-Bar (Ctrl+K / Cmd+K)
   const [showOmniBar, setShowOmniBar] = useState(false);
   const [omniInput, setOmniInput] = useState("");
   const [omniMode, setOmniMode] = useState<"command" | "note" | "log">("command");
   const omniInputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize terminal
+  // Clock
+  const [clockStr, setClockStr] = useState<string>("");
+  useEffect(() => {
+    const updateTime = () => {
+      const d = new Date();
+      setClockStr(d.toTimeString().split(" ")[0]);
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Initialize terminal (Clean Apple / Cyberpunk terminal theme)
   const initTerminal = async (sessionId: string, container: HTMLDivElement) => {
     if (termInstances.current[sessionId]) return;
 
@@ -248,7 +262,7 @@ export default function App() {
     const newId = `term-${Date.now()}`;
     const newTab: TabSession = {
       id: newId,
-      title: `Shell ${nextIdx}`,
+      title: `Terminal ${nextIdx}`,
       type: "terminal",
     };
     setTabs([...tabs, newTab]);
@@ -279,7 +293,7 @@ export default function App() {
     }
   };
 
-  // Keyboard shortcut listener for Ctrl+K / Cmd+K
+  // Keyboard shortcut for Omni-Bar
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
@@ -295,7 +309,6 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Focus omni input
   useEffect(() => {
     if (showOmniBar) {
       setTimeout(() => omniInputRef.current?.focus(), 50);
@@ -304,7 +317,6 @@ export default function App() {
     }
   }, [showOmniBar]);
 
-  // Handle resize
   useEffect(() => {
     const handleResize = () => {
       const inst = termInstances.current[activeTabId];
@@ -363,7 +375,7 @@ export default function App() {
       const status = await invoke<AgentStatus>("get_agent_status");
       setAgentStatus(status);
     } catch (e) {
-      console.error("Agent status fetch error:", e);
+      console.error("Agent status error:", e);
     }
   };
 
@@ -426,7 +438,6 @@ export default function App() {
     }
   };
 
-  // Execute Omni-Bar submission
   const handleOmniSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!omniInput.trim() || !config) return;
@@ -438,7 +449,7 @@ export default function App() {
           key: config.ydevhub_key,
           content: omniInput.trim(),
         });
-        confetti({ particleCount: 40, spread: 60, origin: { y: 0.2 } });
+        confetti({ particleCount: 30, spread: 60, origin: { y: 0.15 } });
         fetchStaticHomelabData(config);
       } catch (err) {
         console.error(err);
@@ -449,16 +460,15 @@ export default function App() {
           url: config.ydevhub_url,
           key: config.ydevhub_key,
           serviceTag: "YDevDesk",
-          title: "Hızlı Hafıza Kaydı",
+          title: "Hızlı Kayıt",
           summary: omniInput.trim(),
         });
-        confetti({ particleCount: 50, spread: 70, origin: { y: 0.2 } });
+        confetti({ particleCount: 40, spread: 60, origin: { y: 0.15 } });
         fetchStaticHomelabData(config);
       } catch (err) {
         console.error(err);
       }
     } else {
-      // Send command directly to active terminal!
       invoke("write_pty", {
         sessionId: activeTabId,
         data: omniInput.trim() + "\r",
@@ -469,93 +479,90 @@ export default function App() {
     setOmniInput("");
   };
 
-  const renderToolIcon = (name: string) => {
+  const getToolColor = (name: string) => {
     switch (name) {
       case "run_command":
-        return <PlayCircle className="w-3.5 h-3.5 text-[#f88008]" />;
+        return "bg-[#f88008]";
       case "read_file":
-      case "edit_file":
       case "write_file":
-        return <FileCode className="w-3.5 h-3.5 text-[#00e5ff]" />;
+      case "edit_file":
+        return "bg-[#00e5ff]";
       case "search_web":
-        return <Globe className="w-3.5 h-3.5 text-[#3dffa8]" />;
+        return "bg-[#3dffa8]";
       default:
-        return <Wrench className="w-3.5 h-3.5 text-[#9d6bff]" />;
+        return "bg-[#9d6bff]";
     }
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#090604] text-[#f5ebe0] select-none overflow-hidden font-sans relative">
-      {/* 1. HUD HEADER */}
-      <header className="h-11 border-b border-[#f88008]/20 bg-[#120b06]/85 px-4 flex items-center justify-between backdrop-blur-3xl shadow-[0_4px_30px_rgba(0,0,0,0.8)] z-20">
+    <div className="flex flex-col h-screen w-screen bg-[#090604] text-[#f5ebe0] select-none overflow-hidden font-sans">
+      {/* 1. ATALAY TERMINAL KPI STRIP (ÜST BAND) */}
+      <header className="h-14 border-b border-[#f88008]/20 bg-[#120b06] px-3.5 flex items-center justify-between shadow-2xl z-20">
         <div className="flex items-center gap-3">
-          {/* Logo Badge */}
-          <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#f88008]/20 to-transparent border border-[#f88008]/40 shadow-[0_0_16px_rgba(248,128,8,0.25)]">
-            <Zap className="w-3.5 h-3.5 text-[#f88008] fill-[#f88008]/40 animate-pulse" />
-            <span className="font-extrabold text-xs tracking-wider text-[#ffd9a8]">YDEVDESK</span>
+          {/* Logo & LIVE Badge */}
+          <div className="flex items-center gap-2">
+            <Zap className="w-4 h-4 text-[#f88008] fill-[#f88008]/40 animate-pulse" />
+            <div className="flex flex-col leading-none">
+              <span className="text-[9px] tracking-widest text-[#8f7a66] font-bold">YDEV</span>
+              <span className="text-xs font-black tracking-wider text-[#ffd9a8]">DESK</span>
+            </div>
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-[#f88008]/20 text-[#f88008] border border-[#f88008]/40">
+              LIVE
+            </span>
           </div>
 
-          {/* Omni-Bar Trigger button */}
+          <span className="text-[#8f7a66] font-mono text-xs">{clockStr}</span>
+
+          {/* Quick Command Trigger */}
           <button
             onClick={() => setShowOmniBar(true)}
-            className="flex items-center gap-2 px-3 py-1 rounded-lg bg-[#1f1006]/70 border border-[#f88008]/25 text-xs text-[#998370] hover:text-[#ffd9a8] hover:border-[#f88008]/50 transition-all shadow-sm"
+            className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-[#180e08] border border-[#f88008]/25 text-xs text-[#8f7a66] hover:text-[#ffd9a8] hover:border-[#f88008]/50 transition-all"
           >
             <Search className="w-3.5 h-3.5 text-[#f88008]" />
-            <span className="text-[11px] font-mono">Komut veya Not Ekle...</span>
-            <kbd className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#090604] border border-[#f88008]/30 text-[#ffd9a8]">
-              Ctrl+K
+            <span className="text-[11px] font-mono hidden md:inline">Komut / Not</span>
+            <kbd className="text-[9px] font-mono px-1 rounded bg-[#090604] border border-[#f88008]/30 text-[#ffd9a8]">
+              ⌘K
             </kbd>
           </button>
-
-          {/* Active Model & Spend Pill */}
-          <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-lg bg-[#1f1006]/80 border border-[#f88008]/20 text-[11px] font-mono shadow-inner">
-            <Brain className="w-3.5 h-3.5 text-[#9d6bff]" />
-            <span className="text-[#f5ebe0] font-semibold">{agentStatus.model}</span>
-            <span className="text-[9px] px-1.5 py-0.2 rounded bg-[#9d6bff]/20 text-[#c084fc] font-bold">
-              {agentStatus.mode}
-            </span>
-            <span className="text-[#998370]">│</span>
-            <span className="text-[#3dffa8] font-bold">${agentStatus.session_cost}</span>
-            <span className="text-[#998370]">({agentStatus.used_percentage.toFixed(1)}%)</span>
-          </div>
         </div>
 
-        {/* Live Network & Homelab HUD Stats */}
-        <div className="flex items-center gap-3 text-xs font-mono">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#1f1006]/60 border border-emerald-500/30 text-zinc-300">
-            <Server className="w-3 h-3 text-emerald-400" />
-            <span className="text-zinc-200">Debian (10.10.50.1)</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+        {/* ATALAY KPI CELLS (GRID) */}
+        <div className="flex items-center gap-3 font-mono text-center">
+          {/* KPI 1: Sessions */}
+          <div className="flex flex-col items-center px-2 py-0.5 rounded bg-[#180e08]/60 border border-[#f88008]/15 min-w-[64px]">
+            <span className="text-[9px] text-[#8f7a66]">sessions</span>
+            <span className="text-xs font-bold text-[#ffd9a8]">{agentStatus.active_sessions_count}</span>
           </div>
 
-          {/* Real-time Bandwidth Stream */}
-          <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-[#1f1006]/90 border border-[#00e5ff]/30 text-[#00e5ff] w-[270px] justify-between shadow-inner">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <Activity className="w-3.5 h-3.5 shrink-0 animate-pulse" />
-              <span className="font-semibold text-[11px] tabular-nums tracking-tight truncate">
-                ↓ {networkData.rx_str.padStart(9)} ↑ {networkData.tx_str.padStart(9)}
-              </span>
-            </div>
-            <div className="flex items-center gap-1 text-[10px] text-[#998370] shrink-0 border-l border-[#f88008]/20 pl-2">
-              <span className="text-zinc-200 tabular-nums font-bold">{networkData.devices}</span>
-              <span>Cihaz</span>
-            </div>
+          {/* KPI 2: Agents */}
+          <div className="flex flex-col items-center px-2 py-0.5 rounded bg-[#180e08]/60 border border-[#f88008]/15 min-w-[64px]">
+            <span className="text-[9px] text-[#8f7a66]">agent</span>
+            <span className="text-xs font-bold text-[#3dffa8]">
+              {agentStatus.agent_state === "working" ? "active" : "idle"}
+            </span>
           </div>
 
-          <button
-            onClick={() => {
-              if (config) {
-                fetchStaticHomelabData(config);
-                fetchLiveNetwork(config);
-              }
-              fetchAgentStatus();
-            }}
-            className="p-1.5 rounded-lg text-[#998370] hover:text-[#ffd9a8] hover:bg-[#1f1006] border border-transparent hover:border-[#f88008]/30 transition-all"
-            title="Verileri Yenile"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-          </button>
+          {/* KPI 3: Speed / Cost */}
+          <div className="flex flex-col items-center px-2 py-0.5 rounded bg-[#180e08]/60 border border-[#f88008]/15 min-w-[64px]">
+            <span className="text-[9px] text-[#8f7a66]">today cost</span>
+            <span className="text-xs font-bold text-[#3dffa8]">${agentStatus.session_cost}</span>
+          </div>
 
+          {/* KPI 4: Quota Limit */}
+          <div className="flex flex-col items-center px-2 py-0.5 rounded bg-[#180e08]/60 border border-[#f88008]/15 min-w-[70px]">
+            <span className="text-[9px] text-[#8f7a66]">limit · 5h</span>
+            <span className="text-xs font-bold text-[#00e5ff]">{agentStatus.quota_5h_percent}%</span>
+          </div>
+
+          {/* KPI 5: Debian Homelab Network */}
+          <div className="hidden sm:flex flex-col items-center px-2.5 py-0.5 rounded bg-[#180e08]/60 border border-[#00e5ff]/20 min-w-[120px]">
+            <span className="text-[9px] text-[#8f7a66]">homelab l7</span>
+            <span className="text-xs font-bold text-[#00e5ff]">
+              ↓{networkData.rx_str} ↑{networkData.tx_str}
+            </span>
+          </div>
+
+          {/* Side Panel Toggle */}
           <button
             onClick={() => {
               setShowSidePanel(!showSidePanel);
@@ -566,40 +573,53 @@ export default function App() {
             }}
             className={`p-1.5 rounded-lg transition-all border ${
               showSidePanel
-                ? "text-[#f88008] bg-[#f88008]/15 border-[#f88008]/35 shadow-[0_0_12px_rgba(248,128,8,0.2)]"
-                : "text-[#998370] hover:text-zinc-200 border-transparent hover:bg-[#1f1006]"
+                ? "text-[#f88008] bg-[#f88008]/15 border-[#f88008]/40"
+                : "text-[#8f7a66] border-transparent hover:bg-[#180e08]"
             }`}
-            title="HUD Paneli Aç/Kapat"
+            title="Paneli Aç/Kapat"
           >
             {showSidePanel ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           </button>
         </div>
       </header>
 
-      {/* 2. MAIN WORKSPACE */}
+      {/* 2. SUB-HEADER: CANLI MARQUEE TICKER (AKAN BANT) */}
+      <div className="h-6 bg-[#090604] border-b border-[#f88008]/15 px-3 flex items-center overflow-hidden">
+        <span className="text-[10px] font-mono text-[#f88008] shrink-0 font-bold uppercase tracking-wider mr-2 flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#f88008] animate-ping" />
+          Telemetri:
+        </span>
+        <div className="overflow-hidden whitespace-nowrap flex-1">
+          <div className="animate-marquee font-mono text-[11px] text-[#f5ebe0]/80">
+            {agentStatus.marquee_text} • Sunucu: 10.10.50.1 (YNetMon & YDevHub) • Model: {agentStatus.model} ({agentStatus.mode}) • Son Komutlar aktif olarak kaydediliyor
+          </div>
+        </div>
+      </div>
+
+      {/* 3. MAIN WORKSPACE */}
       <div className="flex flex-1 overflow-hidden relative">
-        {/* LEFT / CENTER: MULTI-TERMINAL TABS WORKSPACE */}
+        {/* CENTER PTY TERMINAL WORKSPACE */}
         <div className="flex-1 flex flex-col bg-[#090604] overflow-hidden">
-          {/* TAB BAR (WARP / HUD STYLE) */}
-          <div className="h-9 border-b border-[#f88008]/20 bg-[#120b06]/60 flex items-center px-3 gap-2 overflow-x-auto">
+          {/* TAB BAR (ATALAY HUD STYLE) */}
+          <div className="h-8 border-b border-[#f88008]/20 bg-[#120b06]/70 flex items-center px-2.5 gap-1.5 overflow-x-auto">
             {tabs.map((tab) => {
               const isActive = tab.id === activeTabId;
               return (
                 <div
                   key={tab.id}
                   onClick={() => switchTab(tab.id)}
-                  className={`flex items-center gap-2 px-3.5 py-1 rounded-t-lg text-xs font-mono transition-all cursor-pointer border-t border-x ${
+                  className={`flex items-center gap-2 px-3 py-1 rounded-t-md text-xs font-mono transition-all cursor-pointer border-t border-x ${
                     isActive
-                      ? "bg-[#1f1006] text-[#ffd9a8] border-[#f88008]/45 shadow-[0_-2px_10px_rgba(248,128,8,0.15)]"
-                      : "text-[#998370] border-transparent hover:text-[#f5ebe0] hover:bg-[#140b05]"
+                      ? "bg-[#180e08] text-[#ffd9a8] border-[#f88008]/40 shadow-sm"
+                      : "text-[#8f7a66] border-transparent hover:text-[#f5ebe0] hover:bg-[#120b06]"
                   }`}
                 >
                   <TermIcon className="w-3 h-3 text-[#f88008]" />
-                  <span className="font-medium">{tab.title}</span>
+                  <span>{tab.title}</span>
                   {tabs.length > 1 && (
                     <button
                       onClick={(e) => closeTab(tab.id, e)}
-                      className="p-0.5 rounded hover:bg-[#ff4d4d]/20 hover:text-[#ff4d4d] transition-colors ml-1"
+                      className="p-0.5 rounded hover:bg-[#ff4d4d]/20 hover:text-[#ff4d4d] ml-1"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -610,21 +630,21 @@ export default function App() {
 
             <button
               onClick={addTab}
-              className="p-1 rounded-md text-[#998370] hover:text-[#ffd9a8] hover:bg-[#1f1006] border border-transparent hover:border-[#f88008]/30 transition-all ml-1"
+              className="p-1 rounded text-[#8f7a66] hover:text-[#ffd9a8] hover:bg-[#180e08] transition-all ml-1"
               title="Yeni Terminal Aç"
             >
               <Plus className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          {/* ACTIVE & BACKGROUND TERMINALS CONTAINER */}
-          <div className="flex-1 p-3 relative overflow-hidden bg-[#090604]">
+          {/* TERMINALS CONTAINER */}
+          <div className="flex-1 p-2 relative overflow-hidden bg-[#090604]">
             {tabs.map((tab) => {
               const isActive = tab.id === activeTabId;
               return (
                 <div
                   key={tab.id}
-                  className={`w-full h-full rounded-2xl overflow-hidden bg-[#090604] border border-[#f88008]/25 p-3 shadow-[inset_0_2px_16px_rgba(0,0,0,0.85)] absolute inset-3 ${
+                  className={`w-full h-full rounded-xl overflow-hidden bg-[#090604] border border-[#f88008]/20 p-2 shadow-inner absolute inset-2 ${
                     isActive ? "visible opacity-100 z-10" : "invisible opacity-0 z-0 pointer-events-none"
                   }`}
                   ref={(el) => {
@@ -639,264 +659,144 @@ export default function App() {
           </div>
         </div>
 
-        {/* RIGHT SIDEBAR: HIGH-END HUD COMMAND STREAM */}
+        {/* RIGHT HUD FEED (ATALAY'S ASIDE STYLE) */}
         {showSidePanel && (
-          <aside className="w-[410px] border-l border-[#f88008]/20 bg-[#120b06]/85 flex flex-col backdrop-blur-3xl overflow-hidden shadow-2xl">
-            {/* Header label */}
-            <div className="px-4 py-2.5 border-b border-[#f88008]/20 bg-[#1f1006]/60 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Layers className="w-4 h-4 text-[#f88008]" />
-                <span className="text-xs font-bold tracking-wider uppercase text-[#ffd9a8]">
-                  Canlı Komuta Akışı (HUD)
-                </span>
-              </div>
+          <aside className="w-[380px] border-l border-[#f88008]/20 bg-[#120b06]/90 flex flex-col backdrop-blur-2xl overflow-hidden shadow-2xl">
+            <div className="px-3.5 py-2 border-b border-[#f88008]/20 bg-[#180e08]/60 flex items-center justify-between">
+              <span className="text-xs font-bold font-mono tracking-wider uppercase text-[#ffd9a8]">
+                telemetry.feed
+              </span>
               <span className="text-[10px] font-mono text-[#3dffa8] flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#3dffa8] animate-ping" />
-                Senkronize
+                canlı
               </span>
             </div>
 
-            {/* Scrollable Sequential Content */}
-            <div className="flex-1 overflow-y-auto p-3.5 space-y-4">
-              {/* 1. CANLI AGY AJAN VE ÇOKLU OTURUM İZLEYİCİ */}
-              <div className="hud-glass rounded-2xl p-3.5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-bold text-[#c084fc]">
-                    <Bot className="w-4 h-4 text-[#9d6bff] animate-pulse" />
-                    <span>Canlı AGY Ajan İzleyici</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] font-mono px-2 py-0.5 rounded-md bg-[#9d6bff]/20 text-[#c084fc] border border-[#9d6bff]/35 font-semibold">
-                      {agentStatus.agent_state.toUpperCase()}
-                    </span>
-                    <span className="text-[9px] font-mono px-2 py-0.5 rounded-md bg-[#f88008]/20 text-[#ffd9a8] border border-[#f88008]/35 font-semibold">
-                      {agentStatus.active_sessions_count} Oturum
-                    </span>
-                  </div>
-                </div>
-
-                {/* Multiple Active Sessions Cards */}
-                {agentStatus.sessions && agentStatus.sessions.length > 0 && (
-                  <div className="space-y-1.5 pt-1">
-                    <span className="text-[10px] font-mono text-[#998370] flex items-center gap-1">
-                      <Radio className="w-3 h-3 text-[#3dffa8]" />
-                      <span>Tespit Edilen Ajan Oturumları (Disk/Brain)</span>
-                    </span>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {agentStatus.sessions.slice(0, 4).map((sess, idx) => (
-                        <div
-                          key={idx}
-                          className="p-2 rounded-xl bg-[#140b05]/90 border border-[#9d6bff]/25 flex flex-col justify-between"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-mono font-bold text-[#ffd9a8]">
-                              {sess.session_id}
-                            </span>
-                            <span
-                              className={`w-2 h-2 rounded-full ${
-                                sess.is_active ? "bg-[#3dffa8] animate-ping" : "bg-zinc-600"
-                              }`}
-                            />
-                          </div>
-                          <span className="text-[9px] text-[#998370] mt-1">
-                            {sess.updated_ago_secs < 60
-                              ? `${sess.updated_ago_secs}s önce aktif`
-                              : `${Math.floor(sess.updated_ago_secs / 60)}d önce`}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Subagents */}
-                {agentStatus.subagents && agentStatus.subagents.length > 0 && (
-                  <div className="space-y-1.5 pt-1.5 border-t border-[#f88008]/15">
-                    <span className="text-[10px] font-mono text-[#998370] block">
-                      Çalışan Alt Ajanlar (Subagents)
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {agentStatus.subagents.map((sub, sIdx) => (
-                        <div
-                          key={sIdx}
-                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#140b05] border border-[#9d6bff]/30 text-[10px]"
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#3dffa8] animate-pulse" />
-                          <span className="font-mono font-semibold text-[#ffd9a8]">{sub.name}</span>
-                          <span className="text-[#998370]">({sub.status})</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Live Tool Execution Stream */}
-                <div className="space-y-1.5 pt-1.5 border-t border-[#f88008]/15">
-                  <span className="text-[10px] font-mono text-[#998370] block">
-                    Son Yürütülen Araç Çağrıları (Live Tool Calls)
+            <div className="flex-1 overflow-y-auto p-3 space-y-3 font-mono">
+              {/* 1. SESSION & TOOL CALLS STREAM */}
+              <div className="hud-card p-3 space-y-2">
+                <div className="flex items-center justify-between text-xs text-[#ffd9a8]">
+                  <span className="font-bold flex items-center gap-1.5">
+                    <Bot className="w-3.5 h-3.5 text-[#f88008]" />
+                    session.tools
                   </span>
-                  <div className="space-y-1.5">
-                    {agentStatus.recent_tools && agentStatus.recent_tools.length > 0 ? (
-                      agentStatus.recent_tools.slice(0, 6).map((t, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center justify-between p-2 rounded-xl bg-[#140b05]/95 border border-[#f88008]/20 text-[11px] font-mono hover:border-[#f88008]/50 transition-all"
-                        >
-                          <div className="flex items-center gap-2 truncate">
-                            {renderToolIcon(t.name)}
-                            <span className="text-[#ffd9a8] font-bold">{t.name}</span>
-                            <span className="text-[#998370] truncate max-w-[160px]">
-                              {t.detail}
-                            </span>
-                          </div>
-                          <CheckCircle2 className="w-3.5 h-3.5 text-[#3dffa8] shrink-0" />
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-[11px] text-zinc-600 text-center py-2">Ajan beklemede</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* 2. CANLI AĞ & TRAFİK AKIŞI (YNETMON) */}
-              <div className="hud-glass rounded-2xl p-3.5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-bold text-[#00e5ff]">
-                    <Activity className="w-4 h-4 animate-pulse" />
-                    <span>Canlı L7 OSI Trafik Akışı</span>
-                  </div>
-                  <span className="text-[9px] font-mono px-2 py-0.5 rounded-md bg-[#00e5ff]/15 text-[#00e5ff] border border-[#00e5ff]/35 font-semibold">
-                    CANLI (1.5s)
-                  </span>
+                  <span className="text-[10px] text-[#8f7a66]">{agentStatus.recent_tools.length} çağrı</span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-center">
-                  <div className="p-3 rounded-xl bg-[#140b05] border border-[#00e5ff]/25 shadow-inner">
-                    <span className="text-[10px] text-[#998370] block">İndirme (RX)</span>
-                    <span className="text-base font-mono font-bold text-[#00e5ff] tracking-wide mt-0.5 block">
-                      {networkData.rx_str}
-                    </span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-[#140b05] border border-[#3dffa8]/25 shadow-inner">
-                    <span className="text-[10px] text-[#998370] block">Yükleme (TX)</span>
-                    <span className="text-base font-mono font-bold text-[#3dffa8] tracking-wide mt-0.5 block">
-                      {networkData.tx_str}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Animated Equalizer Visualizer */}
-                <div className="p-2.5 rounded-xl bg-[#140b05]/80 border border-[#f88008]/15">
-                  <div className="flex items-center justify-between text-[10px] text-[#998370] mb-2 font-mono">
-                    <span>Trafik Dalgalanması</span>
-                    <span>{networkData.active_conns} Aktif Bağlantı</span>
-                  </div>
-                  <div className="flex items-end gap-1 h-9 px-1">
-                    {bandwidthHistory.length === 0 ? (
-                      <div className="w-full text-center text-[10px] text-zinc-600">Veri toplanıyor...</div>
-                    ) : (
-                      bandwidthHistory.map((val, idx) => {
-                        const maxVal = Math.max(...bandwidthHistory, 5000);
-                        const heightPct = Math.min(100, Math.max(12, (val / maxVal) * 100));
-                        return (
-                          <div
-                            key={idx}
-                            style={{ height: `${heightPct}%` }}
-                            className="flex-1 rounded-sm bg-gradient-to-t from-[#f88008]/40 to-[#00e5ff] transition-all duration-300 shadow-[0_0_8px_rgba(0,229,255,0.3)]"
-                          />
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* 3. GÜNDELİK GÖREVLER (YDEVHUB TASKS) */}
-              <div className="hud-glass rounded-2xl p-3.5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-bold text-[#ffd9a8]">
-                    <CheckSquare className="w-4 h-4 text-[#f88008]" />
-                    <span>Gündelik Görevler & Notlar</span>
-                  </div>
-                  <span className="text-[10px] font-mono text-[#998370]">{notes.length} kayıt</span>
-                </div>
-
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                  {notes.length === 0 ? (
-                    <div className="text-[11px] text-zinc-600 text-center py-2">Görev bulunamadı</div>
+                <div className="space-y-1">
+                  {agentStatus.recent_tools.length === 0 ? (
+                    <div className="text-[11px] text-[#8f7a66] text-center py-2">Henüz araç çağrısı yok</div>
                   ) : (
-                    notes.slice(0, 5).map((n) => (
+                    agentStatus.recent_tools.slice(0, 5).map((t, idx) => (
                       <div
-                        key={n.id}
-                        className="p-2.5 rounded-xl bg-[#140b05]/95 border border-[#f88008]/20 flex items-start gap-2.5 hover:border-[#f88008]/50 transition-all shadow-sm group"
+                        key={idx}
+                        className="p-1.5 rounded bg-[#090604] border border-[#f88008]/15 flex items-center justify-between text-[11px]"
                       >
-                        <input
-                          type="checkbox"
-                          checked={n.is_done}
-                          readOnly
-                          className="mt-0.5 rounded border-[#f88008]/40 bg-[#1f1006] text-[#f88008] focus:ring-0 cursor-pointer"
-                        />
-                        <p
-                          className={`text-xs leading-relaxed ${
-                            n.is_done ? "line-through text-[#998370]" : "text-[#f5ebe0]"
-                          }`}
-                        >
-                          {n.content}
-                        </p>
+                        <div className="flex items-center gap-1.5 truncate">
+                          <span className="text-[#f88008] font-bold">{t.name}</span>
+                          <span className="text-[#8f7a66] truncate max-w-[170px]">{t.detail}</span>
+                        </div>
+                        <CheckCircle2 className="w-3 h-3 text-[#3dffa8] shrink-0" />
                       </div>
                     ))
                   )}
                 </div>
               </div>
 
-              {/* 4. BİLGİ AĞI (ZETTELKASTEN KNOWLEDGE GRAPH) */}
-              <div className="hud-glass rounded-2xl p-3.5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-bold text-[#c084fc]">
-                    <Brain className="w-4 h-4 text-[#9d6bff]" />
-                    <span>Ajan Hafıza Ağı (Knowledge Graph)</span>
-                  </div>
-                  <span className="text-[10px] font-mono text-[#998370]">{knowledgeList.length} düğüm</span>
+              {/* 2. HOMELAB NETWORK GRAPH (YNETMON) */}
+              <div className="hud-card p-3 space-y-2">
+                <div className="flex items-center justify-between text-xs text-[#00e5ff]">
+                  <span className="font-bold flex items-center gap-1.5">
+                    <Activity className="w-3.5 h-3.5 text-[#00e5ff]" />
+                    homelab.network
+                  </span>
+                  <span className="text-[10px] text-[#8f7a66]">{networkData.devices} cihaz</span>
                 </div>
 
-                <div className="space-y-2.5 max-h-52 overflow-y-auto pr-1">
-                  {knowledgeList.length === 0 ? (
-                    <div className="text-[11px] text-zinc-600 text-center py-2">Hafıza kaydı yok</div>
-                  ) : (
-                    knowledgeList.slice(0, 4).map((kb) => (
+                <div className="grid grid-cols-2 gap-2 text-center text-xs">
+                  <div className="p-2 rounded bg-[#090604] border border-[#00e5ff]/20">
+                    <span className="text-[10px] text-[#8f7a66] block">RX</span>
+                    <span className="font-bold text-[#00e5ff]">{networkData.rx_str}</span>
+                  </div>
+                  <div className="p-2 rounded bg-[#090604] border border-[#3dffa8]/20">
+                    <span className="text-[10px] text-[#8f7a66] block">TX</span>
+                    <span className="font-bold text-[#3dffa8]">{networkData.tx_str}</span>
+                  </div>
+                </div>
+
+                {/* Equalizer Wave */}
+                <div className="flex items-end gap-1 h-7 p-1 rounded bg-[#090604] border border-[#f88008]/10">
+                  {bandwidthHistory.map((val, idx) => {
+                    const maxVal = Math.max(...bandwidthHistory, 5000);
+                    const heightPct = Math.min(100, Math.max(15, (val / maxVal) * 100));
+                    return (
                       <div
-                        key={kb.id}
-                        onClick={() => setSelectedKb(kb)}
-                        className="hud-glass-interactive p-3 rounded-xl bg-[#140b05]/95 border border-[#9d6bff]/25 cursor-pointer group"
-                      >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded bg-[#9d6bff]/20 text-[#c084fc] border border-[#9d6bff]/35 font-semibold">
-                            {kb.service_tag}
-                          </span>
-                          <ChevronRight className="w-3.5 h-3.5 text-[#998370] group-hover:text-[#ffd9a8] transition-colors" />
-                        </div>
-                        <h4 className="text-xs font-bold text-[#f5ebe0] truncate group-hover:text-[#ffd9a8] transition-colors">
-                          {kb.title}
-                        </h4>
-                        <p className="text-[11px] text-[#998370] line-clamp-2 mt-1 leading-relaxed">
-                          {kb.summary}
-                        </p>
-                        {kb.linked_topics && kb.linked_topics.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {kb.linked_topics.map((t) => (
-                              <span
-                                key={t}
-                                className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-[#f88008]/20 text-[#ffd9a8] border border-[#f88008]/25"
-                              >
-                                [[{t}]]
-                              </span>
-                            ))}
-                          </div>
-                        )}
+                        key={idx}
+                        style={{ height: `${heightPct}%` }}
+                        className="flex-1 rounded-xs bg-gradient-to-t from-[#f88008]/40 to-[#00e5ff] transition-all duration-300"
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 3. TASKS & NOTES (YDEVHUB) */}
+              <div className="hud-card p-3 space-y-2">
+                <div className="flex items-center justify-between text-xs text-[#ffd9a8]">
+                  <span className="font-bold flex items-center gap-1.5">
+                    <CheckSquare className="w-3.5 h-3.5 text-[#f88008]" />
+                    ydevhub.tasks
+                  </span>
+                  <span className="text-[10px] text-[#8f7a66]">{notes.length} not</span>
+                </div>
+
+                <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                  {notes.slice(0, 4).map((n) => (
+                    <div
+                      key={n.id}
+                      className="p-1.5 rounded bg-[#090604] border border-[#f88008]/15 flex items-start gap-2 text-[11px]"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={n.is_done}
+                        readOnly
+                        className="mt-0.5 rounded border-[#f88008]/40 bg-[#180e08] text-[#f88008] focus:ring-0"
+                      />
+                      <span className={n.is_done ? "line-through text-[#8f7a66]" : "text-[#f5ebe0]"}>
+                        {n.content}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 4. KNOWLEDGE GRAPH NODES (ZETTELKASTEN) */}
+              <div className="hud-card p-3 space-y-2">
+                <div className="flex items-center justify-between text-xs text-[#9d6bff]">
+                  <span className="font-bold flex items-center gap-1.5">
+                    <Brain className="w-3.5 h-3.5 text-[#9d6bff]" />
+                    knowledge.graph
+                  </span>
+                  <span className="text-[10px] text-[#8f7a66]">{knowledgeList.length} node</span>
+                </div>
+
+                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                  {knowledgeList.slice(0, 3).map((kb) => (
+                    <div
+                      key={kb.id}
+                      onClick={() => setSelectedKb(kb)}
+                      className="p-2 rounded bg-[#090604] border border-[#9d6bff]/20 hover:border-[#9d6bff]/50 transition-all cursor-pointer group"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-[#9d6bff]/20 text-[#c084fc]">
+                          {kb.service_tag}
+                        </span>
+                        <ChevronRight className="w-3 h-3 text-[#8f7a66] group-hover:text-[#ffd9a8]" />
                       </div>
-                    ))
-                  )}
+                      <h4 className="text-[11px] font-bold text-[#f5ebe0] truncate">{kb.title}</h4>
+                      <p className="text-[10px] text-[#8f7a66] line-clamp-1 mt-0.5">{kb.summary}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -904,58 +804,68 @@ export default function App() {
         )}
       </div>
 
-      {/* 3. OMNI-BAR / QUICK COMMAND PALETTE (MODAL) */}
+      {/* 4. ATALAY TERMINAL TICKER FOOTER (LAST 60 TOOL CALLS SQUARES) */}
+      <footer className="h-8 border-t border-[#f88008]/20 bg-[#120b06] px-3.5 flex items-center justify-between z-20 font-mono text-[10px]">
+        <span className="text-[#8f7a66] shrink-0 mr-3">last tool activity:</span>
+        <div className="flex items-center gap-1 overflow-x-auto flex-1">
+          {agentStatus.ticker_squares.length === 0 ? (
+            <span className="text-zinc-600">aktivite bekleniyor...</span>
+          ) : (
+            agentStatus.ticker_squares.map((name, i) => (
+              <div
+                key={i}
+                className={`w-3 h-3 rounded-xs shrink-0 ${getToolColor(name)} opacity-85 shadow-[0_0_4px_rgba(248,128,8,0.3)]`}
+                title={name}
+              />
+            ))
+          )}
+        </div>
+        <span className="text-[#8f7a66] shrink-0 ml-3 hidden sm:inline">YDevDesk v0.1.0 (dev)</span>
+      </footer>
+
+      {/* 5. OMNI-BAR MODAL */}
       <AnimatePresence>
         {showOmniBar && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-black/70 backdrop-blur-md">
+          <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-black/75 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -10 }}
-              transition={{ duration: 0.15, ease: "easeOut" }}
-              className="w-[580px] rounded-2xl bg-[#140b05] border border-[#f88008]/40 shadow-[0_20px_60px_rgba(0,0,0,0.9)] overflow-hidden"
+              className="w-[540px] rounded-xl bg-[#140b05] border border-[#f88008]/40 shadow-2xl overflow-hidden font-mono"
             >
-              {/* Omni Tabs */}
-              <div className="flex border-b border-[#f88008]/20 bg-[#1f1006]/80 px-3 py-1.5 gap-2 text-xs font-mono">
+              <div className="flex border-b border-[#f88008]/20 bg-[#180e08] px-3 py-1.5 gap-2 text-xs">
                 <button
                   type="button"
                   onClick={() => setOmniMode("command")}
-                  className={`px-3 py-1 rounded-md transition-all ${
-                    omniMode === "command"
-                      ? "bg-[#f88008] text-black font-bold shadow-sm"
-                      : "text-[#998370] hover:text-[#ffd9a8]"
+                  className={`px-3 py-1 rounded transition-all ${
+                    omniMode === "command" ? "bg-[#f88008] text-black font-bold" : "text-[#8f7a66]"
                   }`}
                 >
-                  ⚡ Terminal Komutu
+                  ⚡ Komut
                 </button>
                 <button
                   type="button"
                   onClick={() => setOmniMode("note")}
-                  className={`px-3 py-1 rounded-md transition-all ${
-                    omniMode === "note"
-                      ? "bg-[#f88008] text-black font-bold shadow-sm"
-                      : "text-[#998370] hover:text-[#ffd9a8]"
+                  className={`px-3 py-1 rounded transition-all ${
+                    omniMode === "note" ? "bg-[#f88008] text-black font-bold" : "text-[#8f7a66]"
                   }`}
                 >
-                  📝 Görev Ekle
+                  📝 Görev
                 </button>
                 <button
                   type="button"
                   onClick={() => setOmniMode("log")}
-                  className={`px-3 py-1 rounded-md transition-all ${
-                    omniMode === "log"
-                      ? "bg-[#f88008] text-black font-bold shadow-sm"
-                      : "text-[#998370] hover:text-[#ffd9a8]"
+                  className={`px-3 py-1 rounded transition-all ${
+                    omniMode === "log" ? "bg-[#f88008] text-black font-bold" : "text-[#8f7a66]"
                   }`}
                 >
-                  🧠 Bilgi Ağı Kaydet
+                  🧠 Bilgi
                 </button>
               </div>
 
-              {/* Form Input */}
-              <form onSubmit={handleOmniSubmit} className="p-4">
-                <div className="flex items-center gap-3 bg-[#090604] border border-[#f88008]/30 rounded-xl px-3 py-2.5 focus-within:border-[#f88008] transition-colors">
-                  <Command className="w-5 h-5 text-[#f88008] shrink-0" />
+              <form onSubmit={handleOmniSubmit} className="p-3">
+                <div className="flex items-center gap-2 bg-[#090604] border border-[#f88008]/30 rounded-lg px-3 py-2">
+                  <Command className="w-4 h-4 text-[#f88008]" />
                   <input
                     ref={omniInputRef}
                     type="text"
@@ -963,20 +873,16 @@ export default function App() {
                     onChange={(e) => setOmniInput(e.target.value)}
                     placeholder={
                       omniMode === "command"
-                        ? "Aktif terminalde komut yürüt... (örn: git status veya cargo test)"
+                        ? "Aktif terminalde çalıştır..."
                         : omniMode === "note"
-                        ? "YDevHub'a yeni görev ekle..."
-                        : "Ajan hafıza ağına bilgi notu kaydet..."
+                        ? "YDevHub'a görev ekle..."
+                        : "Bilgi ağına not kaydet..."
                     }
-                    className="flex-1 bg-transparent text-sm text-[#f5ebe0] placeholder-[#998370] focus:outline-none font-mono"
+                    className="flex-1 bg-transparent text-xs text-[#f5ebe0] placeholder-[#8f7a66] focus:outline-none"
                   />
-                  <kbd className="text-[10px] font-mono px-2 py-1 rounded bg-[#1f1006] text-[#ffd9a8] border border-[#f88008]/30">
+                  <kbd className="text-[9px] px-1.5 py-0.5 rounded bg-[#180e08] text-[#ffd9a8] border border-[#f88008]/30">
                     ENTER
                   </kbd>
-                </div>
-                <div className="flex items-center justify-between mt-3 px-1 text-[11px] text-[#998370] font-mono">
-                  <span>Mod değiştirmek için sekmeleri seç</span>
-                  <span>Kapatmak için ESC</span>
                 </div>
               </form>
             </motion.div>
@@ -984,48 +890,43 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* 4. KNOWLEDGE DETAIL POPUP MODAL */}
+      {/* 6. KNOWLEDGE MODAL */}
       <AnimatePresence>
         {selectedKb && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm font-mono">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-[620px] rounded-2xl bg-[#140b05] border border-[#9d6bff]/40 shadow-2xl p-5 space-y-4"
+              className="w-[560px] rounded-xl bg-[#140b05] border border-[#9d6bff]/40 shadow-2xl p-4 space-y-3"
             >
-              <div className="flex items-center justify-between border-b border-[#f88008]/20 pb-3">
+              <div className="flex items-center justify-between border-b border-[#f88008]/20 pb-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#9d6bff]/20 text-[#c084fc] border border-[#9d6bff]/35 font-semibold">
+                  <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-[#9d6bff]/20 text-[#c084fc]">
                     {selectedKb.service_tag}
                   </span>
-                  <h3 className="text-sm font-bold text-[#f5ebe0]">{selectedKb.title}</h3>
+                  <h3 className="text-xs font-bold text-[#f5ebe0]">{selectedKb.title}</h3>
                 </div>
-                <button
-                  onClick={() => setSelectedKb(null)}
-                  className="p-1 rounded-lg text-[#998370] hover:text-[#ff4d4d] hover:bg-[#ff4d4d]/10 transition-colors"
-                >
+                <button onClick={() => setSelectedKb(null)} className="p-1 text-[#8f7a66] hover:text-[#ff4d4d]">
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <div className="text-xs text-[#f5ebe0] leading-relaxed bg-[#090604] p-3.5 rounded-xl border border-zinc-800/80 max-h-60 overflow-y-auto">
+              <div className="text-xs text-[#f5ebe0] leading-relaxed bg-[#090604] p-3 rounded-lg border border-zinc-800">
                 {selectedKb.summary}
               </div>
 
               {selectedKb.linked_topics && selectedKb.linked_topics.length > 0 && (
-                <div className="flex items-center gap-2 pt-1">
-                  <span className="text-[11px] text-[#998370] font-mono">Bağlantılı Konular:</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedKb.linked_topics.map((t) => (
-                      <span
-                        key={t}
-                        className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#f88008]/20 text-[#ffd9a8] border border-[#f88008]/30 font-semibold"
-                      >
-                        [[{t}]]
-                      </span>
-                    ))}
-                  </div>
+                <div className="flex items-center gap-1.5 pt-1">
+                  <span className="text-[10px] text-[#8f7a66]">Bağlantılar:</span>
+                  {selectedKb.linked_topics.map((t) => (
+                    <span
+                      key={t}
+                      className="text-[9px] px-1.5 py-0.5 rounded bg-[#f88008]/20 text-[#ffd9a8] border border-[#f88008]/25"
+                    >
+                      [[{t}]]
+                    </span>
+                  ))}
                 </div>
               )}
             </motion.div>
