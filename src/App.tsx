@@ -29,6 +29,12 @@ import {
   Play,
   RotateCcw,
   Sparkles,
+  Settings,
+  FolderGit2,
+  Cpu,
+  Layers,
+  Save,
+  Trash2,
 } from "lucide-react";
 import "./App.css";
 
@@ -168,6 +174,14 @@ export default function App() {
 
   const [bandwidthHistory, setBandwidthHistory] = useState<number[]>([]);
   const [showSidePanel, setShowSidePanel] = useState(true);
+  const [showLeftRail, setShowLeftRail] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [tempConfig, setTempConfig] = useState<HomelabConfig>({
+    ydevhub_url: "http://10.10.50.1:3080",
+    ydevhub_key: "",
+    ynetmon_url: "http://10.10.50.1:8765",
+    ynetmon_key: "",
+  });
 
   // Omni-Bar
   const [showOmniBar, setShowOmniBar] = useState(false);
@@ -236,6 +250,16 @@ export default function App() {
       // DOM fallback
     }
 
+    term.attachCustomKeyEventHandler((e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        e.stopPropagation();
+        setShowOmniBar((prev) => !prev);
+        return false;
+      }
+      return true;
+    });
+
     term.open(container);
     fitAddon.fit();
 
@@ -297,6 +321,7 @@ export default function App() {
 
   const closeTab = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     if (tabs.length === 1) return;
 
     if (termInstances.current[id]) {
@@ -312,27 +337,39 @@ export default function App() {
     }
     invoke("close_pty", { sessionId: id }).catch(console.error);
 
-    const remaining = tabs.filter((t) => t.id !== id);
-    setTabs(remaining);
-    if (activeTabId === id) {
-      switchTab(remaining[remaining.length - 1].id);
-    }
+    setTabs((prev) => {
+      const remaining = prev.filter((t) => t.id !== id);
+      if (activeTabId === id && remaining.length > 0) {
+        const nextActive = remaining[remaining.length - 1].id;
+        setActiveTabId(nextActive);
+        setTimeout(() => {
+          const inst = termInstances.current[nextActive];
+          if (inst) {
+            inst.fit.fit();
+            inst.term.focus();
+          }
+        }, 50);
+      }
+      return remaining;
+    });
   };
 
   // Keyboard shortcut
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) {
         e.preventDefault();
+        e.stopPropagation();
         setShowOmniBar((prev) => !prev);
       }
       if (e.key === "Escape") {
         setShowOmniBar(false);
         setSelectedKb(null);
+        setShowSettings(false);
       }
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, []);
 
   useEffect(() => {
@@ -374,6 +411,7 @@ export default function App() {
       .then((cfg) => {
         if (!active) return;
         setConfig(cfg);
+        setTempConfig(cfg);
         fetchStaticHomelabData(cfg);
         fetchLiveNetwork(cfg);
       })
@@ -520,6 +558,20 @@ export default function App() {
     }
   };
 
+  const handleSaveConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await invoke("save_homelab_config", { cfg: tempConfig });
+      setConfig(tempConfig);
+      fetchStaticHomelabData(tempConfig);
+      fetchLiveNetwork(tempConfig);
+      setShowSettings(false);
+      confetti({ particleCount: 30, spread: 60, origin: { y: 0.3 } });
+    } catch (err) {
+      console.error("Config save error:", err);
+    }
+  };
+
   const handleWindowMinimize = async () => {
     try {
       await invoke("app_window_minimize");
@@ -640,6 +692,34 @@ export default function App() {
             </span>
           </div>
 
+          {/* Left Rail Toggle */}
+          <button
+            onClick={() => {
+              setShowLeftRail(!showLeftRail);
+              setTimeout(() => {
+                const inst = termInstances.current[activeTabId];
+                if (inst) inst.fit.fit();
+              }, 150);
+            }}
+            className={`p-1.5 rounded-lg transition-all border ${
+              showLeftRail
+                ? "text-[#00d2ff] bg-[#00d2ff]/15 border-[#00d2ff]/40"
+                : "text-[#7d8b99] border-transparent hover:bg-[#0f1926]"
+            }`}
+            title="Sol Paneli Aç/Kapat"
+          >
+            <FolderGit2 className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Settings Trigger */}
+          <button
+            onClick={() => setShowSettings(true)}
+            className="p-1.5 rounded-lg transition-all border text-[#7d8b99] border-transparent hover:text-[#00d2ff] hover:bg-[#0f1926]"
+            title="Homelab ve HUD Ayarları"
+          >
+            <Settings className="w-3.5 h-3.5" />
+          </button>
+
           {/* Side Panel Toggle */}
           <button
             onClick={() => {
@@ -676,6 +756,87 @@ export default function App() {
 
       {/* 3. MAIN WORKSPACE */}
       <div className="flex flex-1 overflow-hidden relative">
+        {/* LEFT COMPACT RAIL (DOCK & AGENTS) */}
+        {showLeftRail && (
+          <aside className="w-56 border-r border-[#162638] bg-[#0a111a]/95 flex flex-col backdrop-blur-2xl overflow-hidden font-mono text-xs select-none">
+            {/* Active Sessions List */}
+            <div className="p-2.5 border-b border-[#162638] bg-[#0f1926]/40 flex items-center justify-between">
+              <span className="text-[10px] font-bold text-[#7d8b99] uppercase tracking-wider flex items-center gap-1.5">
+                <Layers className="w-3 h-3 text-[#00d2ff]" />
+                oturumlar ({tabs.length})
+              </span>
+              <button
+                onClick={() => addTab()}
+                className="p-1 rounded text-[#7d8b99] hover:text-[#00d2ff] hover:bg-[#162638] transition-all"
+                title="Yeni Oturum"
+              >
+                <Plus className="w-3 h-3" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {tabs.map((tab) => {
+                const isActive = tab.id === activeTabId;
+                return (
+                  <div
+                    key={tab.id}
+                    onClick={() => switchTab(tab.id)}
+                    className={`p-2 rounded-lg border transition-all cursor-pointer flex items-center justify-between group ${
+                      isActive
+                        ? "bg-[#0f1926] border-[#00d2ff]/40 text-[#00d2ff] shadow-sm font-semibold"
+                        : "bg-[#06090e]/60 border-[#162638] text-[#7d8b99] hover:text-[#f0f6fc] hover:border-[#1f3a56]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      {tab.type === "server" ? (
+                        <Server className="w-3 h-3 text-[#2ed573] shrink-0" />
+                      ) : (
+                        <TermIcon className="w-3 h-3 text-[#00d2ff] shrink-0" />
+                      )}
+                      <span className="text-[11px] truncate">{tab.title}</span>
+                    </div>
+                    {tabs.length > 1 && (
+                      <button
+                        onClick={(e) => closeTab(tab.id, e)}
+                        className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-[#ff4757]/20 hover:text-[#ff4757] transition-all"
+                        title="Kapat"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Subagents Status Box */}
+            <div className="p-2.5 border-t border-[#162638] bg-[#06090e]/80 space-y-2">
+              <div className="flex items-center justify-between text-[10px] text-[#7d8b99]">
+                <span className="font-bold flex items-center gap-1 text-[#00d2ff]">
+                  <Cpu className="w-3 h-3 text-[#00d2ff]" />
+                  alt.ajanlar ({agentStatus.subagents.length})
+                </span>
+                <span className="text-[#2ed573]">dinleniyor</span>
+              </div>
+              <div className="space-y-1 max-h-28 overflow-y-auto pr-1">
+                {agentStatus.subagents.length === 0 ? (
+                  <div className="text-[10px] text-[#475569] py-1">Aktif alt ajan yok</div>
+                ) : (
+                  agentStatus.subagents.map((sub, i) => (
+                    <div key={i} className="p-1.5 rounded bg-[#0a111a] border border-[#162638] text-[10px]">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-[#f0f6fc] truncate">{sub.name}</span>
+                        <span className="text-[8px] px-1 rounded bg-[#00d2ff]/10 text-[#00d2ff]">{sub.status}</span>
+                      </div>
+                      <div className="text-[9px] text-[#7d8b99] truncate mt-0.5">{sub.role}</div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </aside>
+        )}
+
         {/* CENTER PTY TERMINAL */}
         <div className="flex-1 flex flex-col bg-[#06090e] overflow-hidden">
           {/* TAB BAR & HOMELAB QUICK PRESETS */}
@@ -1126,6 +1287,95 @@ export default function App() {
                   ))}
                 </div>
               )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* 7. SETTINGS MODAL */}
+      <AnimatePresence>
+        {showSettings && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md font-mono">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-[500px] rounded-xl bg-[#0a111a] border border-[#162638] shadow-2xl p-5 space-y-4"
+            >
+              <div className="flex items-center justify-between border-b border-[#162638] pb-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-[#00d2ff]">
+                  <Settings className="w-4 h-4 text-[#00d2ff]" />
+                  <span>HOMELAB & HUD YAPILANDIRMASI</span>
+                </div>
+                <button
+                  onClick={() => setShowSettings(false)}
+                  className="p-1 rounded text-[#7d8b99] hover:text-[#ff4757]"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveConfig} className="space-y-3 text-xs">
+                <div>
+                  <label className="text-[10px] text-[#7d8b99] block mb-1">YDevHub API URL</label>
+                  <input
+                    type="text"
+                    value={tempConfig.ydevhub_url}
+                    onChange={(e) => setTempConfig({ ...tempConfig, ydevhub_url: e.target.value })}
+                    className="w-full bg-[#06090e] border border-[#162638] rounded px-3 py-1.5 text-[#f0f6fc] focus:border-[#00d2ff] focus:outline-none"
+                    placeholder="http://10.10.50.1:3080"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-[#7d8b99] block mb-1">YDevHub API Key</label>
+                  <input
+                    type="password"
+                    value={tempConfig.ydevhub_key}
+                    onChange={(e) => setTempConfig({ ...tempConfig, ydevhub_key: e.target.value })}
+                    className="w-full bg-[#06090e] border border-[#162638] rounded px-3 py-1.5 text-[#f0f6fc] focus:border-[#00d2ff] focus:outline-none"
+                    placeholder="ydh_..."
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-[#7d8b99] block mb-1">YNetMon API URL</label>
+                  <input
+                    type="text"
+                    value={tempConfig.ynetmon_url}
+                    onChange={(e) => setTempConfig({ ...tempConfig, ynetmon_url: e.target.value })}
+                    className="w-full bg-[#06090e] border border-[#162638] rounded px-3 py-1.5 text-[#f0f6fc] focus:border-[#00d2ff] focus:outline-none"
+                    placeholder="http://10.10.50.1:8765"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-[#7d8b99] block mb-1">YNetMon API Key</label>
+                  <input
+                    type="password"
+                    value={tempConfig.ynetmon_key}
+                    onChange={(e) => setTempConfig({ ...tempConfig, ynetmon_key: e.target.value })}
+                    className="w-full bg-[#06090e] border border-[#162638] rounded px-3 py-1.5 text-[#f0f6fc] focus:border-[#00d2ff] focus:outline-none"
+                    placeholder="ynm_..."
+                  />
+                </div>
+
+                <div className="pt-2 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowSettings(false)}
+                    className="px-3 py-1.5 rounded bg-[#0f1926] text-[#7d8b99] hover:text-[#f0f6fc] border border-[#162638]"
+                  >
+                    İptal
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#00d2ff] text-[#06090e] font-bold hover:bg-[#00838f] transition-all"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Kaydet</span>
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}

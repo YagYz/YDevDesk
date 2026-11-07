@@ -172,6 +172,24 @@ fn load_homelab_config() -> HomelabConfig {
     }
 }
 
+#[tauri::command]
+fn save_homelab_config(cfg: HomelabConfig) -> Result<(), String> {
+    let home = dirs::home_dir().unwrap_or_default();
+    let dir = home.join(".config").join("ydevhub");
+    let _ = std::fs::create_dir_all(&dir);
+    let config_path = dir.join("config.json");
+
+    let val = serde_json::json!({
+        "api_url": cfg.ydevhub_url,
+        "api_key": cfg.ydevhub_key,
+        "ynetmon_url": cfg.ynetmon_url,
+        "ynetmon_key": cfg.ynetmon_key
+    });
+
+    std::fs::write(config_path, serde_json::to_string_pretty(&val).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())
+}
+
 // 5. Antigravity Agent Durumu, Telemetri ve File Heat Verisini Okuma
 #[tauri::command]
 fn get_agent_status() -> AgentStatus {
@@ -502,6 +520,7 @@ pub fn run() {
             app_window_minimize,
             app_window_toggle_maximize,
             load_homelab_config,
+            save_homelab_config,
             get_agent_status,
             fetch_homelab_notes,
             fetch_homelab_knowledge,
