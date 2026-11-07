@@ -5187,6 +5187,7 @@ dependencies = [
 name = "ydevdesk"
 version = "0.1.0"
 dependencies = [
+ "dirs",
  "portable-pty",
  "reqwest",
  "serde",
