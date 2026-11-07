@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { CanvasAddon } from "@xterm/addon-canvas";
+import { Unicode11Addon } from "@xterm/addon-unicode11";
 import {
   Terminal as TermIcon,
   Activity,
@@ -64,9 +65,10 @@ export default function App() {
 
     const term = new Terminal({
       cursorBlink: true,
-      fontFamily: 'JetBrains Mono, Menlo, Monaco, "Courier New", monospace',
+      fontFamily: '"JetBrainsMono Nerd Font", "JetBrainsMono Nerd Font Mono", "MesloLGS Nerd Font", "MesloLGL Nerd Font", "FantasqueSansM Nerd Font", "JetBrains Mono", Menlo, Monaco, monospace',
       fontSize: 13,
       lineHeight: 1.25,
+      allowProposedApi: true,
       theme: {
         background: "#09090b", // zinc-950
         foreground: "#f4f4f5", // zinc-100
@@ -82,6 +84,10 @@ export default function App() {
         white: "#f4f4f5",
       },
     });
+
+    const unicode11Addon = new Unicode11Addon();
+    term.loadAddon(unicode11Addon);
+    term.unicode.activeVersion = "11";
 
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
