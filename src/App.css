@@ -1,9 +1,43 @@
 @import "tailwindcss";
 @import "@xterm/xterm/css/xterm.css";
 
+:root {
+  --bg: #0a0705;
+  --panel: rgba(22, 13, 7, 0.82);
+  --line: rgba(248, 128, 8, 0.28);
+  --line-soft: rgba(248, 128, 8, 0.12);
+  --accent: #f88008;
+  --accent-soft: #ffb057;
+  --cyan: #00e5ff;
+  --violet: #9d6bff;
+  --green: #3dffa8;
+  --txt: #f5ebe0;
+  --dim: #8f7a66;
+}
+
 @layer base {
   body {
-    @apply bg-zinc-950 text-zinc-100 antialiased select-none overflow-hidden;
+    background-color: var(--bg);
+    color: var(--txt);
+    antialiased: true;
+    user-select: none;
+    overflow: hidden;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(10, 7, 5, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(248, 128, 8, 0.25);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(248, 128, 8, 0.5);
 }
