@@ -92,3 +92,14 @@ body,
 .dockview-theme-ydesk .dv-sash:hover {
   background-color: rgba(0, 210, 255, 0.35);
 }
+
+/* Terminal iç boşluğu: FitAddon .xterm padding'ini hesaba kattığı için boşluk burada verilir
+   (kapsayıcıya padding verilirse satır sonu sağda kırpılır). */
+.xterm {
+  padding: 8px 6px 8px 10px;
+}
+.xterm .xterm-screen,
+.xterm .xterm-rows,
+.xterm .xterm-rows > div {
+  overflow: visible !important;
+}

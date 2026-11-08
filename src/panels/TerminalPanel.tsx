@@ -43,5 +43,5 @@ export default function TerminalPanel({ api, params }: IDockviewPanelProps<Termi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api]);
 
-  return <div ref={ref} className="h-full w-full bg-[#06090e] p-2 box-border" onMouseDown={() => terminalManager.focus(api.id)} />;
+  return <div ref={ref} className="h-full w-full bg-[#06090e] overflow-hidden" onMouseDown={() => terminalManager.focus(api.id)} />;
 }
