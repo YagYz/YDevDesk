@@ -1,26 +1,30 @@
 @import "tailwindcss";
 @import "@xterm/xterm/css/xterm.css";
+@import "dockview-react/dist/styles/dockview.css";
 
 :root {
-  /* Deep Navy & Petrol Theme */
-  --bg: #06090e;              /* Derin Gece Mavisi / Siyah */
-  --surface: #0a111a;         /* Petrol Mavisi Yüzey */
-  --surface-raised: #0f1926;  /* Kart Yüzeyi */
-  --border: #162638;          /* Soğuk Çelik Sınır */
-  --border-glow: #1f3a56;     /* Vurgulu Kenarlık */
-  --accent: #00d2ff;          /* Buz Mavisi / Cyan */
-  --petrol: #00838f;          /* Petrol Mavisi */
-  --txt-main: #f0f6fc;        /* Net Beyaz */
-  --txt-muted: #7d8b99;       /* Soğuk Gri */
-  --txt-dim: #475569;         /* Soluk Gri */
+  --bg: #06090e;
+  --surface: #0a111a;
+  --surface-raised: #0f1926;
+  --border: #162638;
+  --border-glow: #1f3a56;
+  --accent: #00d2ff;
+  --petrol: #00838f;
+  --txt-main: #f0f6fc;
+  --txt-muted: #7d8b99;
+  --txt-dim: #475569;
+  --ok: #2ed573;
+  --warn: #ffa502;
+  --err: #ff6b81;
 }
 
-html, body {
+html,
+body,
+#root {
   margin: 0;
   padding: 0;
   height: 100%;
   width: 100%;
-  background: transparent !important;
 }
 
 @layer base {
@@ -32,28 +36,14 @@ html, body {
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
     letter-spacing: -0.01em;
   }
+  button {
+    cursor: pointer;
+  }
 }
 
-/* Minimalist Navy Glass Card */
-.navy-card {
-  background: rgba(10, 17, 26, 0.75);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
-  transition: all 0.2s ease-in-out;
-}
-
-.navy-card:hover {
-  border-color: var(--border-glow);
-  box-shadow: 0 6px 24px rgba(0, 210, 255, 0.06);
-}
-
-/* Scrollbar */
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -63,17 +53,42 @@ html, body {
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #00d2ff;
+  background: var(--accent);
 }
 
-/* Marquee */
-@keyframes marquee {
-  0% { transform: translateX(100%); }
-  100% { transform: translateX(-100%); }
+/* Dockview — Deep Navy & Petrol teması */
+.dockview-theme-ydesk {
+  --dv-background-color: var(--bg);
+  --dv-group-view-background-color: var(--surface);
+  --dv-tabs-and-actions-container-background-color: var(--surface);
+  --dv-tabs-and-actions-container-height: 32px;
+  --dv-tabs-and-actions-container-font-size: 12px;
+  --dv-tab-divider-color: var(--border);
+  --dv-separator-border: var(--border);
+  --dv-paneview-header-border-color: var(--border);
+  --dv-activegroup-visiblepanel-tab-background-color: var(--surface-raised);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--surface);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--surface);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--surface);
+  --dv-activegroup-visiblepanel-tab-color: var(--accent);
+  --dv-activegroup-hiddenpanel-tab-color: var(--txt-muted);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--txt-main);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--txt-dim);
+  --dv-drag-over-background-color: rgba(0, 210, 255, 0.12);
+  --dv-drag-over-border-color: var(--accent);
+  --dv-active-sash-color: var(--accent);
+  --dv-tab-close-icon: none;
 }
 
-.animate-marquee {
-  display: inline-block;
-  white-space: nowrap;
-  animation: marquee 25s linear infinite;
+.dockview-theme-ydesk .dv-groupview {
+  border: 1px solid var(--border);
+}
+.dockview-theme-ydesk .dv-tab {
+  padding: 0 10px;
+}
+.dockview-theme-ydesk .dv-groupview.dv-active-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.dockview-theme-ydesk .dv-sash:hover {
+  background-color: rgba(0, 210, 255, 0.35);
 }

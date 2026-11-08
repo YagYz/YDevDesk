@@ -1,0 +1,83 @@
+export type HomelabConfig = {
+  ydevhub_url: string;
+  ydevhub_key: string;
+  ynetmon_url: string;
+  ynetmon_key: string;
+};
+
+export type Note = {
+  id: number;
+  content: string;
+  is_done: boolean;
+  priority: string;
+  date: string;
+};
+
+export type Knowledge = {
+  id: number;
+  service_tag: string;
+  title: string;
+  summary: string;
+  linked_topics: string[];
+};
+
+export type ActiveAgentSession = {
+  session_id: string;
+  is_active: boolean;
+  model: string;
+  last_tool: string;
+  updated_ago_secs: number;
+};
+
+export type SubagentInfo = {
+  name: string;
+  role: string;
+  status: string;
+};
+
+export type FileHeatItem = {
+  name: string;
+  count: number;
+};
+
+export type RecentToolCall = {
+  name: string;
+  timestamp: string;
+  detail: string;
+};
+
+export type AgentStatus = {
+  model: string;
+  used_percentage: number;
+  session_cost: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  mode: string;
+  agent_state: string;
+  active_sessions_count: number;
+  quota_5h_percent: number;
+  quota_weekly_percent: number;
+  tools_per_minute: number;
+  marquee_text: string;
+  ticker_squares: string[];
+  file_heat: FileHeatItem[];
+  sessions: ActiveAgentSession[];
+  subagents: SubagentInfo[];
+  recent_tools: RecentToolCall[];
+};
+
+export type NetworkData = {
+  rx_bps: number;
+  tx_bps: number;
+  active_conns: number;
+  devices: number;
+  db_packets: number;
+  status: "unconfigured" | "connecting" | "live" | "offline";
+};
+
+export type HubStatus = "unconfigured" | "loading" | "ok" | "error";
+
+export type TerminalParams = {
+  initCmd?: string;
+  kind?: "shell" | "agent" | "server";
+};
