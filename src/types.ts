@@ -112,7 +112,16 @@ export type TerminalPreset = {
   kind: "shell" | "agent" | "server";
 };
 
+export type NotificationSettings = {
+  enabled: boolean;
+  agent_done: boolean;
+  quota_low: boolean;
+  service_down: boolean;
+  quota_threshold: number;
+};
+
 export type AppSettings = {
+  notifications: NotificationSettings;
   connections: Connection[];
   disabled_modules: string[];
   quick_actions: CommandItem[];

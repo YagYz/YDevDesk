@@ -7,12 +7,13 @@ import { MODULES } from "../panels/registry";
 import { CONNECTION_TYPES, hasConnection, newId } from "../lib/settings";
 import type { AppSettings, Connection, ConnectionType } from "../types";
 
-type Tab = "connections" | "modules" | "commands";
+type Tab = "connections" | "modules" | "commands" | "notifications";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "connections", label: "Bağlantılar" },
   { id: "modules", label: "Modüller" },
   { id: "commands", label: "Komutlar" },
+  { id: "notifications", label: "Bildirimler" },
 ];
 
 const input =
@@ -216,6 +217,39 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 <Plus className="w-3 h-3" /> Ön ayar ekle
               </button>
             </section>
+          </div>
+        )}
+
+        {tab === "notifications" && (
+          <div className="space-y-1.5">
+            {(
+              [
+                ["enabled", "Masaüstü bildirimleri"],
+                ["agent_done", "Ajan bitti"],
+                ["quota_low", "Kota azaldı"],
+                ["service_down", "Servis koptu"],
+              ] as const
+            ).map(([k, label]) => (
+              <label key={k} className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 border border-[var(--border)] text-xs cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={draft.notifications[k]}
+                  onChange={(e) => patch({ notifications: { ...draft.notifications, [k]: e.target.checked } })}
+                />
+                {label}
+              </label>
+            ))}
+            <label className="flex items-center gap-2.5 px-2.5 text-xs text-[var(--txt-muted)]">
+              Kota eşiği (%)
+              <input
+                type="number"
+                min={1}
+                max={99}
+                value={draft.notifications.quota_threshold}
+                onChange={(e) => patch({ notifications: { ...draft.notifications, quota_threshold: Number(e.target.value) || 20 } })}
+                className={`${input} w-20`}
+              />
+            </label>
           </div>
         )}
 

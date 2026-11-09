@@ -775,6 +775,7 @@ fn app_window_toggle_maximize(window: tauri::Window) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(TerminalState {
             sessions: Arc::new(Mutex::new(HashMap::new())),
         })

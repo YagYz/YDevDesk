@@ -1,4 +1,4 @@
-import type { AppSettings, CommandItem, Connection, ConnectionType, HomelabConfig, TerminalPreset } from "../types";
+import type { AppSettings, CommandItem, Connection, ConnectionType, HomelabConfig, NotificationSettings, TerminalPreset } from "../types";
 
 export type ConnectionField = { key: "url" | "key" | "path"; label: string; secret?: boolean; placeholder?: string };
 
@@ -36,6 +36,14 @@ export const DEFAULT_TERMINAL_PRESETS: TerminalPreset[] = [
   { id: "shell", title: "Terminal", description: "Yerel kabuk", kind: "shell" },
 ];
 
+export const DEFAULT_NOTIFICATIONS: NotificationSettings = {
+  enabled: true,
+  agent_done: true,
+  quota_low: true,
+  service_down: true,
+  quota_threshold: 20,
+};
+
 export const newId = () => Math.random().toString(36).slice(2, 10);
 
 export function deriveConfig(connections: Connection[]): HomelabConfig {
@@ -65,11 +73,12 @@ export function normalizeSettings(saved: any, cfg: HomelabConfig, projectsRoot: 
       disabled_modules: Array.isArray(saved.disabled_modules) ? saved.disabled_modules : [],
       quick_actions: Array.isArray(saved.quick_actions) ? saved.quick_actions : DEFAULT_QUICK_ACTIONS,
       terminal_presets: Array.isArray(saved.terminal_presets) ? saved.terminal_presets : DEFAULT_TERMINAL_PRESETS,
+      notifications: { ...DEFAULT_NOTIFICATIONS, ...(saved.notifications ?? {}) },
     };
   }
   const connections: Connection[] = [];
   if (cfg.ydevhub_url) connections.push({ id: newId(), name: "YDevHub", type: "ydevhub", url: cfg.ydevhub_url, key: cfg.ydevhub_key });
   if (cfg.ynetmon_url) connections.push({ id: newId(), name: "YNetMon", type: "ynetmon", url: cfg.ynetmon_url, key: cfg.ynetmon_key });
   if (projectsRoot) connections.push({ id: newId(), name: "Projeler", type: "projects-root", path: projectsRoot });
-  return { connections, disabled_modules: [], quick_actions: DEFAULT_QUICK_ACTIONS, terminal_presets: DEFAULT_TERMINAL_PRESETS };
+  return { connections, disabled_modules: [], quick_actions: DEFAULT_QUICK_ACTIONS, terminal_presets: DEFAULT_TERMINAL_PRESETS, notifications: DEFAULT_NOTIFICATIONS };
 }

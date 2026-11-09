@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api } from "../lib/tauri";
+import { useNotifications } from "../lib/useNotifications";
 import { deriveConfig, normalizeSettings } from "../lib/settings";
 import type { AgentStatus, AppSettings, HomelabConfig, HubStatus, Knowledge, NetworkData, Note } from "../types";
 
@@ -214,6 +215,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     },
     [refreshHub],
   );
+
+  useNotifications({ agent, hubStatus, network }, settings.notifications, configLoaded);
 
   const value = useMemo<DataContextValue>(
     () => ({
