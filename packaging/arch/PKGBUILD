@@ -1,6 +1,6 @@
 # Maintainer: YagYz <https://github.com/YagYz>
 pkgname=ydevdesk-bin
-pkgver=0.2.0
+pkgver=0.2.1
 pkgrel=1
 pkgdesc="YDevDesk — Homelab & Multi-Agent Desktop Command Center"
 arch=('x86_64')
@@ -10,7 +10,7 @@ depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator' 'hicolor-icon-theme')
 provides=('ydevdesk')
 conflicts=('ydevdesk')
 source=("https://github.com/YagYz/YDevDesk/releases/download/v${pkgver}/ydevdesk_${pkgver}_amd64.deb")
-sha256sums=('cccccd5e989ddaaa64f74ff2882fd63a3d62137c3e4d3fe93857eb540c5552cd')
+sha256sums=('99ad6f972d033860be72160a9d73101e416dd2bb67b97fd93e13458923918dd3')
 
 package() {
   bsdtar -xf "${srcdir}/data.tar.gz" -C "${pkgdir}/"
