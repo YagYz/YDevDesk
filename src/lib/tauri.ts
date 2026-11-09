@@ -27,6 +27,8 @@ export const api = {
     invoke<any>("create_homelab_task", { url: cfg.ydevhub_url, key: cfg.ydevhub_key, title, priority }),
   completeTask: (cfg: HomelabConfig, id: number) =>
     invoke<any>("complete_homelab_task", { url: cfg.ydevhub_url, key: cfg.ydevhub_key, id }),
+  gitProjects: () => invoke<string[]>("list_git_projects"),
+  gitStatus: (project: string) => invoke<any>("get_git_status", { project }),
   windowClose: () => invoke<void>("app_window_close"),
   windowMinimize: () => invoke<void>("app_window_minimize"),
   windowToggleMaximize: () => invoke<void>("app_window_toggle_maximize"),

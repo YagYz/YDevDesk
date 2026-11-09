@@ -1,10 +1,11 @@
 import type { FunctionComponent } from "react";
-import { Activity, Bot, Brain, Flame, Network, ListTodo, StickyNote, Users, Zap, type LucideIcon } from "lucide-react";
+import { Activity, Bot, Brain, Flame, Network, GitBranch, ListTodo, StickyNote, Users, Zap, type LucideIcon } from "lucide-react";
 import AgentUsagePanel from "./AgentUsagePanel";
 import SessionsPanel from "./SessionsPanel";
 import ToolsPanel from "./ToolsPanel";
 import FileHeatPanel from "./FileHeatPanel";
 import NetworkPanel from "./NetworkPanel";
+import GitPanel from "./GitPanel";
 import TasksPanel from "./TasksPanel";
 import NotesPanel from "./NotesPanel";
 import KnowledgePanel from "./KnowledgePanel";
@@ -29,6 +30,7 @@ export const MODULES: ModuleDef[] = [
   { id: "sessions", title: "Oturumlar", description: "AGY oturumları ve alt ajanlar", icon: Users, component: SessionsPanel, width: 260 },
   { id: "notes", title: "Notlar", description: "YDevHub günlük notları", icon: StickyNote, component: NotesPanel, width: 320 },
   { id: "tasks", title: "Görevler", description: "YDevHub görevleri: listele, ekle, tamamla", icon: ListTodo, component: TasksPanel, width: 320 },
+  { id: "git", title: "Git", description: "Proje branch, değişen dosyalar, PR durumu", icon: GitBranch, component: GitPanel, width: 320 },
   { id: "knowledge", title: "Bilgi Ağı", description: "YDevHub hafıza kayıtları", icon: Brain, component: KnowledgePanel, width: 320 },
   { id: "quick_actions", title: "Hızlı Eylemler", description: "Terminale tek tık komut", icon: Zap, component: QuickActionsPanel, width: 260 },
 ];
