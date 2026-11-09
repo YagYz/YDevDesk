@@ -103,3 +103,7 @@ body,
 .xterm .xterm-rows > div {
   overflow: visible !important;
 }
+
+[draggable="true"] {
+  -webkit-user-drag: element;
+}

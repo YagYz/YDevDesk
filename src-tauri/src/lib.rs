@@ -764,10 +764,18 @@ fn app_window_minimize(window: tauri::Window) -> Result<(), String> {
 
 #[tauri::command]
 fn app_window_toggle_maximize(window: tauri::Window) -> Result<(), String> {
-    if window.is_maximized().unwrap_or(false) {
-        window.unmaximize().map_err(|e| e.to_string())
-    } else {
-        window.maximize().map_err(|e| e.to_string())
+    #[cfg(target_os = "macos")]
+    {
+        let is_fs = window.is_fullscreen().unwrap_or(false);
+        window.set_fullscreen(!is_fs).map_err(|e| e.to_string())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        if window.is_maximized().unwrap_or(false) {
+            window.unmaximize().map_err(|e| e.to_string())
+        } else {
+            window.maximize().map_err(|e| e.to_string())
+        }
     }
 }
 
