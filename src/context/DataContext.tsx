@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api } from "../lib/tauri";
-import type { AgentStatus, HomelabConfig, HubStatus, Knowledge, NetworkData, Note } from "../types";
+import { useNotifications } from "../lib/useNotifications";
+import { deriveConfig, normalizeSettings } from "../lib/settings";
+import type { AgentStatus, AppSettings, HomelabConfig, HubStatus, Knowledge, NetworkData, Note } from "../types";
 
 const DEFAULT_CONFIG: HomelabConfig = {
   ydevhub_url: "http://10.10.50.1:3080",
@@ -40,7 +42,8 @@ const INITIAL_NET: NetworkData = {
 
 type DataContextValue = {
   config: HomelabConfig;
-  saveConfig: (cfg: HomelabConfig) => Promise<void>;
+  settings: AppSettings;
+  saveSettings: (s: AppSettings) => Promise<void>;
   agent: AgentStatus;
   network: NetworkData;
   bandwidth: number[];
@@ -62,7 +65,8 @@ export function useData(): DataContextValue {
 }
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [config, setConfig] = useState<HomelabConfig>(DEFAULT_CONFIG);
+  const [settings, setSettings] = useState<AppSettings>(() => normalizeSettings(null, DEFAULT_CONFIG, ""));
+  const config = useMemo(() => deriveConfig(settings.connections), [settings.connections]);
   const [configLoaded, setConfigLoaded] = useState(false);
   const [agent, setAgent] = useState<AgentStatus>(INITIAL_AGENT);
   const [network, setNetwork] = useState<NetworkData>(INITIAL_NET);
@@ -76,9 +80,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // Yapılandırmayı ilk açılışta oku
   useEffect(() => {
-    api
-      .loadConfig()
-      .then(setConfig)
+    Promise.all([api.loadAppSettings(), api.loadConfig(), api.defaultProjectsRoot()])
+      .then(([saved, cfg, root]) => setSettings(normalizeSettings(saved, cfg, root)))
       .catch(console.error)
       .finally(() => setConfigLoaded(true));
   }, []);
@@ -190,9 +193,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [configLoaded, config.ynetmon_url, config.ynetmon_key]);
 
-  const saveConfig = useCallback(async (cfg: HomelabConfig) => {
-    await api.saveConfig(cfg);
-    setConfig(cfg);
+  const saveSettings = useCallback(async (next: AppSettings) => {
+    await api.saveAppSettings(next);
+    // ydev CLI ile paylaşılan yapılandırma dosyasını da güncel tut
+    await api.saveConfig(deriveConfig(next.connections));
+    setSettings(next);
   }, []);
 
   const addNote = useCallback(
@@ -211,10 +216,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [refreshHub],
   );
 
+  useNotifications({ agent, hubStatus, network }, settings.notifications, configLoaded);
+
   const value = useMemo<DataContextValue>(
     () => ({
       config,
-      saveConfig,
+      settings,
+      saveSettings,
       agent,
       network,
       bandwidth,
@@ -226,7 +234,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addNote,
       addKnowledge,
     }),
-    [config, saveConfig, agent, network, bandwidth, notes, knowledge, hubStatus, hubError, refreshHub, addNote, addKnowledge],
+    [config, settings, saveSettings, agent, network, bandwidth, notes, knowledge, hubStatus, hubError, refreshHub, addNote, addKnowledge],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

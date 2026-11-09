@@ -512,6 +512,179 @@ async fn fetch_homelab_knowledge(url: String, key: String) -> Result<serde_json:
 }
 
 #[tauri::command]
+async fn fetch_homelab_tasks(url: String, key: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let res = client
+        .get(format!("{}/api/v1/tasks?limit=50", url.trim_end_matches('/')))
+        .header("X-API-Key", key)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !res.status().is_success() {
+        return Err(format!("HTTP {}", res.status()));
+    }
+    res.json::<serde_json::Value>().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn create_homelab_task(url: String, key: String, title: String, priority: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "title": title,
+        "description": "",
+        "priority": priority,
+        "due_date": serde_json::Value::Null
+    });
+    let res = client
+        .post(format!("{}/api/v1/tasks", url.trim_end_matches('/')))
+        .header("X-API-Key", key)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !res.status().is_success() {
+        return Err(format!("HTTP {}", res.status()));
+    }
+    res.json::<serde_json::Value>().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn complete_homelab_task(url: String, key: String, id: i64) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({ "id": id, "status": "done" });
+    let res = client
+        .patch(format!("{}/api/v1/tasks", url.trim_end_matches('/')))
+        .header("X-API-Key", key)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !res.status().is_success() {
+        return Err(format!("HTTP {}", res.status()));
+    }
+    res.json::<serde_json::Value>().await.map_err(|e| e.to_string())
+}
+
+fn expand_home(p: &str) -> std::path::PathBuf {
+    if let Some(rest) = p.strip_prefix("~/") {
+        return dirs::home_dir().unwrap_or_default().join(rest);
+    }
+    std::path::PathBuf::from(p)
+}
+
+fn app_settings_path() -> std::path::PathBuf {
+    dirs::home_dir().unwrap_or_default().join(".config").join("ydevdesk").join("settings.json")
+}
+
+/// Kayıtlı uygulama ayarları; dosya yoksa null döner (arayüz varsayılanları üretir).
+#[tauri::command]
+fn load_app_settings() -> Option<serde_json::Value> {
+    let content = std::fs::read_to_string(app_settings_path()).ok()?;
+    serde_json::from_str(&content).ok()
+}
+
+#[tauri::command]
+fn save_app_settings(settings: serde_json::Value) -> Result<(), String> {
+    let path = app_settings_path();
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(path, serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
+}
+
+/// İlk kurulumda önerilecek proje kök dizini (yoksa boş).
+#[tauri::command]
+fn default_projects_root() -> String {
+    for c in ["/mnt/Depo/Projeler"] {
+        if std::path::Path::new(c).is_dir() {
+            return c.to_string();
+        }
+    }
+    let home = dirs::home_dir().unwrap_or_default();
+    for c in ["Projects", "projects", "dev", "src", "Projeler"] {
+        let p = home.join(c);
+        if p.is_dir() {
+            return p.to_string_lossy().to_string();
+        }
+    }
+    String::new()
+}
+
+fn run_cmd(dir: &std::path::Path, prog: &str, args: &[&str]) -> Option<String> {
+    let out = std::process::Command::new(prog).args(args).current_dir(dir).output().ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&out.stdout).to_string())
+}
+
+#[tauri::command]
+fn list_git_projects(root: String) -> Vec<String> {
+    let mut v: Vec<String> = std::fs::read_dir(expand_home(&root))
+        .map(|rd| {
+            rd.filter_map(|e| e.ok())
+                .filter(|e| e.path().join(".git").exists())
+                .filter_map(|e| e.file_name().into_string().ok())
+                .collect()
+        })
+        .unwrap_or_default();
+    v.sort_by_key(|s| s.to_lowercase());
+    v
+}
+
+#[tauri::command]
+async fn get_git_status(root: String, project: String) -> Result<serde_json::Value, String> {
+    if project.is_empty() || project.contains('/') || project.contains("..") {
+        return Err("Geçersiz proje adı".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let dir = expand_home(&root).join(&project);
+        if !dir.join(".git").exists() {
+            return Err("Git deposu bulunamadı".to_string());
+        }
+        let branch = run_cmd(&dir, "git", &["rev-parse", "--abbrev-ref", "HEAD"])
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default();
+        let (mut ahead, mut behind) = (0i64, 0i64);
+        if let Some(s) = run_cmd(&dir, "git", &["rev-list", "--left-right", "--count", "@{u}...HEAD"]) {
+            let mut it = s.split_whitespace();
+            behind = it.next().and_then(|x| x.parse().ok()).unwrap_or(0);
+            ahead = it.next().and_then(|x| x.parse().ok()).unwrap_or(0);
+        }
+        let changes: Vec<serde_json::Value> = run_cmd(&dir, "git", &["status", "--porcelain"])
+            .unwrap_or_default()
+            .lines()
+            .filter(|l| l.len() > 3)
+            .map(|l| serde_json::json!({ "status": l[..2].trim(), "path": l[3..] }))
+            .collect();
+        let last_commit = run_cmd(&dir, "git", &["log", "-1", "--pretty=%h %s"])
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default();
+        // PR durumu (gh yoksa veya oturum yoksa null)
+        let pr = run_cmd(
+            &dir,
+            "gh",
+            &["pr", "list", "--head", &branch, "--state", "all", "--limit", "1", "--json", "number,title,state,url,isDraft"],
+        )
+        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+        .and_then(|v| v.get(0).cloned());
+        Ok(serde_json::json!({
+            "branch": branch,
+            "ahead": ahead,
+            "behind": behind,
+            "changes": changes,
+            "last_commit": last_commit,
+            "pr": pr
+        }))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 async fn fetch_ynetmon_summary(url: String, key: String) -> Result<serde_json::Value, String> {
     let client = reqwest::Client::new();
     let res = client
@@ -602,6 +775,7 @@ fn app_window_toggle_maximize(window: tauri::Window) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(TerminalState {
             sessions: Arc::new(Mutex::new(HashMap::new())),
         })
@@ -620,7 +794,15 @@ pub fn run() {
             fetch_homelab_knowledge,
             fetch_ynetmon_summary,
             create_homelab_note,
-            create_homelab_knowledge
+            create_homelab_knowledge,
+            fetch_homelab_tasks,
+            create_homelab_task,
+            complete_homelab_task,
+            list_git_projects,
+            get_git_status,
+            load_app_settings,
+            save_app_settings,
+            default_projects_root
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

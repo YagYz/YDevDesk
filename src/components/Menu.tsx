@@ -34,9 +34,9 @@ export function Menu({ trigger, children, align = "left" }: { trigger: (open: bo
   );
 }
 
-export function MenuItem({ icon, title, description, checked, onClick }: { icon?: ReactNode; title: string; description?: string; checked?: boolean; onClick: () => void }) {
+export function MenuItem({ icon, title, description, checked, disabled, onClick }: { icon?: ReactNode; title: string; description?: string; checked?: boolean; disabled?: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="w-full flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left hover:bg-[var(--surface-raised)] transition-colors">
+    <button onClick={onClick} disabled={disabled} className="w-full flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left hover:bg-[var(--surface-raised)] transition-colors disabled:opacity-40 disabled:hover:bg-transparent">
       <span className="w-4 h-4 text-[var(--accent)] shrink-0 flex items-center justify-center">{icon}</span>
       <span className="min-w-0 flex-1">
         <span className="block text-xs text-[var(--txt-main)]">{title}</span>

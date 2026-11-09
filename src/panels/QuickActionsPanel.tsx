@@ -1,28 +1,26 @@
-import { GitBranch, GitCompare, Server, Zap } from "lucide-react";
+import { Terminal } from "lucide-react";
 import { useWorkspace } from "../context/WorkspaceContext";
+import { useData } from "../context/DataContext";
 import { PanelBody } from "../components/ui";
-
-const ACTIONS = [
-  { label: "ydev status", cmd: "ydev status", icon: Zap },
-  { label: "git status", cmd: "git status -s", icon: GitBranch },
-  { label: "git diff --stat", cmd: "git diff --stat", icon: GitCompare },
-  { label: "docker ps (debian)", cmd: "ssh debian 'docker ps --format \"table {{.Names}}\\t{{.Status}}\"'", icon: Server },
-];
 
 export default function QuickActionsPanel() {
   const { runInTerminal } = useWorkspace();
+  const { settings } = useData();
+  const actions = settings.quick_actions;
   return (
     <PanelBody>
-      <div className="text-[10px] text-[var(--txt-dim)] mb-2">Etkin terminalde çalıştırır.</div>
+      <div className="text-[10px] text-[var(--txt-dim)] mb-2">Etkin terminalde çalıştırır. Liste Ayarlar'dan düzenlenir.</div>
       <div className="grid gap-1.5">
-        {ACTIONS.map(({ label, cmd, icon: Icon }) => (
+        {actions.length === 0 && <div className="text-xs text-[var(--txt-dim)]">Eylem yok.</div>}
+        {actions.map((a) => (
           <button
-            key={label}
-            onClick={() => runInTerminal(cmd)}
+            key={a.id}
+            onClick={() => runInTerminal(a.cmd)}
+            title={a.cmd}
             className="flex items-center gap-2 rounded-md px-2.5 py-2 text-xs text-left bg-[var(--surface-raised)] border border-[var(--border)] hover:border-[var(--accent)]/50 hover:text-[var(--accent)] transition-colors"
           >
-            <Icon className="w-3.5 h-3.5" />
-            <span className="font-mono">{label}</span>
+            <Terminal className="w-3.5 h-3.5" />
+            <span className="font-mono truncate">{a.title}</span>
           </button>
         ))}
       </div>
