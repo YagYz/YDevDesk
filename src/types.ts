@@ -13,6 +13,15 @@ export type Note = {
   date: string;
 };
 
+export type Task = {
+  id: number;
+  title: string;
+  description?: string;
+  status: string;
+  priority: string;
+  due_date?: string | null;
+};
+
 export type Knowledge = {
   id: number;
   service_tag: string;

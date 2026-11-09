@@ -512,6 +512,63 @@ async fn fetch_homelab_knowledge(url: String, key: String) -> Result<serde_json:
 }
 
 #[tauri::command]
+async fn fetch_homelab_tasks(url: String, key: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let res = client
+        .get(format!("{}/api/v1/tasks?limit=50", url.trim_end_matches('/')))
+        .header("X-API-Key", key)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !res.status().is_success() {
+        return Err(format!("HTTP {}", res.status()));
+    }
+    res.json::<serde_json::Value>().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn create_homelab_task(url: String, key: String, title: String, priority: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "title": title,
+        "description": "",
+        "priority": priority,
+        "due_date": serde_json::Value::Null
+    });
+    let res = client
+        .post(format!("{}/api/v1/tasks", url.trim_end_matches('/')))
+        .header("X-API-Key", key)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !res.status().is_success() {
+        return Err(format!("HTTP {}", res.status()));
+    }
+    res.json::<serde_json::Value>().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn complete_homelab_task(url: String, key: String, id: i64) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({ "action": "done", "id": id });
+    let res = client
+        .post(format!("{}/api/v1/tasks", url.trim_end_matches('/')))
+        .header("X-API-Key", key)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !res.status().is_success() {
+        return Err(format!("HTTP {}", res.status()));
+    }
+    res.json::<serde_json::Value>().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn fetch_ynetmon_summary(url: String, key: String) -> Result<serde_json::Value, String> {
     let client = reqwest::Client::new();
     let res = client
@@ -620,7 +677,10 @@ pub fn run() {
             fetch_homelab_knowledge,
             fetch_ynetmon_summary,
             create_homelab_note,
-            create_homelab_knowledge
+            create_homelab_knowledge,
+            fetch_homelab_tasks,
+            create_homelab_task,
+            complete_homelab_task
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -21,6 +21,12 @@ export const api = {
       title,
       summary,
     }),
+  tasks: (cfg: HomelabConfig) =>
+    invoke<any>("fetch_homelab_tasks", { url: cfg.ydevhub_url, key: cfg.ydevhub_key }),
+  createTask: (cfg: HomelabConfig, title: string, priority: string) =>
+    invoke<any>("create_homelab_task", { url: cfg.ydevhub_url, key: cfg.ydevhub_key, title, priority }),
+  completeTask: (cfg: HomelabConfig, id: number) =>
+    invoke<any>("complete_homelab_task", { url: cfg.ydevhub_url, key: cfg.ydevhub_key, id }),
   windowClose: () => invoke<void>("app_window_close"),
   windowMinimize: () => invoke<void>("app_window_minimize"),
   windowToggleMaximize: () => invoke<void>("app_window_toggle_maximize"),
