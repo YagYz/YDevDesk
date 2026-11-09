@@ -12,9 +12,13 @@
   "app": {
     "windows": [
       {
-        "title": "ydevdesk",
-        "width": 800,
-        "height": 600
+        "title": "YDevDesk — Homelab & Agent HUD",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1024,
+        "minHeight": 640,
+        "decorations": false,
+        "transparent": true
       }
     ],
     "security": {
