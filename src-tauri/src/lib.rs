@@ -553,9 +553,9 @@ async fn create_homelab_task(url: String, key: String, title: String, priority: 
 #[tauri::command]
 async fn complete_homelab_task(url: String, key: String, id: i64) -> Result<serde_json::Value, String> {
     let client = reqwest::Client::new();
-    let body = serde_json::json!({ "action": "done", "id": id });
+    let body = serde_json::json!({ "id": id, "status": "done" });
     let res = client
-        .post(format!("{}/api/v1/tasks", url.trim_end_matches('/')))
+        .patch(format!("{}/api/v1/tasks", url.trim_end_matches('/')))
         .header("X-API-Key", key)
         .json(&body)
         .send()
