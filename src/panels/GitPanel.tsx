@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ArrowDown, ArrowUp, GitBranch, GitPullRequest, RefreshCw } from "lucide-react";
 import { PanelBody } from "../components/ui";
 import { api } from "../lib/tauri";
+import { useData } from "../context/DataContext";
 
 type GitInfo = {
   branch: string;
@@ -16,34 +17,46 @@ const STORE_KEY = "ydevdesk.git.project";
 const STATUS_COLOR: Record<string, string> = { M: "var(--warn)", A: "var(--ok)", D: "var(--err)", "??": "var(--txt-dim)" };
 
 export default function GitPanel() {
-  const [projects, setProjects] = useState<string[]>([]);
-  const [project, setProject] = useState(() => localStorage.getItem(STORE_KEY) ?? "");
+  const { settings } = useData();
+  const [entries, setEntries] = useState<{ root: string; name: string }[]>([]);
+  const [selected, setSelected] = useState(() => localStorage.getItem(STORE_KEY) ?? "");
   const [info, setInfo] = useState<GitInfo | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const rootsKey = settings.connections
+    .filter((c) => c.type === "projects-root" && c.path)
+    .map((c) => c.path as string)
+    .join("\n");
+
   useEffect(() => {
-    api
-      .gitProjects()
-      .then((p) => {
-        setProjects(p);
-        setProject((cur) => (cur && p.includes(cur) ? cur : (p[0] ?? "")));
+    const roots = rootsKey ? rootsKey.split("\n") : [];
+    Promise.all(roots.map((r) => api.gitProjects(r).then((names) => names.map((name) => ({ root: r, name })))))
+      .then((lists) => {
+        const all = lists.flat();
+        setEntries(all);
+        setSelected((cur) => (all.some((e) => `${e.root}/${e.name}` === cur) ? cur : all[0] ? `${all[0].root}/${all[0].name}` : ""));
       })
       .catch((e) => setError(String(e)));
-  }, []);
+  }, [rootsKey]);
+
+  const current = entries.find((e) => `${e.root}/${e.name}` === selected);
 
   const load = useCallback(async () => {
-    if (!project) return;
+    if (!current) {
+      setInfo(null);
+      return;
+    }
     setLoading(true);
     try {
-      setInfo(await api.gitStatus(project));
+      setInfo(await api.gitStatus(current.root, current.name));
       setError("");
     } catch (e) {
       setError(String(e));
     } finally {
       setLoading(false);
     }
-  }, [project]);
+  }, [current?.root, current?.name]);
 
   useEffect(() => {
     load();
@@ -57,16 +70,16 @@ export default function GitPanel() {
     <PanelBody>
       <div className="flex gap-1 mb-2">
         <select
-          value={project}
+          value={selected}
           onChange={(e) => {
-            setProject(e.target.value);
+            setSelected(e.target.value);
             localStorage.setItem(STORE_KEY, e.target.value);
           }}
           className="flex-1 min-w-0 rounded-md px-1.5 py-1 text-xs bg-[var(--surface-raised)] border border-[var(--border)]"
         >
-          {projects.map((p) => (
-            <option key={p} value={p}>
-              {p}
+          {entries.map((e) => (
+            <option key={`${e.root}/${e.name}`} value={`${e.root}/${e.name}`}>
+              {e.name}
             </option>
           ))}
         </select>

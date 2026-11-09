@@ -90,3 +90,31 @@ export type TerminalParams = {
   initCmd?: string;
   kind?: "shell" | "agent" | "server";
 };
+
+export type ConnectionType = "ydevhub" | "ynetmon" | "projects-root";
+
+export type Connection = {
+  id: string;
+  name: string;
+  type: ConnectionType;
+  url?: string;
+  key?: string;
+  path?: string;
+};
+
+export type CommandItem = { id: string; title: string; cmd: string };
+
+export type TerminalPreset = {
+  id: string;
+  title: string;
+  description: string;
+  initCmd?: string;
+  kind: "shell" | "agent" | "server";
+};
+
+export type AppSettings = {
+  connections: Connection[];
+  disabled_modules: string[];
+  quick_actions: CommandItem[];
+  terminal_presets: TerminalPreset[];
+};

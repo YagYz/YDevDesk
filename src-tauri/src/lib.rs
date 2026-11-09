@@ -568,7 +568,50 @@ async fn complete_homelab_task(url: String, key: String, id: i64) -> Result<serd
     res.json::<serde_json::Value>().await.map_err(|e| e.to_string())
 }
 
-const PROJECTS_ROOT: &str = "/mnt/Depo/Projeler";
+fn expand_home(p: &str) -> std::path::PathBuf {
+    if let Some(rest) = p.strip_prefix("~/") {
+        return dirs::home_dir().unwrap_or_default().join(rest);
+    }
+    std::path::PathBuf::from(p)
+}
+
+fn app_settings_path() -> std::path::PathBuf {
+    dirs::home_dir().unwrap_or_default().join(".config").join("ydevdesk").join("settings.json")
+}
+
+/// Kayıtlı uygulama ayarları; dosya yoksa null döner (arayüz varsayılanları üretir).
+#[tauri::command]
+fn load_app_settings() -> Option<serde_json::Value> {
+    let content = std::fs::read_to_string(app_settings_path()).ok()?;
+    serde_json::from_str(&content).ok()
+}
+
+#[tauri::command]
+fn save_app_settings(settings: serde_json::Value) -> Result<(), String> {
+    let path = app_settings_path();
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(path, serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
+}
+
+/// İlk kurulumda önerilecek proje kök dizini (yoksa boş).
+#[tauri::command]
+fn default_projects_root() -> String {
+    for c in ["/mnt/Depo/Projeler"] {
+        if std::path::Path::new(c).is_dir() {
+            return c.to_string();
+        }
+    }
+    let home = dirs::home_dir().unwrap_or_default();
+    for c in ["Projects", "projects", "dev", "src", "Projeler"] {
+        let p = home.join(c);
+        if p.is_dir() {
+            return p.to_string_lossy().to_string();
+        }
+    }
+    String::new()
+}
 
 fn run_cmd(dir: &std::path::Path, prog: &str, args: &[&str]) -> Option<String> {
     let out = std::process::Command::new(prog).args(args).current_dir(dir).output().ok()?;
@@ -579,8 +622,8 @@ fn run_cmd(dir: &std::path::Path, prog: &str, args: &[&str]) -> Option<String> {
 }
 
 #[tauri::command]
-fn list_git_projects() -> Vec<String> {
-    let mut v: Vec<String> = std::fs::read_dir(PROJECTS_ROOT)
+fn list_git_projects(root: String) -> Vec<String> {
+    let mut v: Vec<String> = std::fs::read_dir(expand_home(&root))
         .map(|rd| {
             rd.filter_map(|e| e.ok())
                 .filter(|e| e.path().join(".git").exists())
@@ -593,12 +636,12 @@ fn list_git_projects() -> Vec<String> {
 }
 
 #[tauri::command]
-async fn get_git_status(project: String) -> Result<serde_json::Value, String> {
+async fn get_git_status(root: String, project: String) -> Result<serde_json::Value, String> {
     if project.is_empty() || project.contains('/') || project.contains("..") {
         return Err("Geçersiz proje adı".into());
     }
     tauri::async_runtime::spawn_blocking(move || {
-        let dir = std::path::Path::new(PROJECTS_ROOT).join(&project);
+        let dir = expand_home(&root).join(&project);
         if !dir.join(".git").exists() {
             return Err("Git deposu bulunamadı".to_string());
         }
@@ -755,7 +798,10 @@ pub fn run() {
             create_homelab_task,
             complete_homelab_task,
             list_git_projects,
-            get_git_status
+            get_git_status,
+            load_app_settings,
+            save_app_settings,
+            default_projects_root
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

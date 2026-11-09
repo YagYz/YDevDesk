@@ -1,13 +1,16 @@
 import { Command, LayoutGrid, Plus, RotateCcw, Settings, SquareTerminal } from "lucide-react";
 import { api } from "../lib/tauri";
 import { useWorkspace } from "../context/WorkspaceContext";
-import { MODULES, TERMINAL_PRESETS } from "../panels/registry";
+import { MODULES } from "../panels/registry";
+import { useData } from "../context/DataContext";
+import { CONNECTION_TYPES, hasConnection } from "../lib/settings";
 import { Menu, MenuItem } from "./Menu";
 
 const btn = "flex items-center gap-1.5 px-2.5 h-7 rounded-lg text-[11px] text-[var(--txt-muted)] hover:text-[var(--txt-main)] hover:bg-[var(--surface-raised)] transition-colors";
 
 export function TitleBar({ onSettings }: { onSettings: () => void }) {
   const ws = useWorkspace();
+  const { settings } = useData();
   const run = (fn: () => Promise<void>) => () => fn().catch(console.error);
 
   return (
@@ -29,7 +32,7 @@ export function TitleBar({ onSettings }: { onSettings: () => void }) {
         )}
       >
         {(close) =>
-          TERMINAL_PRESETS.map((p) => (
+          settings.terminal_presets.map((p) => (
             <MenuItem
               key={p.id}
               icon={<SquareTerminal className="w-3.5 h-3.5" />}
@@ -53,16 +56,20 @@ export function TitleBar({ onSettings }: { onSettings: () => void }) {
       >
         {() => (
           <>
-            {MODULES.map((m) => (
-              <MenuItem
-                key={m.id}
-                icon={<m.icon className="w-3.5 h-3.5" />}
-                title={m.title}
-                description={m.description}
-                checked={ws.isModuleOpen(m.id)}
-                onClick={() => ws.toggleModule(m.id)}
-              />
-            ))}
+            {MODULES.filter((m) => !settings.disabled_modules.includes(m.id)).map((m) => {
+              const ok = hasConnection(settings, m.requires);
+              return (
+                <MenuItem
+                  key={m.id}
+                  icon={<m.icon className="w-3.5 h-3.5" />}
+                  title={m.title}
+                  description={ok ? m.description : `Bağlantı gerekli: ${CONNECTION_TYPES[m.requires!].label}`}
+                  checked={ws.isModuleOpen(m.id)}
+                  disabled={!ok}
+                  onClick={() => ws.toggleModule(m.id)}
+                />
+              );
+            })}
             <div className="my-1 border-t border-[var(--border)]" />
             <MenuItem icon={<RotateCcw className="w-3.5 h-3.5" />} title="Düzeni sıfırla" description="Varsayılan yerleşime dön" onClick={ws.resetLayout} />
           </>
