@@ -1,19 +1,21 @@
-import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CheckCircle2, Download, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { api } from "../lib/tauri";
 import { useData } from "../context/DataContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { Modal } from "./Modal";
 import { MODULES } from "../panels/registry";
 import { CONNECTION_TYPES, hasConnection, newId } from "../lib/settings";
-import type { AppSettings, Connection, ConnectionType } from "../types";
+import type { AppSettings, Connection, ConnectionType, UpdateCheckResult } from "../types";
 
-type Tab = "connections" | "modules" | "commands" | "notifications";
+type Tab = "connections" | "modules" | "commands" | "notifications" | "update";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "connections", label: "Bağlantılar" },
   { id: "modules", label: "Modüller" },
   { id: "commands", label: "Komutlar" },
   { id: "notifications", label: "Bildirimler" },
+  { id: "update", label: "Sürüm" },
 ];
 
 const input =
@@ -27,6 +29,43 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<Tab>("connections");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [version, setVersion] = useState("");
+  const [updateInfo, setUpdateInfo] = useState<UpdateCheckResult | null>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [installingUpdate, setInstallingUpdate] = useState(false);
+  const [updateMsg, setUpdateMsg] = useState("");
+
+  useEffect(() => {
+    api.appVersion().then(setVersion).catch(() => {});
+  }, []);
+
+  const handleCheckUpdate = async () => {
+    setCheckingUpdate(true);
+    setUpdateMsg("");
+    setError("");
+    try {
+      const info = await api.checkUpdate();
+      setUpdateInfo(info);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
+
+  const handleInstallUpdate = async () => {
+    if (!updateInfo?.asset_url) return;
+    setInstallingUpdate(true);
+    setUpdateMsg("");
+    setError("");
+    try {
+      const msg = await api.installUpdate(updateInfo.asset_url);
+      setUpdateMsg(msg);
+    } catch (e) {
+      setError(String(e));
+      setInstallingUpdate(false);
+    }
+  };
 
   const patch = (p: Partial<AppSettings>) => setDraft((d) => ({ ...d, ...p }));
 
@@ -250,6 +289,65 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 className={`${input} w-20`}
               />
             </label>
+          </div>
+        )}
+
+        {tab === "update" && (
+          <div className="space-y-3 text-xs">
+            <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2.5">
+              <div>
+                <div className="text-[11px] text-[var(--txt-muted)]">Mevcut sürüm</div>
+                <div className="font-mono text-sm font-semibold text-[var(--txt-main)]">v{version || "…"}</div>
+              </div>
+              <button
+                type="button"
+                disabled={checkingUpdate || installingUpdate}
+                onClick={handleCheckUpdate}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-xs text-[var(--txt-main)] hover:border-[var(--accent)] disabled:opacity-50"
+              >
+                {checkingUpdate ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                {checkingUpdate ? "Denetleniyor…" : "Güncellemeleri Denetle"}
+              </button>
+            </div>
+
+            {updateInfo && (
+              <div className="rounded-xl border border-[var(--border)] p-3 space-y-2.5">
+                {updateInfo.has_update ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-[var(--accent)]">Yeni sürüm mevcut: v{updateInfo.latest_version}</div>
+                        <div className="text-[10px] text-[var(--txt-dim)] font-mono">{updateInfo.asset_name}</div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={installingUpdate}
+                        onClick={handleInstallUpdate}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--accent)] text-black font-medium text-xs disabled:opacity-60"
+                      >
+                        {installingUpdate ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                        {installingUpdate ? "İndiriliyor ve kuruluyor…" : "Güncelle ve Yeniden Başlat"}
+                      </button>
+                    </div>
+                    {updateInfo.release_notes && (
+                      <div className="text-[11px] text-[var(--txt-muted)] whitespace-pre-wrap border-t border-[var(--border)] pt-2">
+                        {updateInfo.release_notes}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2 text-[var(--ok)]">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>Güncel sürümü kullanıyorsunuz (v{updateInfo.current_version}).</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {updateMsg && <p className="text-[11px] text-[var(--ok)]">{updateMsg}</p>}
+            <p className="text-[10px] text-[var(--txt-dim)]">
+              Otomatik güncelleme kapalıdır; yalnızca buradan tetiklediğinizde GitHub Releases üzerinden indirip kurar.
+            </p>
           </div>
         )}
 

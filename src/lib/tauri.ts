@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { AgentStatus, HomelabConfig } from "../types";
+import type { AgentStatus, HomelabConfig, UpdateCheckResult } from "../types";
 
 export const api = {
   loadConfig: () => invoke<HomelabConfig>("load_homelab_config"),
@@ -32,6 +32,9 @@ export const api = {
   loadAppSettings: () => invoke<any | null>("load_app_settings"),
   saveAppSettings: (settings: unknown) => invoke<void>("save_app_settings", { settings }),
   defaultProjectsRoot: () => invoke<string>("default_projects_root"),
+  appVersion: () => invoke<string>("get_app_version"),
+  checkUpdate: () => invoke<UpdateCheckResult>("check_app_update"),
+  installUpdate: (assetUrl: string) => invoke<string>("install_app_update", { assetUrl }),
   windowClose: () => invoke<void>("app_window_close"),
   windowMinimize: () => invoke<void>("app_window_minimize"),
   windowToggleMaximize: () => invoke<void>("app_window_toggle_maximize"),

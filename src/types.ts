@@ -127,3 +127,14 @@ export type AppSettings = {
   quick_actions: CommandItem[];
   terminal_presets: TerminalPreset[];
 };
+
+export type UpdateCheckResult = {
+  current_version: string;
+  latest_version: string;
+  has_update: boolean;
+  release_name: string;
+  release_notes: string;
+  html_url: string;
+  asset_name: string;
+  asset_url: string;
+};
