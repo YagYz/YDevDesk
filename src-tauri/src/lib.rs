@@ -228,7 +228,7 @@ fn start_pty(app: AppHandle, state: State<'_, TerminalState>, session_id: String
     let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
     drop(pair.slave);
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
-    let mut writer = pair.master.take_writer().map_err(|e| e.to_string())?;
+    let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
 
 
     {
@@ -326,18 +326,18 @@ fn load_homelab_config() -> HomelabConfig {
     if let Ok(content) = std::fs::read_to_string(config_path) {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) {
             return HomelabConfig {
-                ydevhub_url: v.get("api_url").and_then(|s| s.as_str()).unwrap_or("http://10.10.50.1:3080").to_string(),
+                ydevhub_url: v.get("api_url").and_then(|s| s.as_str()).unwrap_or("").to_string(),
                 ydevhub_key: v.get("api_key").and_then(|s| s.as_str()).unwrap_or("").to_string(),
-                ynetmon_url: v.get("ynetmon_url").and_then(|s| s.as_str()).unwrap_or("http://10.10.50.1:8765").to_string(),
+                ynetmon_url: v.get("ynetmon_url").and_then(|s| s.as_str()).unwrap_or("").to_string(),
                 ynetmon_key: v.get("ynetmon_key").and_then(|s| s.as_str()).unwrap_or("").to_string(),
             };
         }
     }
 
     HomelabConfig {
-        ydevhub_url: "http://10.10.50.1:3080".to_string(),
+        ydevhub_url: "".to_string(),
         ydevhub_key: "".to_string(),
-        ynetmon_url: "http://10.10.50.1:8765".to_string(),
+        ynetmon_url: "".to_string(),
         ynetmon_key: "".to_string(),
     }
 }

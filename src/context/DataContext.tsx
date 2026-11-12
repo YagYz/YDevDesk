@@ -5,9 +5,9 @@ import { deriveConfig, normalizeSettings } from "../lib/settings";
 import type { AgentStatus, AppSettings, HomelabConfig, HubStatus, Knowledge, NetworkData, Note } from "../types";
 
 const DEFAULT_CONFIG: HomelabConfig = {
-  ydevhub_url: "http://10.10.50.1:3080",
+  ydevhub_url: "",
   ydevhub_key: "",
-  ynetmon_url: "http://10.10.50.1:8765",
+  ynetmon_url: "",
   ynetmon_key: "",
 };
 
