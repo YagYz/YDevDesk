@@ -56,7 +56,7 @@ function Watermark({ containerApi }: IWatermarkPanelProps) {
       <img
         src="/logo-128.png"
         alt="YDevDesk"
-        className="w-14 h-14 rounded-2xl object-contain shadow-2xl border border-[var(--border-glow)] opacity-85 hover:opacity-100 transition-opacity"
+        className="w-20 h-20 rounded-2xl object-contain shadow-2xl border border-[var(--border-glow)] opacity-90 hover:opacity-100 transition-opacity"
       />
       <div className="text-xs font-medium text-[var(--txt-muted)]">Açık panel yok</div>
       <button

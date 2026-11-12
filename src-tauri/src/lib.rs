@@ -1281,14 +1281,14 @@ fn app_window_toggle_maximize(window: tauri::Window) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let mut context = tauri::generate_context!();
-    let icon_bytes = include_bytes!("../icons/128x128.png");
+    let icon_bytes = include_bytes!("../icons/icon.png");
     if let Ok(icon) = tauri::image::Image::from_bytes(icon_bytes) {
         context.set_default_window_icon(Some(icon));
     }
 
     tauri::Builder::default()
         .setup(|app| {
-            let icon_bytes = include_bytes!("../icons/128x128.png");
+            let icon_bytes = include_bytes!("../icons/icon.png");
             if let Ok(icon) = tauri::image::Image::from_bytes(icon_bytes) {
                 for (_label, window) in app.webview_windows() {
                     let _ = window.set_icon(icon.clone());
