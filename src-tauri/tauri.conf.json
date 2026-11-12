@@ -5,7 +5,7 @@
   "identifier": "com.yagyz.ydevdesk",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:1420",
+    "devUrl": "http://127.0.0.1:1420",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
@@ -18,7 +18,7 @@
         "minWidth": 1024,
         "minHeight": 640,
         "decorations": false,
-        "transparent": true,
+        "transparent": false,
         "dragDropEnabled": false
       }
     ],
