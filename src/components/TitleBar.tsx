@@ -1,4 +1,5 @@
-import { Command, LayoutGrid, Plus, RotateCcw, Settings, SquareTerminal } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Bot, Command, LayoutGrid, Plus, RotateCcw, Settings, SquareTerminal } from "lucide-react";
 import { api } from "../lib/tauri";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { MODULES } from "../panels/registry";
@@ -11,6 +12,8 @@ const btn = "flex items-center gap-1.5 px-2.5 h-7 rounded-lg text-[11px] text-[v
 export function TitleBar({ onSettings }: { onSettings: () => void }) {
   const ws = useWorkspace();
   const { settings } = useData();
+  const [version, setVersion] = useState("");
+  useEffect(() => { api.appVersion().then(setVersion).catch(() => {}); }, []);
   const run = (fn: () => Promise<void>) => () => fn().catch(console.error);
 
   return (
@@ -20,9 +23,21 @@ export function TitleBar({ onSettings }: { onSettings: () => void }) {
         <button onClick={run(api.windowMinimize)} className="w-3 h-3 rounded-full bg-[#febc2e] hover:brightness-125" title="Küçült" />
         <button onClick={run(api.windowToggleMaximize)} className="w-3 h-3 rounded-full bg-[#28c840] hover:brightness-125" title="Büyüt" />
       </div>
-      <span data-tauri-drag-region className="text-xs font-semibold tracking-wide text-[var(--txt-main)] pr-2">
-        YDev<span className="text-[var(--accent)]">Desk</span>
-      </span>
+      <div className="flex items-center gap-1.5 mr-0.5 select-none" data-tauri-drag-region>
+        <img src="/logo.png" alt="YDevDesk" className="w-4 h-4 rounded object-contain shadow-sm" />
+        <span className="text-xs font-semibold tracking-wide text-[var(--txt-main)]">
+          YDev<span className="text-[var(--accent)]">Desk</span>
+        </span>
+      </div>
+      {version && (
+        <button
+          onClick={onSettings}
+          title="Sürüm ve güncelleme kontrolü"
+          className="px-1.5 py-0.5 mr-1 rounded text-[10px] font-mono text-[var(--txt-muted)] bg-[var(--surface-raised)] border border-[var(--border)] hover:border-[var(--accent)]/50 hover:text-[var(--accent)] transition-colors"
+        >
+          v{version}
+        </button>
+      )}
 
       <Menu
         trigger={() => (
@@ -75,6 +90,14 @@ export function TitleBar({ onSettings }: { onSettings: () => void }) {
           </>
         )}
       </Menu>
+
+      <button
+        onClick={ws.openAgentSetup}
+        className={btn}
+        title="Ajan ve CLI kurulum sihirbazı (AGY, Claude Code, Codex)"
+      >
+        <Bot className="w-3.5 h-3.5 text-[var(--accent)]" /> Ajanlar
+      </button>
 
       <div data-tauri-drag-region className="flex-1 h-full" />
 

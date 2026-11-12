@@ -1,10 +1,12 @@
-import { Bot } from "lucide-react";
+import { Bot, Wrench } from "lucide-react";
+import { useWorkspace } from "../context/WorkspaceContext";
 import { useData } from "../context/DataContext";
 import { formatTokens } from "../lib/format";
 import { Bar, Dot, PanelBody, Stat } from "../components/ui";
 
 export default function AgentUsagePanel() {
   const { agent } = useData();
+  const ws = useWorkspace();
   const working = agent.agent_state === "working";
   const quotaTone = (p: number) => (p < 15 ? "warn" : "ok");
   return (
@@ -16,6 +18,13 @@ export default function AgentUsagePanel() {
           <Dot tone={working ? "ok" : "idle"} />
           {working ? "çalışıyor" : "boşta"}
         </span>
+        <button
+          onClick={ws.openAgentSetup}
+          title="Ajan ve CLI kurulum sihirbazını aç"
+          className="p-1 rounded-md text-[var(--txt-dim)] hover:text-[var(--accent)] hover:bg-[var(--surface-raised)] transition-colors"
+        >
+          <Wrench className="w-3.5 h-3.5" />
+        </button>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <Stat label="Girdi" value={formatTokens(agent.total_input_tokens)} sub="token" />

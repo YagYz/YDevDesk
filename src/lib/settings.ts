@@ -34,6 +34,9 @@ export const DEFAULT_QUICK_ACTIONS: CommandItem[] = [
 
 export const DEFAULT_TERMINAL_PRESETS: TerminalPreset[] = [
   { id: "shell", title: "Terminal", description: "Yerel kabuk", kind: "shell" },
+  { id: "claude", title: "Claude Code", description: "Anthropic Claude CLI", initCmd: "claude", kind: "agent" },
+  { id: "agy", title: "Antigravity (AGY)", description: "Google Antigravity CLI", initCmd: "agy", kind: "agent" },
+  { id: "codex", title: "OpenAI Codex", description: "OpenAI Codex CLI", initCmd: "codex", kind: "agent" },
 ];
 
 export const DEFAULT_NOTIFICATIONS: NotificationSettings = {

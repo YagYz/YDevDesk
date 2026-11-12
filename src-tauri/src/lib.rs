@@ -74,6 +74,115 @@ pub struct AgentStatus {
     pub recent_tools: Vec<RecentToolCall>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AgentCliInfo {
+    pub id: String,
+    pub name: String,
+    pub binary: String,
+    pub npm_package: Option<String>,
+    pub is_installed: bool,
+    pub version: Option<String>,
+    pub path: Option<String>,
+    pub description: String,
+    pub install_cmd: String,
+    pub bypass_cmd: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AgentEnvironmentStatus {
+    pub node_installed: bool,
+    pub node_version: Option<String>,
+    pub npm_installed: bool,
+    pub npm_version: Option<String>,
+    pub agents: Vec<AgentCliInfo>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AgentInstallResult {
+    pub success: bool,
+    pub agent_id: String,
+    pub message: String,
+    pub output: String,
+}
+
+pub fn get_enhanced_path() -> String {
+    let current_path = std::env::var("PATH").unwrap_or_default();
+    let home = dirs::home_dir().unwrap_or_default();
+    let candidates = [
+        std::path::PathBuf::from("/usr/local/bin"),
+        std::path::PathBuf::from("/usr/bin"),
+        std::path::PathBuf::from("/bin"),
+        std::path::PathBuf::from("/opt/claude-code/bin"),
+        std::path::PathBuf::from("/opt/Antigravity"),
+        std::path::PathBuf::from("/opt/homebrew/bin"),
+        home.join(".local").join("bin"),
+        home.join(".npm-global").join("bin"),
+        home.join(".cargo").join("bin"),
+        home.join(".nvm").join("current").join("bin"),
+        std::path::PathBuf::from("/usr/local/sbin"),
+        std::path::PathBuf::from("/usr/sbin"),
+        std::path::PathBuf::from("/sbin"),
+    ];
+
+    let mut parts: Vec<String> = Vec::new();
+    for c in &candidates {
+        if c.exists() {
+            let s = c.to_string_lossy().to_string();
+            if !parts.contains(&s) {
+                parts.push(s);
+            }
+        }
+    }
+    for p in current_path.split(':') {
+        if !p.is_empty() && !parts.contains(&p.to_string()) {
+            parts.push(p.to_string());
+        }
+    }
+    parts.join(":")
+}
+
+fn find_binary(name: &str) -> Option<std::path::PathBuf> {
+    let full_path = get_enhanced_path();
+    for dir in full_path.split(':') {
+        let p = std::path::Path::new(dir).join(name);
+        if p.is_file() {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                if let Ok(meta) = p.metadata() {
+                    if meta.permissions().mode() & 0o111 != 0 {
+                        return Some(p);
+                    }
+                }
+            }
+            #[cfg(not(unix))]
+            return Some(p);
+        }
+    }
+    None
+}
+
+fn get_binary_version(bin: &std::path::Path, args: &[&str]) -> Option<String> {
+    let out = std::process::Command::new(bin)
+        .args(args)
+        .env("PATH", get_enhanced_path())
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if s.is_empty() {
+        let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
+        if !err.is_empty() {
+            return Some(err.lines().next().unwrap_or(&err).trim().to_string());
+        }
+        return None;
+    }
+    let first_line = s.lines().next().unwrap_or(&s).trim().to_string();
+    Some(first_line)
+}
+
 // 1. Çoklu PTY Başlatma (macOS ve Linux uyumlu terminal oturumu). Aynı oturum için tekrar çağrı güvenlidir.
 #[tauri::command]
 fn start_pty(app: AppHandle, state: State<'_, TerminalState>, session_id: String, cols: u16, rows: u16, init_cmd: Option<String>) -> Result<(), String> {
@@ -105,20 +214,22 @@ fn start_pty(app: AppHandle, state: State<'_, TerminalState>, session_id: String
     let mut cmd = CommandBuilder::new(&shell);
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
+    cmd.env("PATH", get_enhanced_path());
 
     if let Some(home) = dirs::home_dir() {
         cmd.cwd(home);
     }
 
+    if let Some(initial_command) = &init_cmd {
+        cmd.arg("-c");
+        cmd.arg(format!("{}; exec {}", initial_command, shell));
+    }
+
     let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
     drop(pair.slave);
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
-    let mut writer = pair.master.take_writer().map_err(|e| e.to_string())?;
+    let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
 
-    if let Some(initial_command) = init_cmd {
-        let _ = writer.write_all(format!("{}\r", initial_command).as_bytes());
-        let _ = writer.flush();
-    }
 
     {
         let mut sessions = state.sessions.lock().map_err(|e| e.to_string())?;
@@ -215,18 +326,18 @@ fn load_homelab_config() -> HomelabConfig {
     if let Ok(content) = std::fs::read_to_string(config_path) {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) {
             return HomelabConfig {
-                ydevhub_url: v.get("api_url").and_then(|s| s.as_str()).unwrap_or("http://10.10.50.1:3080").to_string(),
+                ydevhub_url: v.get("api_url").and_then(|s| s.as_str()).unwrap_or("").to_string(),
                 ydevhub_key: v.get("api_key").and_then(|s| s.as_str()).unwrap_or("").to_string(),
-                ynetmon_url: v.get("ynetmon_url").and_then(|s| s.as_str()).unwrap_or("http://10.10.50.1:8765").to_string(),
+                ynetmon_url: v.get("ynetmon_url").and_then(|s| s.as_str()).unwrap_or("").to_string(),
                 ynetmon_key: v.get("ynetmon_key").and_then(|s| s.as_str()).unwrap_or("").to_string(),
             };
         }
     }
 
     HomelabConfig {
-        ydevhub_url: "http://10.10.50.1:3080".to_string(),
+        ydevhub_url: "".to_string(),
         ydevhub_key: "".to_string(),
-        ynetmon_url: "http://10.10.50.1:8765".to_string(),
+        ynetmon_url: "".to_string(),
         ynetmon_key: "".to_string(),
     }
 }
@@ -752,6 +863,394 @@ async fn create_homelab_knowledge(url: String, key: String, service_tag: String,
     Ok(json)
 }
 
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct UpdateCheckResult {
+    pub current_version: String,
+    pub latest_version: String,
+    pub has_update: bool,
+    pub release_name: String,
+    pub release_notes: String,
+    pub html_url: String,
+    pub asset_name: String,
+    pub asset_url: String,
+}
+
+fn parse_semver(v: &str) -> (u64, u64, u64) {
+    let clean = v.trim().trim_start_matches('v');
+    let mut parts = clean.split(|c: char| !c.is_ascii_digit());
+    let major = parts.next().and_then(|x| x.parse().ok()).unwrap_or(0);
+    let minor = parts.next().and_then(|x| x.parse().ok()).unwrap_or(0);
+    let patch = parts.next().and_then(|x| x.parse().ok()).unwrap_or(0);
+    (major, minor, patch)
+}
+
+fn target_asset_suffix() -> &'static str {
+    if cfg!(target_os = "macos") {
+        if cfg!(target_arch = "aarch64") {
+            "aarch64.app.tar.gz"
+        } else {
+            "x64.app.tar.gz"
+        }
+    } else {
+        "amd64.AppImage"
+    }
+}
+
+#[tauri::command]
+fn get_app_version() -> String {
+    env!("CARGO_PKG_VERSION").to_string()
+}
+
+#[tauri::command]
+async fn check_app_update() -> Result<UpdateCheckResult, String> {
+    let current = env!("CARGO_PKG_VERSION").to_string();
+    let client = reqwest::Client::builder()
+        .user_agent("YDevDesk-Updater")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let res = client
+        .get("https://api.github.com/repos/YagYz/YDevDesk/releases?per_page=5")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !res.status().is_success() {
+        return Err(format!("GitHub API HTTP {}", res.status()));
+    }
+
+    let releases = res.json::<Vec<serde_json::Value>>().await.map_err(|e| e.to_string())?;
+    let suffix = target_asset_suffix();
+
+    // Henüz asset'i yüklenmiş en güncel sürümü bul
+    for rel in &releases {
+        if rel.get("draft").and_then(|b| b.as_bool()).unwrap_or(false) {
+            continue;
+        }
+        let tag = rel.get("tag_name").and_then(|s| s.as_str()).unwrap_or("");
+        if tag.is_empty() {
+            continue;
+        }
+        let mut asset_name = String::new();
+        let mut asset_url = String::new();
+        if let Some(assets) = rel.get("assets").and_then(|a| a.as_array()) {
+            for a in assets {
+                let name = a.get("name").and_then(|s| s.as_str()).unwrap_or("");
+                if name.ends_with(suffix) {
+                    asset_name = name.to_string();
+                    asset_url = a.get("browser_download_url").and_then(|s| s.as_str()).unwrap_or("").to_string();
+                    break;
+                }
+            }
+        }
+        if asset_url.is_empty() {
+            continue;
+        }
+        let latest = tag.trim_start_matches('v').to_string();
+        let has_update = parse_semver(&latest) > parse_semver(&current);
+        return Ok(UpdateCheckResult {
+            current_version: current,
+            latest_version: latest,
+            has_update,
+            release_name: rel.get("name").and_then(|s| s.as_str()).unwrap_or(tag).to_string(),
+            release_notes: rel.get("body").and_then(|s| s.as_str()).unwrap_or("").to_string(),
+            html_url: rel.get("html_url").and_then(|s| s.as_str()).unwrap_or("").to_string(),
+            asset_name,
+            asset_url,
+        });
+    }
+
+    Ok(UpdateCheckResult {
+        current_version: current.clone(),
+        latest_version: current,
+        has_update: false,
+        release_name: String::new(),
+        release_notes: String::new(),
+        html_url: String::new(),
+        asset_name: String::new(),
+        asset_url: String::new(),
+    })
+}
+
+#[tauri::command]
+async fn install_app_update(app: AppHandle, asset_url: String) -> Result<String, String> {
+    if asset_url.is_empty() {
+        return Err("İndirme adresi boş".into());
+    }
+    let client = reqwest::Client::builder()
+        .user_agent("YDevDesk-Updater")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let res = client.get(&asset_url).send().await.map_err(|e| e.to_string())?;
+    if !res.status().is_success() {
+        return Err(format!("İndirme başarısız: HTTP {}", res.status()));
+    }
+    let bytes = res.bytes().await.map_err(|e| e.to_string())?;
+
+    #[cfg(target_os = "macos")]
+    {
+        let tmp_tar = std::env::temp_dir().join("ydevdesk_update.app.tar.gz");
+        std::fs::write(&tmp_tar, &bytes).map_err(|e| e.to_string())?;
+
+        // Çalışan .app dizinini bul (yoksa /Applications/ydevdesk.app)
+        let app_bundle = std::env::current_exe()
+            .ok()
+            .and_then(|p| {
+                p.ancestors()
+                    .find(|a| a.extension().and_then(|e| e.to_str()) == Some("app"))
+                    .map(|a| a.to_path_buf())
+            })
+            .unwrap_or_else(|| std::path::PathBuf::from("/Applications/ydevdesk.app"));
+
+        let install_dir = app_bundle
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| std::path::PathBuf::from("/Applications"));
+
+        let status = std::process::Command::new("tar")
+            .args(["-xzf", &tmp_tar.to_string_lossy(), "-C", &install_dir.to_string_lossy()])
+            .status()
+            .map_err(|e| e.to_string())?;
+        let _ = std::fs::remove_file(&tmp_tar);
+        if !status.success() {
+            return Err("Arşiv çıkartılamadı".into());
+        }
+
+        let _ = std::process::Command::new("xattr")
+            .args(["-cr", &app_bundle.to_string_lossy()])
+            .status();
+
+        // Yeni sürümü başlat ve mevcut süreci kapat
+        let _ = std::process::Command::new("open")
+            .args(["-n", &app_bundle.to_string_lossy()])
+            .spawn();
+        app.exit(0);
+        return Ok("Güncellendi, yeniden başlatılıyor…".into());
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        if let Ok(appimage_path) = std::env::var("APPIMAGE") {
+            use std::os::unix::fs::PermissionsExt;
+            let target = std::path::PathBuf::from(&appimage_path);
+            let tmp = target.with_extension("AppImage.new");
+            std::fs::write(&tmp, &bytes).map_err(|e| e.to_string())?;
+            std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o755)).map_err(|e| e.to_string())?;
+            std::fs::rename(&tmp, &target).map_err(|e| e.to_string())?;
+            let _ = std::process::Command::new(&target).spawn();
+            app.exit(0);
+            return Ok("AppImage güncellendi, yeniden başlatılıyor…".into());
+        } else {
+            use std::os::unix::fs::PermissionsExt;
+            let dl_dir = dirs::download_dir()
+                .or_else(dirs::home_dir)
+                .unwrap_or_else(std::env::temp_dir);
+            let out = dl_dir.join("ydevdesk-latest.AppImage");
+            std::fs::write(&out, &bytes).map_err(|e| e.to_string())?;
+            let _ = std::fs::set_permissions(&out, std::fs::Permissions::from_mode(0o755));
+            return Ok(format!("Yeni sürüm indirildi: {}", out.display()));
+        }
+    }
+}
+
+#[tauri::command]
+fn check_agent_environment() -> Result<AgentEnvironmentStatus, String> {
+    let node_bin = find_binary("node");
+    let node_installed = node_bin.is_some();
+    let node_version = node_bin.as_deref().and_then(|p| get_binary_version(p, &["-v"]));
+
+    let npm_bin = find_binary("npm");
+    let npm_installed = npm_bin.is_some();
+    let npm_version = npm_bin.as_deref().and_then(|p| get_binary_version(p, &["-v"]));
+
+    let mut agents = Vec::new();
+
+    // 1. Google Antigravity (AGY)
+    let agy_bin = find_binary("agy").or_else(|| find_binary("antigravity"));
+    let agy_installed = agy_bin.is_some();
+    let agy_version = agy_bin.as_deref().and_then(|p| get_binary_version(p, &["--version"]));
+    let agy_path = agy_bin.map(|p| p.to_string_lossy().to_string());
+    agents.push(AgentCliInfo {
+        id: "agy".into(),
+        name: "Google Antigravity (AGY)".into(),
+        binary: "agy".into(),
+        npm_package: None,
+        is_installed: agy_installed,
+        version: agy_version,
+        path: agy_path,
+        description: "Google'un agentic platform CLI'ı, Zettelkasten hafıza ve araç yürütme çekirdeği.".into(),
+        install_cmd: "curl -fsSL https://antigravity.google/product/antigravity-cli/install.sh | bash".into(),
+        bypass_cmd: Some("agy --dangerously-skip-permissions".into()),
+    });
+
+    // 2. Anthropic Claude Code
+    let claude_bin = find_binary("claude");
+    let claude_installed = claude_bin.is_some();
+    let claude_version = claude_bin.as_deref().and_then(|p| get_binary_version(p, &["--version"]));
+    let claude_path = claude_bin.map(|p| p.to_string_lossy().to_string());
+    agents.push(AgentCliInfo {
+        id: "claude".into(),
+        name: "Anthropic Claude Code".into(),
+        binary: "claude".into(),
+        npm_package: Some("@anthropic-ai/claude-code".into()),
+        is_installed: claude_installed,
+        version: claude_version,
+        path: claude_path,
+        description: "Anthropic Claude Code terminal kodlama ve proje mimarisi ajanı.".into(),
+        install_cmd: "npm install -g @anthropic-ai/claude-code".into(),
+        bypass_cmd: Some("claude --dangerously-skip-permissions".into()),
+    });
+
+    // 3. OpenAI Codex CLI
+    let codex_bin = find_binary("codex");
+    let codex_installed = codex_bin.is_some();
+    let codex_version = codex_bin.as_deref().and_then(|p| get_binary_version(p, &["--version"]));
+    let codex_path = codex_bin.map(|p| p.to_string_lossy().to_string());
+    agents.push(AgentCliInfo {
+        id: "codex".into(),
+        name: "OpenAI Codex CLI".into(),
+        binary: "codex".into(),
+        npm_package: Some("@openai/codex".into()),
+        is_installed: codex_installed,
+        version: codex_version,
+        path: codex_path,
+        description: "OpenAI Codex CLI yerel kodlama ve komut satırı ajanı.".into(),
+        install_cmd: "npm install -g @openai/codex".into(),
+        bypass_cmd: Some("codex --dangerously-bypass-approvals-and-run-code".into()),
+    });
+
+    Ok(AgentEnvironmentStatus {
+        node_installed,
+        node_version,
+        npm_installed,
+        npm_version,
+        agents,
+    })
+}
+
+#[tauri::command]
+fn install_agent_cli(agent_id: String) -> Result<AgentInstallResult, String> {
+    let enhanced_path = get_enhanced_path();
+    let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("/tmp"));
+
+    match agent_id.as_str() {
+        "claude" => {
+            if let Some(bin) = find_binary("claude") {
+                if let Some(ver) = get_binary_version(&bin, &["--version"]) {
+                    return Ok(AgentInstallResult {
+                        success: true,
+                        agent_id: "claude".into(),
+                        message: format!("Claude Code zaten kurulu ve aktif ({})", ver),
+                        output: format!("Konum: {}", bin.display()),
+                    });
+                }
+            }
+
+            // Claude native installer betiğini çalıştır
+            let out = std::process::Command::new("sh")
+                .args(["-c", "curl -fsSL https://claude.ai/install.sh | bash"])
+                .env("PATH", &enhanced_path)
+                .output()
+                .map_err(|e| format!("Claude kurulum betiği çalıştırılamadı: {}", e))?;
+
+            let output_str = format!("{}
+{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+            if let Some(bin) = find_binary("claude") {
+                let ver = get_binary_version(&bin, &["--version"]).unwrap_or_else(|| "kuruldu".into());
+                Ok(AgentInstallResult {
+                    success: true,
+                    agent_id: "claude".into(),
+                    message: format!("Claude Code başarıyla kuruldu ({})", ver),
+                    output: output_str,
+                })
+            } else {
+                Err(format!("Claude Code kurulumu tamamlandı fakat ikili dosya doğrulanamadı:
+{}", output_str))
+            }
+        }
+        "codex" => {
+            if let Some(bin) = find_binary("codex") {
+                if let Some(ver) = get_binary_version(&bin, &["--version"]) {
+                    return Ok(AgentInstallResult {
+                        success: true,
+                        agent_id: "codex".into(),
+                        message: format!("OpenAI Codex CLI zaten kurulu ve aktif ({})", ver),
+                        output: format!("Konum: {}", bin.display()),
+                    });
+                }
+            }
+
+            let npm_bin = find_binary("npm").ok_or_else(|| "Sistemde npm bulunamadı. Lütfen önce Node.js ve npm kurun.".to_string())?;
+            let local_prefix = home.join(".local");
+            let _ = std::fs::create_dir_all(local_prefix.join("bin"));
+
+            let out = std::process::Command::new(&npm_bin)
+                .args(["install", "-g", "--prefix", &local_prefix.to_string_lossy(), "@openai/codex"])
+                .env("PATH", &enhanced_path)
+                .output()
+                .map_err(|e| format!("npm çalıştırılamadı: {}", e))?;
+
+            let combined = format!("{}
+{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+            if let Some(bin) = find_binary("codex") {
+                let ver = get_binary_version(&bin, &["--version"]).unwrap_or_else(|| "kuruldu".into());
+                Ok(AgentInstallResult {
+                    success: true,
+                    agent_id: "codex".into(),
+                    message: format!("OpenAI Codex CLI başarıyla kuruldu ({})", ver),
+                    output: combined,
+                })
+            } else if out.status.success() {
+                Ok(AgentInstallResult {
+                    success: true,
+                    agent_id: "codex".into(),
+                    message: "Codex kuruldu. Terminal yeniden başlatıldığında kullanılabilir.".into(),
+                    output: combined,
+                })
+            } else {
+                Err(format!("Codex kurulumu başarısız:
+{}", combined))
+            }
+        }
+        "agy" => {
+            let agy_bin = find_binary("agy").or_else(|| find_binary("antigravity"));
+            if let Some(bin) = agy_bin {
+                let ver = get_binary_version(&bin, &["--version"]).unwrap_or_else(|| "bilinmiyor".into());
+                return Ok(AgentInstallResult {
+                    success: true,
+                    agent_id: "agy".into(),
+                    message: format!("Google Antigravity zaten kurulu ({})", ver),
+                    output: format!("Konum: {}", bin.display()),
+                });
+            }
+
+            let out = std::process::Command::new("sh")
+                .args(["-c", "curl -fsSL https://antigravity.google/product/antigravity-cli/install.sh | bash"])
+                .env("PATH", &enhanced_path)
+                .output()
+                .map_err(|e| format!("Kurulum betiği çalıştırılamadı: {}", e))?;
+
+            let output_str = format!("{}
+{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+            let verified = find_binary("agy").or_else(|| find_binary("antigravity"));
+            if verified.is_some() {
+                Ok(AgentInstallResult {
+                    success: true,
+                    agent_id: "agy".into(),
+                    message: "Google Antigravity (AGY) başarıyla kuruldu.".into(),
+                    output: output_str,
+                })
+            } else {
+                Err(format!("AGY kurulum betiği tamamlandı ancak ikili dosya doğrulanamadı.
+{}", output_str))
+            }
+        }
+        _ => Err(format!("Bilinmeyen ajan: {}", agent_id)),
+    }
+}
+
 #[tauri::command]
 fn app_window_close(window: tauri::Window) -> Result<(), String> {
     window.close().map_err(|e| e.to_string())
@@ -764,10 +1263,18 @@ fn app_window_minimize(window: tauri::Window) -> Result<(), String> {
 
 #[tauri::command]
 fn app_window_toggle_maximize(window: tauri::Window) -> Result<(), String> {
-    if window.is_maximized().unwrap_or(false) {
-        window.unmaximize().map_err(|e| e.to_string())
-    } else {
-        window.maximize().map_err(|e| e.to_string())
+    #[cfg(target_os = "macos")]
+    {
+        let is_fs = window.is_fullscreen().unwrap_or(false);
+        window.set_fullscreen(!is_fs).map_err(|e| e.to_string())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        if window.is_maximized().unwrap_or(false) {
+            window.unmaximize().map_err(|e| e.to_string())
+        } else {
+            window.maximize().map_err(|e| e.to_string())
+        }
     }
 }
 
@@ -802,7 +1309,12 @@ pub fn run() {
             get_git_status,
             load_app_settings,
             save_app_settings,
-            default_projects_root
+            default_projects_root,
+            get_app_version,
+            check_app_update,
+            install_app_update,
+            check_agent_environment,
+            install_agent_cli
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

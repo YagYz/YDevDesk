@@ -2,12 +2,15 @@ import { useEffect, useState } from "react";
 import { useData } from "../context/DataContext";
 import { formatClock, formatSpeed } from "../lib/format";
 import { Dot } from "./ui";
+import { api } from "../lib/tauri";
 
 export function StatusBar() {
   const { agent, network, hubStatus } = useData();
   const [clock, setClock] = useState(() => formatClock(new Date()));
+  const [version, setVersion] = useState("");
 
   useEffect(() => {
+    api.appVersion().then(setVersion).catch(() => {});
     const id = setInterval(() => setClock(formatClock(new Date())), 1000);
     return () => clearInterval(id);
   }, []);
@@ -28,6 +31,7 @@ export function StatusBar() {
         <Dot tone={netTone} /> YNetMon{network.status === "live" ? ` ↓${formatSpeed(network.rx_bps)} ↑${formatSpeed(network.tx_bps)}` : ""}
       </span>
       <span className="shrink-0">{agent.active_sessions_count} oturum</span>
+      {version && <span className="shrink-0 text-[var(--txt-dim)]">v{version}</span>}
       <span className="shrink-0 text-[var(--txt-main)]">{clock}</span>
     </footer>
   );

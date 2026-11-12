@@ -11,6 +11,7 @@ export type WorkspaceActions = {
   resetLayout: () => void;
   openKnowledge: (kb: Knowledge) => void;
   openOmniBar: () => void;
+  openAgentSetup: () => void;
 };
 
 export const WorkspaceContext = createContext<WorkspaceActions | null>(null);

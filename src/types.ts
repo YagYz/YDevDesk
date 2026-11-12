@@ -127,3 +127,42 @@ export type AppSettings = {
   quick_actions: CommandItem[];
   terminal_presets: TerminalPreset[];
 };
+
+export type UpdateCheckResult = {
+  current_version: string;
+  latest_version: string;
+  has_update: boolean;
+  release_name: string;
+  release_notes: string;
+  html_url: string;
+  asset_name: string;
+  asset_url: string;
+};
+
+export type AgentCliInfo = {
+  id: string;
+  name: string;
+  binary: string;
+  npm_package?: string | null;
+  is_installed: boolean;
+  version?: string | null;
+  path?: string | null;
+  description: string;
+  install_cmd: string;
+  bypass_cmd?: string | null;
+};
+
+export type AgentEnvironmentStatus = {
+  node_installed: boolean;
+  node_version?: string | null;
+  npm_installed: boolean;
+  npm_version?: string | null;
+  agents: AgentCliInfo[];
+};
+
+export type AgentInstallResult = {
+  success: boolean;
+  agent_id: string;
+  message: string;
+  output: string;
+};

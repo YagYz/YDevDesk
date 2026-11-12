@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DockviewReact, type DockviewApi, type DockviewReadyEvent, type IDockviewHeaderActionsProps, type IWatermarkPanelProps } from "dockview-react";
-import { Maximize2, Minimize2, Plus, SquareTerminal } from "lucide-react";
+import { Maximize2, Minimize2, Plus } from "lucide-react";
 import { WorkspaceContext, type WorkspaceActions } from "./context/WorkspaceContext";
 import { terminalManager } from "./lib/terminalManager";
 import { DOCK_COMPONENTS, TERMINAL_COMPONENT } from "./panels/registry";
@@ -9,6 +9,8 @@ import { TitleBar } from "./components/TitleBar";
 import { StatusBar } from "./components/StatusBar";
 import { OmniBar } from "./components/OmniBar";
 import { SettingsModal } from "./components/SettingsModal";
+import { AgentSetupModal } from "./components/AgentSetupModal";
+import { api } from "./lib/tauri";
 import { KnowledgeModal } from "./components/KnowledgeModal";
 import type { Knowledge } from "./types";
 
@@ -51,15 +53,19 @@ function HeaderActions({ containerApi, group, panels }: IDockviewHeaderActionsPr
 function Watermark({ containerApi }: IWatermarkPanelProps) {
   return (
     <div className="h-full w-full flex flex-col items-center justify-center gap-3 text-[var(--txt-dim)]">
-      <SquareTerminal className="w-8 h-8" />
-      <div className="text-xs">Açık panel yok</div>
+      <img
+        src="/logo-128.png"
+        alt="YDevDesk"
+        className="w-14 h-14 rounded-2xl object-contain shadow-2xl border border-[var(--border-glow)] opacity-85 hover:opacity-100 transition-opacity"
+      />
+      <div className="text-xs font-medium text-[var(--txt-muted)]">Açık panel yok</div>
       <button
-        className="px-3 py-1.5 rounded-lg text-xs bg-[var(--accent)] text-black font-medium"
+        className="px-3.5 py-1.5 rounded-lg text-xs bg-[var(--accent)] text-black font-semibold hover:brightness-110 transition-all shadow"
         onClick={() =>
           containerApi.addPanel({ id: newTerminalId(), component: TERMINAL_COMPONENT, title: "Terminal", params: { kind: "shell" }, renderer: "always" })
         }
       >
-        Yeni terminal
+        Yeni Terminal
       </button>
     </div>
   );
@@ -72,6 +78,7 @@ export default function Workspace() {
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
   const [showOmni, setShowOmni] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showAgentSetup, setShowAgentSetup] = useState(false);
   const [knowledgeItem, setKnowledgeItem] = useState<Knowledge | null>(null);
 
   const syncOpen = useCallback(() => {
@@ -184,6 +191,20 @@ export default function Workspace() {
   }, []);
 
   useEffect(() => () => window.clearTimeout(saveTimer.current), []);
+  // İlk açılışta eksik ajan kontrolü ve karşılama sihirbazı
+  useEffect(() => {
+    const hide = localStorage.getItem("ydevdesk_hide_agent_setup_on_launch") === "true";
+    if (!hide) {
+      api.checkAgentEnvironment()
+        .then((env) => {
+          if (env.agents.some((a) => !a.is_installed)) {
+            setShowAgentSetup(true);
+          }
+        })
+        .catch(console.error);
+    }
+  }, []);
+
 
   const actions = useMemo<WorkspaceActions>(
     () => ({
@@ -194,6 +215,7 @@ export default function Workspace() {
       resetLayout,
       openKnowledge: setKnowledgeItem,
       openOmniBar: () => setShowOmni(true),
+      openAgentSetup: () => setShowAgentSetup(true),
     }),
     [openTerminal, runInTerminal, toggleModule, openIds, resetLayout],
   );
@@ -216,6 +238,7 @@ export default function Workspace() {
       </div>
       {showOmni && <OmniBar onClose={() => setShowOmni(false)} />}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showAgentSetup && <AgentSetupModal onClose={() => setShowAgentSetup(false)} />}
       {knowledgeItem && <KnowledgeModal item={knowledgeItem} onClose={() => setKnowledgeItem(null)} />}
     </WorkspaceContext.Provider>
   );
