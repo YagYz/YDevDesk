@@ -317,7 +317,7 @@ export function AgentSetupModal({ onClose }: { onClose: () => void }) {
     <Modal
       title={
         <div className="flex items-center gap-2">
-          <img src="/logo.png" alt="YDevDesk" className="w-4 h-4 rounded object-contain shadow" />
+          <img src="/logo.png" alt="YDevDesk" className="w-5 h-5 rounded-md object-contain shadow" />
           <span>Ajan Yönetim & Kurulum Merkezi</span>
         </div>
       }

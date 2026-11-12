@@ -24,7 +24,7 @@ export function TitleBar({ onSettings }: { onSettings: () => void }) {
         <button onClick={run(api.windowToggleMaximize)} className="w-3 h-3 rounded-full bg-[#28c840] hover:brightness-125" title="Büyüt" />
       </div>
       <div className="flex items-center gap-1.5 mr-0.5 select-none" data-tauri-drag-region>
-        <img src="/logo.png" alt="YDevDesk" className="w-4 h-4 rounded object-contain shadow-sm" />
+        <img src="/logo.png" alt="YDevDesk" className="w-6 h-6 rounded-md object-contain shadow-sm" />
         <span className="text-xs font-semibold tracking-wide text-[var(--txt-main)]">
           YDev<span className="text-[var(--accent)]">Desk</span>
         </span>
