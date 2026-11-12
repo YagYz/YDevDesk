@@ -1,6 +1,6 @@
 # Maintainer: YagYz <https://github.com/YagYz>
 pkgname=ydevdesk-bin
-pkgver=0.2.2
+pkgver=0.2.3
 pkgrel=1
 pkgdesc="YDevDesk — Homelab & Multi-Agent Desktop Command Center"
 arch=('x86_64')
