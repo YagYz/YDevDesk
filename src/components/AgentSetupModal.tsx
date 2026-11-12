@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  ChevronDown,
-  ChevronRight,
+  Bot,
+  Cpu,
   Download,
   Loader2,
   Play,
   RefreshCw,
-  Terminal,
+  Sparkles,
+  SquareTerminal,
 } from "lucide-react";
 import { api } from "../lib/tauri";
 import { useWorkspace } from "../context/WorkspaceContext";
@@ -106,20 +107,37 @@ export function AgentSetupContent({ onClose }: { onClose?: () => void }) {
     if (onClose) onClose();
   };
 
+  const getAgentIcon = (id: string) => {
+    switch (id) {
+      case "agy":
+        return <Sparkles className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />;
+      case "claude":
+        return <Bot className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />;
+      case "codex":
+        return <Cpu className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />;
+      default:
+        return <Bot className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />;
+    }
+  };
+
   const missingCount = env?.agents.filter((a) => !a.is_installed).length ?? 0;
 
   return (
-    <div className="space-y-2.5 text-xs">
-      {/* Çevre Çubuğu - Köşeli, mat */}
-      <div className="flex items-center justify-between px-2.5 py-1.5 rounded-md bg-[var(--surface-raised)] border border-[var(--border)] font-mono text-[11px]">
+    <div className="space-y-2 text-xs">
+      {/* Node / npm Çevre Çubuğu - Modüller sekmesi tarzı */}
+      <div className="flex items-center justify-between rounded-lg px-2.5 py-1.5 border border-[var(--border)] text-[11px] font-mono text-[var(--txt-muted)]">
         <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1.5 text-[var(--txt-muted)]">
-            <span className={`w-1.5 h-1.5 rounded-none ${env?.node_installed ? "bg-[var(--ok)]" : "bg-[var(--err)]"}`} />
-            Node: <span className={env?.node_installed ? "text-[var(--txt-main)]" : "text-[var(--err)]"}>{env?.node_version || "yok"}</span>
+          <span className="flex items-center gap-1.5">
+            Node:{" "}
+            <span className={env?.node_installed ? "text-[var(--ok)]" : "text-[var(--err)]"}>
+              {env?.node_version || "yok"}
+            </span>
           </span>
-          <span className="flex items-center gap-1.5 text-[var(--txt-muted)]">
-            <span className={`w-1.5 h-1.5 rounded-none ${env?.npm_installed ? "bg-[var(--ok)]" : "bg-[var(--err)]"}`} />
-            npm: <span className={env?.npm_installed ? "text-[var(--txt-main)]" : "text-[var(--err)]"}>{env?.npm_version || "yok"}</span>
+          <span className="flex items-center gap-1.5">
+            npm:{" "}
+            <span className={env?.npm_installed ? "text-[var(--ok)]" : "text-[var(--err)]"}>
+              {env?.npm_version || "yok"}
+            </span>
           </span>
         </div>
 
@@ -127,43 +145,50 @@ export function AgentSetupContent({ onClose }: { onClose?: () => void }) {
           type="button"
           disabled={loading || busyAgent !== null}
           onClick={loadEnv}
-          className="flex items-center gap-1 text-[11px] text-[var(--txt-dim)] hover:text-[var(--txt-main)] disabled:opacity-50"
+          className="flex items-center gap-1 text-[11px] text-[var(--txt-dim)] hover:text-[var(--txt-main)] transition-colors disabled:opacity-50"
         >
           <RefreshCw className={`w-3 h-3 ${loading ? "animate-spin" : ""}`} />
-          Tara
+          Yenile
         </button>
       </div>
 
-      {/* Ajan Listesi - Köşeli, mat, VS Code / Terminal tarzı */}
-      <div className="border border-[var(--border)] rounded-md divide-y divide-[var(--border)] bg-[var(--surface-raised)]">
+      {/* Ajan Listesi - Birebir Modüller Sekmesi Şablonu */}
+      <div className="space-y-1.5">
         {env?.agents.map((a) => {
           const isBusy = busyAgent === a.id;
           const log = installLogs[a.id];
           const isExpanded = expandedLogs[a.id];
 
           return (
-            <div key={a.id} className="p-2.5 space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-xs text-[var(--txt-main)]">{a.name}</span>
-                    <span className="font-mono text-[10px] text-[var(--txt-dim)]">[{a.binary}]</span>
+            <div
+              key={a.id}
+              className="rounded-lg border border-[var(--border)] px-2.5 py-1.5 space-y-1.5"
+            >
+              <div className="flex items-center gap-2.5">
+                {getAgentIcon(a.id)}
+                
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-[var(--txt-main)] font-medium">{a.name}</span>
+                    <span className="font-mono text-[10px] text-[var(--txt-dim)]">({a.binary})</span>
                   </div>
-                  <div className="text-[11px] text-[var(--txt-dim)] truncate">{a.description}</div>
+                  <div className="text-[10px] text-[var(--txt-dim)] truncate">{a.description}</div>
                 </div>
 
-                {/* Sağ Durum ve Butonlar */}
+                {/* Durum Göstergesi */}
                 <div className="flex items-center gap-2 shrink-0">
+                  <span className={`text-[10px] font-mono ${a.is_installed ? "text-[var(--ok)]" : "text-[var(--warn)]"}`}>
+                    {a.is_installed ? `v${a.version || "kurulu"}` : "kurulu değil"}
+                  </span>
+
+                  {/* Butonlar - İnce, sade, modüller uyumlu */}
                   {a.is_installed ? (
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-[10px] text-[var(--ok)]">
-                        ● v{a.version || "kurulu"}
-                      </span>
+                    <div className="flex items-center gap-1">
                       <button
                         type="button"
                         onClick={() => handleLaunch(a)}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium bg-[var(--surface)] border border-[var(--border)] text-[var(--txt-main)] hover:border-[var(--ok)] hover:text-[var(--ok)] transition-colors"
-                        title="Oturumu başlat"
+                        title="Terminal sekmesinde aç"
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border border-[var(--border)] text-[var(--txt-main)] hover:text-[var(--ok)] hover:border-[var(--ok)]/50 hover:bg-[var(--surface-raised)] transition-colors"
                       >
                         <Play className="w-3 h-3 fill-current" />
                         Çalıştır
@@ -172,22 +197,19 @@ export function AgentSetupContent({ onClose }: { onClose?: () => void }) {
                         type="button"
                         disabled={isBusy || busyAgent !== null}
                         onClick={() => handleInstall(a.id)}
-                        className="px-2 py-1 rounded text-[11px] font-mono border border-[var(--border)] text-[var(--txt-dim)] hover:text-[var(--txt-main)] hover:bg-[var(--surface)] transition-colors disabled:opacity-50"
                         title="Güncelle"
+                        className="px-2 py-1 rounded-md text-[10px] font-mono border border-[var(--border)] text-[var(--txt-dim)] hover:text-[var(--txt-main)] hover:bg-[var(--surface-raised)] transition-colors disabled:opacity-50"
                       >
                         {isBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : "güncelle"}
                       </button>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-[10px] text-[var(--warn)]">
-                        ○ eksik
-                      </span>
+                    <div className="flex items-center gap-1">
                       <button
                         type="button"
                         disabled={isBusy || busyAgent !== null}
                         onClick={() => handleInstall(a.id)}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium bg-[var(--surface)] border border-[var(--border)] text-[var(--txt-main)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors disabled:opacity-50"
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border border-[var(--border)] text-[var(--accent)] hover:border-[var(--accent)]/50 hover:bg-[var(--surface-raised)] transition-colors disabled:opacity-50"
                       >
                         {isBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
                         {isBusy ? "Kuruluyor…" : "Kur"}
@@ -195,29 +217,28 @@ export function AgentSetupContent({ onClose }: { onClose?: () => void }) {
                       <button
                         type="button"
                         onClick={() => handleOpenInstallTerminal(a)}
-                        className="p-1 rounded border border-[var(--border)] text-[var(--txt-dim)] hover:text-[var(--txt-main)] hover:bg-[var(--surface)] transition-colors"
                         title="Terminalde aç"
+                        className="p-1 rounded-md border border-[var(--border)] text-[var(--txt-dim)] hover:text-[var(--txt-main)] hover:bg-[var(--surface-raised)] transition-colors"
                       >
-                        <Terminal className="w-3 h-3" />
+                        <SquareTerminal className="w-3 h-3" />
                       </button>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Günlük Çıktısı */}
+              {/* Günlük / Log Çıktısı (varsa) */}
               {log && (
-                <div className="pt-1">
+                <div className="pt-1 border-t border-[var(--border)]/50">
                   <button
                     type="button"
                     onClick={() => setExpandedLogs((prev) => ({ ...prev, [a.id]: !prev[a.id] }))}
-                    className="flex items-center gap-1 text-[10px] text-[var(--txt-dim)] hover:text-[var(--txt-muted)]"
+                    className="text-[10px] text-[var(--txt-dim)] hover:text-[var(--txt-muted)]"
                   >
-                    {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                    <span>Çıktı ({isExpanded ? "gizle" : "göster"})</span>
+                    {isExpanded ? "▲ Çıktıyı gizle" : "▼ Çıktıyı göster"}
                   </button>
                   {isExpanded && (
-                    <pre className="mt-1 p-2 rounded bg-[var(--bg)] border border-[var(--border)] text-[10px] font-mono text-[var(--txt-muted)] max-h-24 overflow-auto whitespace-pre-wrap select-text">
+                    <pre className="mt-1 p-2 rounded-lg bg-[var(--bg)] border border-[var(--border)] text-[10px] font-mono text-[var(--txt-muted)] max-h-24 overflow-auto whitespace-pre-wrap select-text">
                       {log}
                     </pre>
                   )}
@@ -228,17 +249,16 @@ export function AgentSetupContent({ onClose }: { onClose?: () => void }) {
         })}
       </div>
 
-      {globalMsg && <div className="text-[11px] text-[var(--ok)] font-mono">{globalMsg}</div>}
-      {globalErr && <div className="text-[11px] text-[var(--err)] font-mono whitespace-pre-wrap">{globalErr}</div>}
+      {globalMsg && <div className="text-[11px] text-[var(--ok)] font-mono px-1">{globalMsg}</div>}
+      {globalErr && <div className="text-[11px] text-[var(--err)] font-mono px-1 whitespace-pre-wrap">{globalErr}</div>}
 
-      {/* Alt Bar - Mat, köşeli, sade */}
+      {/* Alt Kontrol Çubuğu */}
       <div className="flex items-center justify-between pt-2 border-t border-[var(--border)]">
         <label className="flex items-center gap-2 text-xs text-[var(--txt-muted)] cursor-pointer select-none">
           <input
             type="checkbox"
             checked={dontShowAgain}
             onChange={(e) => toggleDontShow(e.target.checked)}
-            className="rounded-none border border-[var(--border)] bg-[var(--bg)] text-[var(--accent)] accent-[var(--accent)]"
           />
           <span>Açılışta otomatik gösterme</span>
         </label>
@@ -249,9 +269,9 @@ export function AgentSetupContent({ onClose }: { onClose?: () => void }) {
               type="button"
               disabled={busyAgent !== null || loading}
               onClick={handleInstallAll}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--txt-main)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors disabled:opacity-50"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--accent)] text-black hover:brightness-110 disabled:opacity-60 transition-colors"
             >
-              {busyAgent !== null ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+              {busyAgent !== null ? <Loader2 className="w-3 h-3 animate-spin inline mr-1" /> : <Download className="w-3 h-3 inline mr-1" />}
               Tüm Eksikleri Kur ({missingCount})
             </button>
           )}
@@ -260,7 +280,7 @@ export function AgentSetupContent({ onClose }: { onClose?: () => void }) {
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 rounded text-xs text-[var(--txt-muted)] hover:text-[var(--txt-main)] hover:bg-[var(--surface-raised)] transition-colors"
+              className="px-3 py-1.5 rounded-lg text-xs text-[var(--txt-muted)] hover:bg-[var(--surface-raised)] transition-colors"
             >
               Kapat
             </button>
