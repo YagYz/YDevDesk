@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Command, LayoutGrid, Plus, RotateCcw, Settings, SquareTerminal } from "lucide-react";
+import { Bot, Command, LayoutGrid, Plus, RotateCcw, Settings, SquareTerminal } from "lucide-react";
 import { api } from "../lib/tauri";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { MODULES } from "../panels/registry";
@@ -87,6 +87,14 @@ export function TitleBar({ onSettings }: { onSettings: () => void }) {
           </>
         )}
       </Menu>
+
+      <button
+        onClick={ws.openAgentSetup}
+        className={btn}
+        title="Ajan ve CLI kurulum sihirbazı (AGY, Claude Code, Codex)"
+      >
+        <Bot className="w-3.5 h-3.5 text-[var(--accent)]" /> Ajanlar
+      </button>
 
       <div data-tauri-drag-region className="flex-1 h-full" />
 

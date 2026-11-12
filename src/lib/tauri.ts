@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { AgentStatus, HomelabConfig, UpdateCheckResult } from "../types";
+import type { AgentEnvironmentStatus, AgentInstallResult, AgentStatus, HomelabConfig, UpdateCheckResult } from "../types";
 
 export const api = {
   loadConfig: () => invoke<HomelabConfig>("load_homelab_config"),
@@ -35,6 +35,8 @@ export const api = {
   appVersion: () => invoke<string>("get_app_version"),
   checkUpdate: () => invoke<UpdateCheckResult>("check_app_update"),
   installUpdate: (assetUrl: string) => invoke<string>("install_app_update", { assetUrl }),
+  checkAgentEnvironment: () => invoke<AgentEnvironmentStatus>("check_agent_environment"),
+  installAgentCli: (agentId: string) => invoke<AgentInstallResult>("install_agent_cli", { agentId }),
   windowClose: () => invoke<void>("app_window_close"),
   windowMinimize: () => invoke<void>("app_window_minimize"),
   windowToggleMaximize: () => invoke<void>("app_window_toggle_maximize"),

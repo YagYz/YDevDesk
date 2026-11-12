@@ -9,6 +9,8 @@ import { TitleBar } from "./components/TitleBar";
 import { StatusBar } from "./components/StatusBar";
 import { OmniBar } from "./components/OmniBar";
 import { SettingsModal } from "./components/SettingsModal";
+import { AgentSetupModal } from "./components/AgentSetupModal";
+import { api } from "./lib/tauri";
 import { KnowledgeModal } from "./components/KnowledgeModal";
 import type { Knowledge } from "./types";
 
@@ -72,6 +74,7 @@ export default function Workspace() {
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
   const [showOmni, setShowOmni] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showAgentSetup, setShowAgentSetup] = useState(false);
   const [knowledgeItem, setKnowledgeItem] = useState<Knowledge | null>(null);
 
   const syncOpen = useCallback(() => {
@@ -184,6 +187,20 @@ export default function Workspace() {
   }, []);
 
   useEffect(() => () => window.clearTimeout(saveTimer.current), []);
+  // İlk açılışta eksik ajan kontrolü ve karşılama sihirbazı
+  useEffect(() => {
+    const hide = localStorage.getItem("ydevdesk_hide_agent_setup_on_launch") === "true";
+    if (!hide) {
+      api.checkAgentEnvironment()
+        .then((env) => {
+          if (env.agents.some((a) => !a.is_installed)) {
+            setShowAgentSetup(true);
+          }
+        })
+        .catch(console.error);
+    }
+  }, []);
+
 
   const actions = useMemo<WorkspaceActions>(
     () => ({
@@ -194,6 +211,7 @@ export default function Workspace() {
       resetLayout,
       openKnowledge: setKnowledgeItem,
       openOmniBar: () => setShowOmni(true),
+      openAgentSetup: () => setShowAgentSetup(true),
     }),
     [openTerminal, runInTerminal, toggleModule, openIds, resetLayout],
   );
@@ -216,6 +234,7 @@ export default function Workspace() {
       </div>
       {showOmni && <OmniBar onClose={() => setShowOmni(false)} />}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showAgentSetup && <AgentSetupModal onClose={() => setShowAgentSetup(false)} />}
       {knowledgeItem && <KnowledgeModal item={knowledgeItem} onClose={() => setKnowledgeItem(null)} />}
     </WorkspaceContext.Provider>
   );

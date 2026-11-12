@@ -4,17 +4,19 @@ import { api } from "../lib/tauri";
 import { useData } from "../context/DataContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { Modal } from "./Modal";
+import { AgentSetupContent } from "./AgentSetupModal";
 import { MODULES } from "../panels/registry";
 import { CONNECTION_TYPES, hasConnection, newId } from "../lib/settings";
 import type { AppSettings, Connection, ConnectionType, UpdateCheckResult } from "../types";
 
-type Tab = "connections" | "modules" | "commands" | "notifications" | "update";
+type Tab = "connections" | "modules" | "commands" | "notifications" | "agents" | "update";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "connections", label: "Bağlantılar" },
   { id: "modules", label: "Modüller" },
   { id: "commands", label: "Komutlar" },
   { id: "notifications", label: "Bildirimler" },
+  { id: "agents", label: "Ajanlar" },
   { id: "update", label: "Sürüm" },
 ];
 
@@ -100,7 +102,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Modal title="Ayarlar" onClose={onClose}>
+    <Modal title="Ayarlar" onClose={onClose} width={580}>
       <form onSubmit={submit} className="space-y-3">
         <div className="flex gap-1 border-b border-[var(--border)]">
           {TABS.map((t) => (
@@ -289,6 +291,12 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 className={`${input} w-20`}
               />
             </label>
+          </div>
+        )}
+
+        {tab === "agents" && (
+          <div className="pt-1">
+            <AgentSetupContent />
           </div>
         )}
 

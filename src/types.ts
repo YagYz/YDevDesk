@@ -138,3 +138,30 @@ export type UpdateCheckResult = {
   asset_name: string;
   asset_url: string;
 };
+
+export type AgentCliInfo = {
+  id: string;
+  name: string;
+  binary: string;
+  npm_package?: string | null;
+  is_installed: boolean;
+  version?: string | null;
+  path?: string | null;
+  description: string;
+  install_cmd: string;
+};
+
+export type AgentEnvironmentStatus = {
+  node_installed: boolean;
+  node_version?: string | null;
+  npm_installed: boolean;
+  npm_version?: string | null;
+  agents: AgentCliInfo[];
+};
+
+export type AgentInstallResult = {
+  success: boolean;
+  agent_id: string;
+  message: string;
+  output: string;
+};

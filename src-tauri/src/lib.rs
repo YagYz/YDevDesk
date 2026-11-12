@@ -74,6 +74,114 @@ pub struct AgentStatus {
     pub recent_tools: Vec<RecentToolCall>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AgentCliInfo {
+    pub id: String,
+    pub name: String,
+    pub binary: String,
+    pub npm_package: Option<String>,
+    pub is_installed: bool,
+    pub version: Option<String>,
+    pub path: Option<String>,
+    pub description: String,
+    pub install_cmd: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AgentEnvironmentStatus {
+    pub node_installed: bool,
+    pub node_version: Option<String>,
+    pub npm_installed: bool,
+    pub npm_version: Option<String>,
+    pub agents: Vec<AgentCliInfo>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AgentInstallResult {
+    pub success: bool,
+    pub agent_id: String,
+    pub message: String,
+    pub output: String,
+}
+
+pub fn get_enhanced_path() -> String {
+    let current_path = std::env::var("PATH").unwrap_or_default();
+    let home = dirs::home_dir().unwrap_or_default();
+    let candidates = [
+        home.join(".local").join("bin"),
+        home.join(".npm-global").join("bin"),
+        home.join(".cargo").join("bin"),
+        home.join(".nvm").join("current").join("bin"),
+        std::path::PathBuf::from("/usr/local/bin"),
+        std::path::PathBuf::from("/opt/homebrew/bin"),
+        std::path::PathBuf::from("/usr/bin"),
+        std::path::PathBuf::from("/bin"),
+        std::path::PathBuf::from("/usr/local/sbin"),
+        std::path::PathBuf::from("/usr/sbin"),
+        std::path::PathBuf::from("/sbin"),
+        std::path::PathBuf::from("/opt/Antigravity"),
+        std::path::PathBuf::from("/opt/claude-code/bin"),
+    ];
+
+    let mut parts: Vec<String> = Vec::new();
+    for c in &candidates {
+        if c.exists() {
+            let s = c.to_string_lossy().to_string();
+            if !parts.contains(&s) {
+                parts.push(s);
+            }
+        }
+    }
+    for p in current_path.split(':') {
+        if !p.is_empty() && !parts.contains(&p.to_string()) {
+            parts.push(p.to_string());
+        }
+    }
+    parts.join(":")
+}
+
+fn find_binary(name: &str) -> Option<std::path::PathBuf> {
+    let full_path = get_enhanced_path();
+    for dir in full_path.split(':') {
+        let p = std::path::Path::new(dir).join(name);
+        if p.is_file() {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                if let Ok(meta) = p.metadata() {
+                    if meta.permissions().mode() & 0o111 != 0 {
+                        return Some(p);
+                    }
+                }
+            }
+            #[cfg(not(unix))]
+            return Some(p);
+        }
+    }
+    None
+}
+
+fn get_binary_version(bin: &std::path::Path, args: &[&str]) -> Option<String> {
+    let out = std::process::Command::new(bin)
+        .args(args)
+        .env("PATH", get_enhanced_path())
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if s.is_empty() {
+        let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
+        if !err.is_empty() {
+            return Some(err.lines().next().unwrap_or(&err).trim().to_string());
+        }
+        return None;
+    }
+    let first_line = s.lines().next().unwrap_or(&s).trim().to_string();
+    Some(first_line)
+}
+
 // 1. Çoklu PTY Başlatma (macOS ve Linux uyumlu terminal oturumu). Aynı oturum için tekrar çağrı güvenlidir.
 #[tauri::command]
 fn start_pty(app: AppHandle, state: State<'_, TerminalState>, session_id: String, cols: u16, rows: u16, init_cmd: Option<String>) -> Result<(), String> {
@@ -105,6 +213,7 @@ fn start_pty(app: AppHandle, state: State<'_, TerminalState>, session_id: String
     let mut cmd = CommandBuilder::new(&shell);
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
+    cmd.env("PATH", get_enhanced_path());
 
     if let Some(home) = dirs::home_dir() {
         cmd.cwd(home);
@@ -945,6 +1054,195 @@ async fn install_app_update(app: AppHandle, asset_url: String) -> Result<String,
 }
 
 #[tauri::command]
+fn check_agent_environment() -> Result<AgentEnvironmentStatus, String> {
+    let node_bin = find_binary("node");
+    let node_installed = node_bin.is_some();
+    let node_version = node_bin.as_deref().and_then(|p| get_binary_version(p, &["-v"]));
+
+    let npm_bin = find_binary("npm");
+    let npm_installed = npm_bin.is_some();
+    let npm_version = npm_bin.as_deref().and_then(|p| get_binary_version(p, &["-v"]));
+
+    let mut agents = Vec::new();
+
+    // 1. Google Antigravity (AGY)
+    let agy_bin = find_binary("agy").or_else(|| find_binary("antigravity"));
+    let agy_installed = agy_bin.is_some();
+    let agy_version = agy_bin.as_deref().and_then(|p| get_binary_version(p, &["--version"]));
+    let agy_path = agy_bin.map(|p| p.to_string_lossy().to_string());
+    agents.push(AgentCliInfo {
+        id: "agy".into(),
+        name: "Google Antigravity (AGY)".into(),
+        binary: "agy".into(),
+        npm_package: None,
+        is_installed: agy_installed,
+        version: agy_version,
+        path: agy_path,
+        description: "Google'un agentic platform CLI'ı, Zettelkasten hafıza ve araç yürütme çekirdeği.".into(),
+        install_cmd: "curl -fsSL https://antigravity.google/product/antigravity-cli/install.sh | bash".into(),
+    });
+
+    // 2. Anthropic Claude Code
+    let claude_bin = find_binary("claude");
+    let claude_installed = claude_bin.is_some();
+    let claude_version = claude_bin.as_deref().and_then(|p| get_binary_version(p, &["--version"]));
+    let claude_path = claude_bin.map(|p| p.to_string_lossy().to_string());
+    agents.push(AgentCliInfo {
+        id: "claude".into(),
+        name: "Anthropic Claude Code".into(),
+        binary: "claude".into(),
+        npm_package: Some("@anthropic-ai/claude-code".into()),
+        is_installed: claude_installed,
+        version: claude_version,
+        path: claude_path,
+        description: "Anthropic Claude Code terminal kodlama ve proje mimarisi ajanı.".into(),
+        install_cmd: "npm install -g @anthropic-ai/claude-code".into(),
+    });
+
+    // 3. OpenAI Codex CLI
+    let codex_bin = find_binary("codex");
+    let codex_installed = codex_bin.is_some();
+    let codex_version = codex_bin.as_deref().and_then(|p| get_binary_version(p, &["--version"]));
+    let codex_path = codex_bin.map(|p| p.to_string_lossy().to_string());
+    agents.push(AgentCliInfo {
+        id: "codex".into(),
+        name: "OpenAI Codex CLI".into(),
+        binary: "codex".into(),
+        npm_package: Some("@openai/codex".into()),
+        is_installed: codex_installed,
+        version: codex_version,
+        path: codex_path,
+        description: "OpenAI Codex CLI yerel kodlama ve komut satırı ajanı.".into(),
+        install_cmd: "npm install -g @openai/codex".into(),
+    });
+
+    Ok(AgentEnvironmentStatus {
+        node_installed,
+        node_version,
+        npm_installed,
+        npm_version,
+        agents,
+    })
+}
+
+#[tauri::command]
+fn install_agent_cli(agent_id: String) -> Result<AgentInstallResult, String> {
+    let enhanced_path = get_enhanced_path();
+    let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("/tmp"));
+
+    match agent_id.as_str() {
+        "claude" | "codex" => {
+            let npm_bin = find_binary("npm").ok_or_else(|| "Sistemde npm bulunamadı. Lütfen önce Node.js ve npm kurun.".to_string())?;
+            let pkg = if agent_id == "claude" {
+                "@anthropic-ai/claude-code"
+            } else {
+                "@openai/codex"
+            };
+
+            // Önce standart global npm kurmayı dene
+            let out1 = std::process::Command::new(&npm_bin)
+                .args(["install", "-g", pkg])
+                .env("PATH", &enhanced_path)
+                .output();
+
+            let (success, combined_out) = match out1 {
+                Ok(out) if out.status.success() => {
+                    let msg = format!("{}
+{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+                    (true, msg)
+                }
+                Ok(out) => {
+                    let err_msg = format!("{}
+{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+                    let local_prefix = home.join(".local");
+                    let _ = std::fs::create_dir_all(local_prefix.join("bin"));
+                    let out2 = std::process::Command::new(&npm_bin)
+                        .args(["install", "-g", "--prefix", &local_prefix.to_string_lossy(), pkg])
+                        .env("PATH", &enhanced_path)
+                        .output();
+
+                    match out2 {
+                        Ok(o2) if o2.status.success() => {
+                            let msg = format!("{}
+{}", String::from_utf8_lossy(&o2.stdout), String::from_utf8_lossy(&o2.stderr));
+                            (true, msg)
+                        }
+                        Ok(o2) => {
+                            let msg = format!("İlk deneme:
+{}
+İkinci deneme (~/.local):
+{}
+{}", err_msg, String::from_utf8_lossy(&o2.stdout), String::from_utf8_lossy(&o2.stderr));
+                            (false, msg)
+                        }
+                        Err(e) => (false, format!("{}
+Yerel kurulum hatası: {}", err_msg, e)),
+                    }
+                }
+                Err(e) => (false, format!("npm çalıştırılamadı: {}", e)),
+            };
+
+            let bin_name = if agent_id == "claude" { "claude" } else { "codex" };
+            let verified_bin = find_binary(bin_name);
+            let version = verified_bin.as_deref().and_then(|p| get_binary_version(p, &["--version"]));
+
+            if let Some(ver) = version {
+                Ok(AgentInstallResult {
+                    success: true,
+                    agent_id: agent_id.clone(),
+                    message: format!("{} başarıyla kuruldu ({})", if agent_id == "claude" { "Claude Code" } else { "Codex CLI" }, ver),
+                    output: combined_out,
+                })
+            } else if success {
+                Ok(AgentInstallResult {
+                    success: true,
+                    agent_id: agent_id.clone(),
+                    message: format!("{} kuruldu, fakat PATH üzerinde doğrulanması için uygulamanın yeniden başlatılması gerekebilir.", bin_name),
+                    output: combined_out,
+                })
+            } else {
+                Err(format!("Kurulum başarısız oldu:
+{}", combined_out))
+            }
+        }
+        "agy" => {
+            let agy_bin = find_binary("agy").or_else(|| find_binary("antigravity"));
+            if let Some(bin) = agy_bin {
+                let ver = get_binary_version(&bin, &["--version"]).unwrap_or_else(|| "bilinmiyor".into());
+                return Ok(AgentInstallResult {
+                    success: true,
+                    agent_id: "agy".into(),
+                    message: format!("Google Antigravity zaten kurulu ({})", ver),
+                    output: format!("Konum: {}", bin.display()),
+                });
+            }
+
+            let out = std::process::Command::new("sh")
+                .args(["-c", "curl -fsSL https://antigravity.google/product/antigravity-cli/install.sh | bash"])
+                .env("PATH", &enhanced_path)
+                .output()
+                .map_err(|e| format!("Kurulum betiği çalıştırılamadı: {}", e))?;
+
+            let output_str = format!("{}
+{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+            let verified = find_binary("agy").or_else(|| find_binary("antigravity"));
+            if verified.is_some() {
+                Ok(AgentInstallResult {
+                    success: true,
+                    agent_id: "agy".into(),
+                    message: "Google Antigravity (AGY) başarıyla kuruldu.".into(),
+                    output: output_str,
+                })
+            } else {
+                Err(format!("AGY kurulum betiği tamamlandı ancak ikili dosya doğrulanamadı.
+{}", output_str))
+            }
+        }
+        _ => Err(format!("Bilinmeyen ajan: {}", agent_id)),
+    }
+}
+
+#[tauri::command]
 fn app_window_close(window: tauri::Window) -> Result<(), String> {
     window.close().map_err(|e| e.to_string())
 }
@@ -1005,7 +1303,9 @@ pub fn run() {
             default_projects_root,
             get_app_version,
             check_app_update,
-            install_app_update
+            install_app_update,
+            check_agent_environment,
+            install_agent_cli
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
