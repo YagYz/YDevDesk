@@ -109,19 +109,19 @@ pub fn get_enhanced_path() -> String {
     let current_path = std::env::var("PATH").unwrap_or_default();
     let home = dirs::home_dir().unwrap_or_default();
     let candidates = [
+        std::path::PathBuf::from("/usr/local/bin"),
+        std::path::PathBuf::from("/usr/bin"),
+        std::path::PathBuf::from("/bin"),
+        std::path::PathBuf::from("/opt/claude-code/bin"),
+        std::path::PathBuf::from("/opt/Antigravity"),
+        std::path::PathBuf::from("/opt/homebrew/bin"),
         home.join(".local").join("bin"),
         home.join(".npm-global").join("bin"),
         home.join(".cargo").join("bin"),
         home.join(".nvm").join("current").join("bin"),
-        std::path::PathBuf::from("/usr/local/bin"),
-        std::path::PathBuf::from("/opt/homebrew/bin"),
-        std::path::PathBuf::from("/usr/bin"),
-        std::path::PathBuf::from("/bin"),
         std::path::PathBuf::from("/usr/local/sbin"),
         std::path::PathBuf::from("/usr/sbin"),
         std::path::PathBuf::from("/sbin"),
-        std::path::PathBuf::from("/opt/Antigravity"),
-        std::path::PathBuf::from("/opt/claude-code/bin"),
     ];
 
     let mut parts: Vec<String> = Vec::new();
@@ -1135,78 +1135,82 @@ fn install_agent_cli(agent_id: String) -> Result<AgentInstallResult, String> {
     let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("/tmp"));
 
     match agent_id.as_str() {
-        "claude" | "codex" => {
-            let npm_bin = find_binary("npm").ok_or_else(|| "Sistemde npm bulunamadı. Lütfen önce Node.js ve npm kurun.".to_string())?;
-            let pkg = if agent_id == "claude" {
-                "@anthropic-ai/claude-code"
-            } else {
-                "@openai/codex"
-            };
+        "claude" => {
+            if let Some(bin) = find_binary("claude") {
+                if let Some(ver) = get_binary_version(&bin, &["--version"]) {
+                    return Ok(AgentInstallResult {
+                        success: true,
+                        agent_id: "claude".into(),
+                        message: format!("Claude Code zaten kurulu ve aktif ({})", ver),
+                        output: format!("Konum: {}", bin.display()),
+                    });
+                }
+            }
 
-            // Önce standart global npm kurmayı dene
-            let out1 = std::process::Command::new(&npm_bin)
-                .args(["install", "-g", pkg])
+            // Claude native installer betiğini çalıştır
+            let out = std::process::Command::new("sh")
+                .args(["-c", "curl -fsSL https://claude.ai/install.sh | bash"])
                 .env("PATH", &enhanced_path)
-                .output();
+                .output()
+                .map_err(|e| format!("Claude kurulum betiği çalıştırılamadı: {}", e))?;
 
-            let (success, combined_out) = match out1 {
-                Ok(out) if out.status.success() => {
-                    let msg = format!("{}
+            let output_str = format!("{}
 {}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
-                    (true, msg)
-                }
-                Ok(out) => {
-                    let err_msg = format!("{}
-{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
-                    let local_prefix = home.join(".local");
-                    let _ = std::fs::create_dir_all(local_prefix.join("bin"));
-                    let out2 = std::process::Command::new(&npm_bin)
-                        .args(["install", "-g", "--prefix", &local_prefix.to_string_lossy(), pkg])
-                        .env("PATH", &enhanced_path)
-                        .output();
-
-                    match out2 {
-                        Ok(o2) if o2.status.success() => {
-                            let msg = format!("{}
-{}", String::from_utf8_lossy(&o2.stdout), String::from_utf8_lossy(&o2.stderr));
-                            (true, msg)
-                        }
-                        Ok(o2) => {
-                            let msg = format!("İlk deneme:
-{}
-İkinci deneme (~/.local):
-{}
-{}", err_msg, String::from_utf8_lossy(&o2.stdout), String::from_utf8_lossy(&o2.stderr));
-                            (false, msg)
-                        }
-                        Err(e) => (false, format!("{}
-Yerel kurulum hatası: {}", err_msg, e)),
-                    }
-                }
-                Err(e) => (false, format!("npm çalıştırılamadı: {}", e)),
-            };
-
-            let bin_name = if agent_id == "claude" { "claude" } else { "codex" };
-            let verified_bin = find_binary(bin_name);
-            let version = verified_bin.as_deref().and_then(|p| get_binary_version(p, &["--version"]));
-
-            if let Some(ver) = version {
+            if let Some(bin) = find_binary("claude") {
+                let ver = get_binary_version(&bin, &["--version"]).unwrap_or_else(|| "kuruldu".into());
                 Ok(AgentInstallResult {
                     success: true,
-                    agent_id: agent_id.clone(),
-                    message: format!("{} başarıyla kuruldu ({})", if agent_id == "claude" { "Claude Code" } else { "Codex CLI" }, ver),
-                    output: combined_out,
-                })
-            } else if success {
-                Ok(AgentInstallResult {
-                    success: true,
-                    agent_id: agent_id.clone(),
-                    message: format!("{} kuruldu, fakat PATH üzerinde doğrulanması için uygulamanın yeniden başlatılması gerekebilir.", bin_name),
-                    output: combined_out,
+                    agent_id: "claude".into(),
+                    message: format!("Claude Code başarıyla kuruldu ({})", ver),
+                    output: output_str,
                 })
             } else {
-                Err(format!("Kurulum başarısız oldu:
-{}", combined_out))
+                Err(format!("Claude Code kurulumu tamamlandı fakat ikili dosya doğrulanamadı:
+{}", output_str))
+            }
+        }
+        "codex" => {
+            if let Some(bin) = find_binary("codex") {
+                if let Some(ver) = get_binary_version(&bin, &["--version"]) {
+                    return Ok(AgentInstallResult {
+                        success: true,
+                        agent_id: "codex".into(),
+                        message: format!("OpenAI Codex CLI zaten kurulu ve aktif ({})", ver),
+                        output: format!("Konum: {}", bin.display()),
+                    });
+                }
+            }
+
+            let npm_bin = find_binary("npm").ok_or_else(|| "Sistemde npm bulunamadı. Lütfen önce Node.js ve npm kurun.".to_string())?;
+            let local_prefix = home.join(".local");
+            let _ = std::fs::create_dir_all(local_prefix.join("bin"));
+
+            let out = std::process::Command::new(&npm_bin)
+                .args(["install", "-g", "--prefix", &local_prefix.to_string_lossy(), "@openai/codex"])
+                .env("PATH", &enhanced_path)
+                .output()
+                .map_err(|e| format!("npm çalıştırılamadı: {}", e))?;
+
+            let combined = format!("{}
+{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+            if let Some(bin) = find_binary("codex") {
+                let ver = get_binary_version(&bin, &["--version"]).unwrap_or_else(|| "kuruldu".into());
+                Ok(AgentInstallResult {
+                    success: true,
+                    agent_id: "codex".into(),
+                    message: format!("OpenAI Codex CLI başarıyla kuruldu ({})", ver),
+                    output: combined,
+                })
+            } else if out.status.success() {
+                Ok(AgentInstallResult {
+                    success: true,
+                    agent_id: "codex".into(),
+                    message: "Codex kuruldu. Terminal yeniden başlatıldığında kullanılabilir.".into(),
+                    output: combined,
+                })
+            } else {
+                Err(format!("Codex kurulumu başarısız:
+{}", combined))
             }
         }
         "agy" => {
