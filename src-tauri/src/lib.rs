@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 pub struct PtySession {
     writer: Box<dyn Write + Send>,
@@ -1280,7 +1280,22 @@ fn app_window_toggle_maximize(window: tauri::Window) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let mut context = tauri::generate_context!();
+    let icon_bytes = include_bytes!("../icons/128x128.png");
+    if let Ok(icon) = tauri::image::Image::from_bytes(icon_bytes) {
+        context.set_default_window_icon(Some(icon));
+    }
+
     tauri::Builder::default()
+        .setup(|app| {
+            let icon_bytes = include_bytes!("../icons/128x128.png");
+            if let Ok(icon) = tauri::image::Image::from_bytes(icon_bytes) {
+                for (_label, window) in app.webview_windows() {
+                    let _ = window.set_icon(icon.clone());
+                }
+            }
+            Ok(())
+        })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .manage(TerminalState {
@@ -1316,6 +1331,6 @@ pub fn run() {
             check_agent_environment,
             install_agent_cli
         ])
-        .run(tauri::generate_context!())
+        .run(context)
         .expect("error while running tauri application");
 }
