@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DockviewReact, type DockviewApi, type DockviewReadyEvent, type IDockviewHeaderActionsProps, type IWatermarkPanelProps } from "dockview-react";
-import { Maximize2, Minimize2, Plus, SquareTerminal } from "lucide-react";
+import { Maximize2, Minimize2, Plus } from "lucide-react";
 import { WorkspaceContext, type WorkspaceActions } from "./context/WorkspaceContext";
 import { terminalManager } from "./lib/terminalManager";
 import { DOCK_COMPONENTS, TERMINAL_COMPONENT } from "./panels/registry";
@@ -53,15 +53,19 @@ function HeaderActions({ containerApi, group, panels }: IDockviewHeaderActionsPr
 function Watermark({ containerApi }: IWatermarkPanelProps) {
   return (
     <div className="h-full w-full flex flex-col items-center justify-center gap-3 text-[var(--txt-dim)]">
-      <SquareTerminal className="w-8 h-8" />
-      <div className="text-xs">Açık panel yok</div>
+      <img
+        src="/logo-128.png"
+        alt="YDevDesk"
+        className="w-14 h-14 rounded-2xl object-contain shadow-2xl border border-[var(--border-glow)] opacity-85 hover:opacity-100 transition-opacity"
+      />
+      <div className="text-xs font-medium text-[var(--txt-muted)]">Açık panel yok</div>
       <button
-        className="px-3 py-1.5 rounded-lg text-xs bg-[var(--accent)] text-black font-medium"
+        className="px-3.5 py-1.5 rounded-lg text-xs bg-[var(--accent)] text-black font-semibold hover:brightness-110 transition-all shadow"
         onClick={() =>
           containerApi.addPanel({ id: newTerminalId(), component: TERMINAL_COMPONENT, title: "Terminal", params: { kind: "shell" }, renderer: "always" })
         }
       >
-        Yeni terminal
+        Yeni Terminal
       </button>
     </div>
   );

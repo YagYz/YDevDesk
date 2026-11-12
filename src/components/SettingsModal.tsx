@@ -102,7 +102,16 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Modal title="Ayarlar" onClose={onClose} width={580}>
+    <Modal
+      title={
+        <div className="flex items-center gap-2">
+          <img src="/logo.png" alt="YDevDesk" className="w-4 h-4 rounded object-contain shadow-sm" />
+          <span>Ayarlar</span>
+        </div>
+      }
+      onClose={onClose}
+      width={580}
+    >
       <form onSubmit={submit} className="space-y-3">
         <div className="flex gap-1 border-b border-[var(--border)]">
           {TABS.map((t) => (
@@ -303,9 +312,12 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         {tab === "update" && (
           <div className="space-y-3 text-xs">
             <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2.5">
-              <div>
-                <div className="text-[11px] text-[var(--txt-muted)]">Mevcut sürüm</div>
-                <div className="font-mono text-sm font-semibold text-[var(--txt-main)]">v{version || "…"}</div>
+              <div className="flex items-center gap-2.5">
+                <img src="/logo.png" alt="YDevDesk" className="w-7 h-7 rounded-lg object-contain shadow" />
+                <div>
+                  <div className="text-[11px] text-[var(--txt-muted)]">YDevDesk Sürümü</div>
+                  <div className="font-mono text-sm font-semibold text-[var(--txt-main)]">v{version || "…"}</div>
+                </div>
               </div>
               <button
                 type="button"

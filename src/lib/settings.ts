@@ -33,7 +33,12 @@ export const DEFAULT_QUICK_ACTIONS: CommandItem[] = [
 ];
 
 export const DEFAULT_TERMINAL_PRESETS: TerminalPreset[] = [
-  { id: "shell", title: "Terminal", description: "Yerel kabuk", kind: "shell" },
+  { id: "shell", title: "Terminal", description: "Yerel kabuk oturumu", kind: "shell" },
+  { id: "claude", title: "Claude Code", description: "Anthropic Claude CLI ajanı", initCmd: "claude", kind: "agent" },
+  { id: "claude-danger", title: "Claude (Bypass)", description: "Onaysız tam yetkili mod", initCmd: "claude --dangerously-skip-permissions", kind: "agent" },
+  { id: "agy", title: "Antigravity (AGY)", description: "Google Antigravity CLI", initCmd: "agy", kind: "agent" },
+  { id: "codex", title: "OpenAI Codex", description: "OpenAI Codex CLI ajanı", initCmd: "codex", kind: "agent" },
+  { id: "codex-full", title: "Codex (Full Access)", description: "Bypass & tam yetkili mod", initCmd: "codex --full-access", kind: "agent" },
 ];
 
 export const DEFAULT_NOTIFICATIONS: NotificationSettings = {

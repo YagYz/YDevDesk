@@ -85,6 +85,7 @@ pub struct AgentCliInfo {
     pub path: Option<String>,
     pub description: String,
     pub install_cmd: String,
+    pub bypass_cmd: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -1080,6 +1081,7 @@ fn check_agent_environment() -> Result<AgentEnvironmentStatus, String> {
         path: agy_path,
         description: "Google'un agentic platform CLI'ı, Zettelkasten hafıza ve araç yürütme çekirdeği.".into(),
         install_cmd: "curl -fsSL https://antigravity.google/product/antigravity-cli/install.sh | bash".into(),
+        bypass_cmd: Some("agy".into()),
     });
 
     // 2. Anthropic Claude Code
@@ -1097,6 +1099,7 @@ fn check_agent_environment() -> Result<AgentEnvironmentStatus, String> {
         path: claude_path,
         description: "Anthropic Claude Code terminal kodlama ve proje mimarisi ajanı.".into(),
         install_cmd: "npm install -g @anthropic-ai/claude-code".into(),
+        bypass_cmd: Some("claude --dangerously-skip-permissions".into()),
     });
 
     // 3. OpenAI Codex CLI
@@ -1114,6 +1117,7 @@ fn check_agent_environment() -> Result<AgentEnvironmentStatus, String> {
         path: codex_path,
         description: "OpenAI Codex CLI yerel kodlama ve komut satırı ajanı.".into(),
         install_cmd: "npm install -g @openai/codex".into(),
+        bypass_cmd: Some("codex --full-access".into()),
     });
 
     Ok(AgentEnvironmentStatus {

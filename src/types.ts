@@ -149,6 +149,7 @@ export type AgentCliInfo = {
   path?: string | null;
   description: string;
   install_cmd: string;
+  bypass_cmd?: string | null;
 };
 
 export type AgentEnvironmentStatus = {

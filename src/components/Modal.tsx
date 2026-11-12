@@ -1,7 +1,7 @@
 import { X } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 
-export function Modal({ title, onClose, children, width = 480 }: { title: string; onClose: () => void; children: ReactNode; width?: number }) {
+export function Modal({ title, onClose, children, width = 480 }: { title: ReactNode; onClose: () => void; children: ReactNode; width?: number }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
