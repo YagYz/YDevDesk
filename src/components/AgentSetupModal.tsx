@@ -4,7 +4,6 @@ import {
   Cpu,
   Download,
   Loader2,
-  Play,
   RefreshCw,
   Sparkles,
   SquareTerminal,
@@ -51,10 +50,12 @@ export function AgentSetupContent({ onClose }: { onClose?: () => void }) {
     localStorage.setItem(LAUNCH_PREF_KEY, String(val));
   };
 
-  const handleLaunch = (agent: AgentCliInfo) => {
+  const handleLaunch = (agent: AgentCliInfo, bypass = false) => {
+    const cmd = bypass && agent.bypass_cmd ? agent.bypass_cmd : agent.binary;
+    const title = bypass ? `${agent.name} (Bypass)` : agent.name;
     ws.openTerminal({
-      title: agent.name,
-      initCmd: agent.binary,
+      title,
+      initCmd: cmd,
       kind: "agent",
     });
     if (onClose) onClose();
@@ -145,14 +146,15 @@ export function AgentSetupContent({ onClose }: { onClose?: () => void }) {
           type="button"
           disabled={loading || busyAgent !== null}
           onClick={loadEnv}
-          className="flex items-center gap-1 text-[11px] text-[var(--txt-dim)] hover:text-[var(--txt-main)] transition-colors disabled:opacity-50"
+          className="flex items-center gap-1 text-[var(--txt-dim)] hover:text-[var(--txt-main)] transition-colors"
+          title="Yeniden tara"
         >
           <RefreshCw className={`w-3 h-3 ${loading ? "animate-spin" : ""}`} />
-          Yenile
+          <span>tara</span>
         </button>
       </div>
 
-      {/* Ajan Listesi - Birebir Modüller Sekmesi Şablonu */}
+      {/* Ajan Listesi - Modüller sekmesi mimarisi */}
       <div className="space-y-1.5">
         {env?.agents.map((a) => {
           const isBusy = busyAgent === a.id;
@@ -162,43 +164,62 @@ export function AgentSetupContent({ onClose }: { onClose?: () => void }) {
           return (
             <div
               key={a.id}
-              className="rounded-lg border border-[var(--border)] px-2.5 py-1.5 space-y-1.5"
+              className="rounded-lg border border-[var(--border)] px-2.5 py-2 space-y-1.5 hover:border-[var(--border-glow)] transition-colors"
             >
-              <div className="flex items-center gap-2.5">
-                {getAgentIcon(a.id)}
-                
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-[var(--txt-main)] font-medium">{a.name}</span>
-                    <span className="font-mono text-[10px] text-[var(--txt-dim)]">({a.binary})</span>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                  <div className="mt-0.5">{getAgentIcon(a.id)}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-[var(--txt-main)]">{a.name}</span>
+                      {a.version && (
+                        <span className="text-[10px] font-mono text-[var(--txt-dim)]">v{a.version}</span>
+                      )}
+                      <span
+                        className={`text-[10px] font-mono ${
+                          a.is_installed ? "text-[var(--ok)]" : "text-[var(--txt-dim)]"
+                        }`}
+                      >
+                        {a.is_installed ? "yüklü" : "yüklü değil"}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-[var(--txt-dim)] truncate mt-0.5">{a.description}</p>
                   </div>
-                  <div className="text-[10px] text-[var(--txt-dim)] truncate">{a.description}</div>
                 </div>
 
-                {/* Durum Göstergesi */}
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className={`text-[10px] font-mono ${a.is_installed ? "text-[var(--ok)]" : "text-[var(--warn)]"}`}>
-                    {a.is_installed ? `v${a.version || "kurulu"}` : "kurulu değil"}
-                  </span>
-
-                  {/* Butonlar - İnce, sade, modüller uyumlu */}
+                {/* Butonlar: Modüller sekmesi tarzı ince, mat ve köşeli */}
+                <div className="flex items-center gap-1.5 shrink-0">
                   {a.is_installed ? (
                     <div className="flex items-center gap-1">
+                      {/* ÇALIŞTIR */}
                       <button
                         type="button"
-                        onClick={() => handleLaunch(a)}
-                        title="Terminal sekmesinde aç"
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border border-[var(--border)] text-[var(--txt-main)] hover:text-[var(--ok)] hover:border-[var(--ok)]/50 hover:bg-[var(--surface-raised)] transition-colors"
+                        onClick={() => handleLaunch(a, false)}
+                        title="Normal başlat"
+                        className="px-2 py-0.5 rounded text-[11px] font-mono border border-[var(--border)] text-[var(--txt-main)] hover:border-[var(--ok)]/60 hover:text-[var(--ok)] hover:bg-[var(--surface-raised)] transition-colors"
                       >
-                        <Play className="w-3 h-3 fill-current" />
-                        Çalıştır
+                        çalıştır
                       </button>
+
+                      {/* BYPASS */}
+                      {a.bypass_cmd && (
+                        <button
+                          type="button"
+                          onClick={() => handleLaunch(a, true)}
+                          title={`Onaysız tam yetkili bypass modu (${a.bypass_cmd})`}
+                          className="px-2 py-0.5 rounded text-[10px] font-mono border border-[var(--border)] text-[var(--warn)] hover:border-[var(--warn)]/60 hover:bg-[var(--surface-raised)] transition-colors"
+                        >
+                          bypass
+                        </button>
+                      )}
+
+                      {/* GÜNCELLE */}
                       <button
                         type="button"
                         disabled={isBusy || busyAgent !== null}
                         onClick={() => handleInstall(a.id)}
                         title="Güncelle"
-                        className="px-2 py-1 rounded-md text-[10px] font-mono border border-[var(--border)] text-[var(--txt-dim)] hover:text-[var(--txt-main)] hover:bg-[var(--surface-raised)] transition-colors disabled:opacity-50"
+                        className="px-1.5 py-0.5 rounded text-[10px] font-mono border border-[var(--border)] text-[var(--txt-dim)] hover:text-[var(--txt-main)] hover:bg-[var(--surface-raised)] transition-colors disabled:opacity-50"
                       >
                         {isBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : "güncelle"}
                       </button>
@@ -209,16 +230,15 @@ export function AgentSetupContent({ onClose }: { onClose?: () => void }) {
                         type="button"
                         disabled={isBusy || busyAgent !== null}
                         onClick={() => handleInstall(a.id)}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border border-[var(--border)] text-[var(--accent)] hover:border-[var(--accent)]/50 hover:bg-[var(--surface-raised)] transition-colors disabled:opacity-50"
+                        className="px-2.5 py-0.5 rounded text-[11px] font-mono border border-[var(--border)] text-[var(--accent)] hover:border-[var(--accent)] hover:bg-[var(--surface-raised)] transition-colors disabled:opacity-50"
                       >
-                        {isBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
-                        {isBusy ? "Kuruluyor…" : "Kur"}
+                        {isBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : "kur"}
                       </button>
                       <button
                         type="button"
                         onClick={() => handleOpenInstallTerminal(a)}
                         title="Terminalde aç"
-                        className="p-1 rounded-md border border-[var(--border)] text-[var(--txt-dim)] hover:text-[var(--txt-main)] hover:bg-[var(--surface-raised)] transition-colors"
+                        className="p-1 rounded border border-[var(--border)] text-[var(--txt-dim)] hover:text-[var(--txt-main)] hover:bg-[var(--surface-raised)] transition-colors"
                       >
                         <SquareTerminal className="w-3 h-3" />
                       </button>
@@ -259,6 +279,7 @@ export function AgentSetupContent({ onClose }: { onClose?: () => void }) {
             type="checkbox"
             checked={dontShowAgain}
             onChange={(e) => toggleDontShow(e.target.checked)}
+            className="rounded border-[var(--border)] bg-[var(--bg)] text-[var(--accent)] accent-[var(--accent)]"
           />
           <span>Açılışta otomatik gösterme</span>
         </label>
@@ -269,10 +290,10 @@ export function AgentSetupContent({ onClose }: { onClose?: () => void }) {
               type="button"
               disabled={busyAgent !== null || loading}
               onClick={handleInstallAll}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--accent)] text-black hover:brightness-110 disabled:opacity-60 transition-colors"
+              className="px-2.5 py-1 rounded text-xs font-mono border border-[var(--accent)]/50 text-[var(--accent)] hover:bg-[var(--accent)]/10 disabled:opacity-50 transition-colors"
             >
               {busyAgent !== null ? <Loader2 className="w-3 h-3 animate-spin inline mr-1" /> : <Download className="w-3 h-3 inline mr-1" />}
-              Tüm Eksikleri Kur ({missingCount})
+              tümünü kur ({missingCount})
             </button>
           )}
 
@@ -280,9 +301,9 @@ export function AgentSetupContent({ onClose }: { onClose?: () => void }) {
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 rounded-lg text-xs text-[var(--txt-muted)] hover:bg-[var(--surface-raised)] transition-colors"
+              className="px-2.5 py-1 rounded text-xs font-mono text-[var(--txt-muted)] hover:text-[var(--txt-main)] hover:bg-[var(--surface-raised)] transition-colors"
             >
-              Kapat
+              kapat
             </button>
           )}
         </div>
@@ -293,7 +314,16 @@ export function AgentSetupContent({ onClose }: { onClose?: () => void }) {
 
 export function AgentSetupModal({ onClose }: { onClose: () => void }) {
   return (
-    <Modal title="Ajan Merkezi" onClose={onClose} width={520}>
+    <Modal
+      title={
+        <div className="flex items-center gap-2">
+          <img src="/logo.png" alt="YDevDesk" className="w-4 h-4 rounded object-contain shadow" />
+          <span>Ajan Yönetim & Kurulum Merkezi</span>
+        </div>
+      }
+      onClose={onClose}
+      width={540}
+    >
       <AgentSetupContent onClose={onClose} />
     </Modal>
   );

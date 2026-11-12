@@ -220,15 +220,16 @@ fn start_pty(app: AppHandle, state: State<'_, TerminalState>, session_id: String
         cmd.cwd(home);
     }
 
+    if let Some(initial_command) = &init_cmd {
+        cmd.arg("-c");
+        cmd.arg(format!("{}; exec {}", initial_command, shell));
+    }
+
     let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
     drop(pair.slave);
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
     let mut writer = pair.master.take_writer().map_err(|e| e.to_string())?;
 
-    if let Some(initial_command) = init_cmd {
-        let _ = writer.write_all(format!("{}\r", initial_command).as_bytes());
-        let _ = writer.flush();
-    }
 
     {
         let mut sessions = state.sessions.lock().map_err(|e| e.to_string())?;
@@ -1081,7 +1082,7 @@ fn check_agent_environment() -> Result<AgentEnvironmentStatus, String> {
         path: agy_path,
         description: "Google'un agentic platform CLI'ı, Zettelkasten hafıza ve araç yürütme çekirdeği.".into(),
         install_cmd: "curl -fsSL https://antigravity.google/product/antigravity-cli/install.sh | bash".into(),
-        bypass_cmd: Some("agy".into()),
+        bypass_cmd: Some("agy --dangerously-skip-permissions".into()),
     });
 
     // 2. Anthropic Claude Code
@@ -1117,7 +1118,7 @@ fn check_agent_environment() -> Result<AgentEnvironmentStatus, String> {
         path: codex_path,
         description: "OpenAI Codex CLI yerel kodlama ve komut satırı ajanı.".into(),
         install_cmd: "npm install -g @openai/codex".into(),
-        bypass_cmd: Some("codex --full-access".into()),
+        bypass_cmd: Some("codex --dangerously-bypass-approvals-and-run-code".into()),
     });
 
     Ok(AgentEnvironmentStatus {
