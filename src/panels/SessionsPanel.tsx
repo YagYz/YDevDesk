@@ -193,7 +193,10 @@ export default function SessionsPanel() {
                       </span>
                     </div>
 
-                    <div className="mt-1 text-xs text-[var(--txt-main)] font-medium line-clamp-2 leading-snug">
+                    <div
+                      title={s.title || `${meta.label} Oturumu`}
+                      className="mt-1 text-xs text-[var(--txt-main)] font-medium truncate"
+                    >
                       {s.title || `${meta.label} Oturumu`}
                     </div>
 

@@ -90,13 +90,25 @@ export default function Workspace() {
     const api = apiRef.current;
     if (!api) return;
     const id = newTerminalId();
+    const existingTerm = !opts.groupId
+      ? (lastTerminalRef.current && api.getPanel(lastTerminalRef.current)) ||
+        api.getPanel(MAIN_TERMINAL_ID) ||
+        api.panels.find((p) => p.api.component === TERMINAL_COMPONENT)
+      : undefined;
+    const targetGroupId = opts.groupId ?? existingTerm?.group?.id;
+    const activeGroupId = api.activeGroup?.id;
+    const position = targetGroupId
+      ? { referenceGroup: targetGroupId }
+      : activeGroupId
+        ? { referenceGroup: activeGroupId, direction: "right" as const }
+        : undefined;
     api.addPanel({
       id,
       component: TERMINAL_COMPONENT,
       title: opts.title ?? "Terminal",
       params: { initCmd: opts.initCmd, kind: opts.kind ?? "shell" },
       renderer: "always",
-      position: opts.groupId ? { referenceGroup: opts.groupId } : undefined,
+      position,
     });
     api.getPanel(id)?.api.setActive();
   }, []);
