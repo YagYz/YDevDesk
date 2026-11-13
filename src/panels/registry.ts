@@ -30,7 +30,7 @@ export const MODULES: ModuleDef[] = [
   { id: "network", title: "YNetMon Ağ", description: "Canlı trafik ve cihazlar", icon: Network, component: NetworkPanel, width: 320, requires: "ynetmon" },
   { id: "recent_tools", title: "Araç Akışı", description: "AGY son araç çağrıları", icon: Activity, component: ToolsPanel, width: 320 },
   { id: "file_heat", title: "Dosya Yoğunluğu", description: "En çok dokunulan dosyalar", icon: Flame, component: FileHeatPanel, width: 320 },
-  { id: "sessions", title: "Oturumlar", description: "AGY oturumları ve alt ajanlar", icon: Users, component: SessionsPanel, width: 260 },
+  { id: "sessions", title: "Oturumlar", description: "AGY, Claude Code ve Codex oturumları", icon: Users, component: SessionsPanel, width: 280 },
   { id: "notes", title: "Notlar", description: "YDevHub günlük notları", icon: StickyNote, component: NotesPanel, width: 320, requires: "ydevhub" },
   { id: "tasks", title: "Görevler", description: "YDevHub görevleri: listele, ekle, tamamla", icon: ListTodo, component: TasksPanel, width: 320, requires: "ydevhub" },
   { id: "git", title: "Git", description: "Proje branch, değişen dosyalar, PR durumu", icon: GitBranch, component: GitPanel, width: 320, requires: "projects-root" },

@@ -30,8 +30,14 @@ export type Knowledge = {
   linked_topics: string[];
 };
 
+export type AgentKind = "agy" | "claude" | "codex";
+
 export type ActiveAgentSession = {
   session_id: string;
+  full_session_id: string;
+  agent: AgentKind | string;
+  title: string;
+  cwd?: string | null;
   is_active: boolean;
   model: string;
   last_tool: string;

@@ -27,6 +27,10 @@ pub struct HomelabConfig {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ActiveAgentSession {
     pub session_id: String,
+    pub full_session_id: String,
+    pub agent: String,
+    pub title: String,
+    pub cwd: Option<String>,
     pub is_active: bool,
     pub model: String,
     pub last_tool: String,
@@ -379,13 +383,333 @@ fn read_tail(path: &std::path::Path, max_bytes: u64) -> Option<String> {
     Some(text)
 }
 
-// 5. Antigravity Agent Durumu, Telemetri ve File Heat Verisini Okuma
+// Büyük transcript dosyalarının yalnızca başındaki baytları okur.
+fn read_head(path: &std::path::Path, max_bytes: usize) -> Option<String> {
+    let mut f = std::fs::File::open(path).ok()?;
+    let mut buf = vec![0u8; max_bytes];
+    let n = f.read(&mut buf).ok()?;
+    buf.truncate(n);
+    Some(String::from_utf8_lossy(&buf).to_string())
+}
+
+fn short_id(id: &str) -> String {
+    id.chars().take(8).collect()
+}
+
+fn clean_prompt_preview(raw: &str, max_chars: usize) -> String {
+    let stripped = raw
+        .replace("<USER_REQUEST>", "")
+        .replace("</USER_REQUEST>", "");
+    let stripped = stripped
+        .split("<ADDITIONAL_METADATA>")
+        .next()
+        .unwrap_or(&stripped);
+    let collapsed: String = stripped.split_whitespace().collect::<Vec<_>>().join(" ");
+    let trimmed = collapsed.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    let count = trimmed.chars().count();
+    if count <= max_chars {
+        trimmed.to_string()
+    } else {
+        let prefix: String = trimmed.chars().take(max_chars.saturating_sub(1)).collect();
+        format!("{}…", prefix)
+    }
+}
+
+fn mtime_ago_secs(path: &std::path::Path, now: std::time::SystemTime) -> Option<u64> {
+    let meta = std::fs::metadata(path).ok()?;
+    let mtime = meta.modified().ok()?;
+    now.duration_since(mtime).ok().map(|d| d.as_secs())
+}
+
+fn collect_agy_sessions(
+    agy_dir: &std::path::Path,
+    now: std::time::SystemTime,
+) -> (Vec<ActiveAgentSession>, Option<std::path::PathBuf>) {
+    let brain_dir = agy_dir.join("brain");
+    let mut found = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&brain_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                let t_path = path.join(".system_generated").join("logs").join("transcript.jsonl");
+                if let Some(diff_secs) = mtime_ago_secs(&t_path, now) {
+                    let id = entry.file_name().to_string_lossy().to_string();
+                    found.push((diff_secs, id, t_path));
+                }
+            }
+        }
+    }
+    found.sort_by_key(|s| s.0);
+
+    let primary_transcript_path = found.first().map(|s| s.2.clone());
+    let mut sessions = Vec::new();
+
+    for (diff_secs, full_id, t_path) in found.into_iter().take(20) {
+        let mut title = String::new();
+        if let Some(head) = read_head(&t_path, 16 * 1024) {
+            for line in head.lines() {
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(line) {
+                    if v.get("type").and_then(|t| t.as_str()) == Some("USER_INPUT") {
+                        if let Some(content) = v.get("content").and_then(|c| c.as_str()) {
+                            title = clean_prompt_preview(content, 72);
+                            if !title.is_empty() {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if title.is_empty() {
+            title = "AGY Oturumu".to_string();
+        }
+        sessions.push(ActiveAgentSession {
+            session_id: short_id(&full_id),
+            full_session_id: full_id,
+            agent: "agy".to_string(),
+            title,
+            cwd: None,
+            is_active: diff_secs < 300,
+            model: "AGY".to_string(),
+            last_tool: "working".to_string(),
+            updated_ago_secs: diff_secs,
+        });
+    }
+
+    (sessions, primary_transcript_path)
+}
+
+fn extract_claude_user_text(v: &serde_json::Value) -> Option<String> {
+    let msg = v.get("message")?;
+    let content = msg.get("content")?;
+    if let Some(s) = content.as_str() {
+        let c = clean_prompt_preview(s, 72);
+        if !c.is_empty() && !c.starts_with('<') {
+            return Some(c);
+        }
+    } else if let Some(arr) = content.as_array() {
+        for item in arr {
+            if item.get("type").and_then(|t| t.as_str()) == Some("text") {
+                if let Some(s) = item.get("text").and_then(|t| t.as_str()) {
+                    let c = clean_prompt_preview(s, 72);
+                    if !c.is_empty() && !c.starts_with('<') {
+                        return Some(c);
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+fn collect_claude_sessions(home: &std::path::Path, now: std::time::SystemTime) -> Vec<ActiveAgentSession> {
+    let projects_dir = home.join(".claude").join("projects");
+    let mut files = Vec::new();
+    if let Ok(proj_entries) = std::fs::read_dir(&projects_dir) {
+        for proj in proj_entries.flatten() {
+            let p_path = proj.path();
+            if p_path.is_dir() {
+                if let Ok(sess_entries) = std::fs::read_dir(&p_path) {
+                    for s_entry in sess_entries.flatten() {
+                        let f_path = s_entry.path();
+                        let fname = s_entry.file_name().to_string_lossy().to_string();
+                        if fname.ends_with(".jsonl") && !fname.starts_with("agent-") {
+                            if let Some(diff_secs) = mtime_ago_secs(&f_path, now) {
+                                files.push((diff_secs, f_path));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    files.sort_by_key(|f| f.0);
+
+    let mut sessions = Vec::new();
+    for (diff_secs, f_path) in files.into_iter().take(20) {
+        let stem = f_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_string();
+        let mut full_id = stem.clone();
+        let mut cwd: Option<String> = None;
+        let mut title = String::new();
+        let mut model = "Claude Code".to_string();
+
+        if let Some(head) = read_head(&f_path, 24 * 1024) {
+            for line in head.lines() {
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(line) {
+                    if let Some(sid) = v.get("sessionId").and_then(|s| s.as_str()) {
+                        if !sid.is_empty() {
+                            full_id = sid.to_string();
+                        }
+                    }
+                    if cwd.is_none() {
+                        if let Some(c) = v.get("cwd").and_then(|s| s.as_str()) {
+                            if !c.is_empty() {
+                                cwd = Some(c.to_string());
+                            }
+                        }
+                    }
+                    if let Some(m) = v.get("message").and_then(|m| m.get("model")).and_then(|m| m.as_str()) {
+                        model = m.to_string();
+                    }
+                    if title.is_empty() && v.get("type").and_then(|t| t.as_str()) == Some("user") {
+                        if let Some(t) = extract_claude_user_text(&v) {
+                            title = t;
+                        }
+                    }
+                }
+            }
+        }
+        if full_id.is_empty() {
+            continue;
+        }
+        if title.is_empty() {
+            title = "Claude Code Oturumu".to_string();
+        }
+        sessions.push(ActiveAgentSession {
+            session_id: short_id(&full_id),
+            full_session_id: full_id,
+            agent: "claude".to_string(),
+            title,
+            cwd,
+            is_active: diff_secs < 300,
+            model,
+            last_tool: "working".to_string(),
+            updated_ago_secs: diff_secs,
+        });
+    }
+    sessions
+}
+
+fn walk_jsonl_depth(
+    dir: &std::path::Path,
+    depth: usize,
+    now: std::time::SystemTime,
+    out: &mut Vec<(u64, std::path::PathBuf)>,
+) {
+    if depth == 0 {
+        return;
+    }
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.is_dir() {
+                walk_jsonl_depth(&p, depth - 1, now, out);
+            } else if p.extension().and_then(|e| e.to_str()) == Some("jsonl") {
+                if let Some(diff) = mtime_ago_secs(&p, now) {
+                    out.push((diff, p));
+                }
+            }
+        }
+    }
+}
+
+fn collect_codex_sessions(home: &std::path::Path, now: std::time::SystemTime) -> Vec<ActiveAgentSession> {
+    let codex_dir = home.join(".codex");
+    let mut index_titles: HashMap<String, String> = HashMap::new();
+    let index_path = codex_dir.join("session_index.jsonl");
+    if let Ok(content) = std::fs::read_to_string(&index_path) {
+        for line in content.lines() {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(line) {
+                if let (Some(id), Some(name)) = (
+                    v.get("id").and_then(|s| s.as_str()),
+                    v.get("thread_name").and_then(|s| s.as_str()),
+                ) {
+                    if !name.trim().is_empty() {
+                        index_titles.insert(id.to_string(), clean_prompt_preview(name, 72));
+                    }
+                }
+            }
+        }
+    }
+
+    let mut files = Vec::new();
+    walk_jsonl_depth(&codex_dir.join("sessions"), 4, now, &mut files);
+    files.sort_by_key(|f| f.0);
+
+    let mut sessions = Vec::new();
+    for (diff_secs, f_path) in files.into_iter().take(20) {
+        let mut full_id = String::new();
+        let mut cwd: Option<String> = None;
+        let mut title = String::new();
+        let mut model = "Codex".to_string();
+
+        if let Some(head) = read_head(&f_path, 32 * 1024) {
+            for line in head.lines() {
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(line) {
+                    let kind = v.get("type").and_then(|t| t.as_str()).unwrap_or("");
+                    if kind == "session_meta" {
+                        if let Some(payload) = v.get("payload") {
+                            if let Some(id) = payload.get("id").or_else(|| payload.get("session_id")).and_then(|s| s.as_str()) {
+                                full_id = id.to_string();
+                            }
+                            if let Some(c) = payload.get("cwd").and_then(|s| s.as_str()) {
+                                if !c.is_empty() {
+                                    cwd = Some(c.to_string());
+                                }
+                            }
+                            if let Some(m) = payload.get("model_provider").and_then(|s| s.as_str()) {
+                                model = format!("Codex ({})", m);
+                            }
+                        }
+                    } else if title.is_empty() && kind == "event_msg" {
+                        if let Some(payload) = v.get("payload") {
+                            if payload.get("type").and_then(|t| t.as_str()) == Some("user_message") {
+                                if let Some(msg) = payload.get("message").and_then(|s| s.as_str()) {
+                                    title = clean_prompt_preview(msg, 72);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if full_id.is_empty() {
+            // Dosya adından UUID çıkar (rollout-...-<uuid>.jsonl)
+            if let Some(stem) = f_path.file_stem().and_then(|s| s.to_str()) {
+                if stem.len() >= 36 {
+                    full_id = stem[stem.len() - 36..].to_string();
+                }
+            }
+        }
+        if full_id.is_empty() {
+            continue;
+        }
+        if let Some(idx_title) = index_titles.get(&full_id) {
+            title = idx_title.clone();
+        }
+        if title.is_empty() {
+            title = "Codex Oturumu".to_string();
+        }
+
+        sessions.push(ActiveAgentSession {
+            session_id: short_id(&full_id),
+            full_session_id: full_id,
+            agent: "codex".to_string(),
+            title,
+            cwd,
+            is_active: diff_secs < 300,
+            model,
+            last_tool: "working".to_string(),
+            updated_ago_secs: diff_secs,
+        });
+    }
+    sessions
+}
+
+// 5. Antigravity, Claude Code ve Codex Ajan Durumu, Telemetri ve Oturum Verisini Okuma
 #[tauri::command]
 fn get_agent_status() -> AgentStatus {
     let home = dirs::home_dir().unwrap_or_default();
     let agy_dir = home.join(".gemini").join("antigravity-cli");
     let cache_path = agy_dir.join("cache").join("last_statusline.json");
-    let brain_dir = agy_dir.join("brain");
 
     let mut model = "AGY".to_string();
     let mut used_percentage = 0.0;
@@ -444,49 +768,13 @@ fn get_agent_status() -> AgentStatus {
         }
     }
 
-    // Disk üzerindeki tüm beyin (brain) oturumlarını tara
-    let mut session_list: Vec<ActiveAgentSession> = Vec::new();
-    let mut primary_transcript_path: Option<std::path::PathBuf> = None;
+    // Disk üzerindeki AGY, Claude Code ve Codex oturumlarını tara (en güncel 20 oturum)
     let now = std::time::SystemTime::now();
-
-    if let Ok(entries) = std::fs::read_dir(&brain_dir) {
-        let mut found_sessions = Vec::new();
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                let t_path = path.join(".system_generated").join("logs").join("transcript.jsonl");
-                if t_path.exists() {
-                    if let Ok(metadata) = std::fs::metadata(&t_path) {
-                        if let Ok(mtime) = metadata.modified() {
-                            if let Ok(diff) = now.duration_since(mtime) {
-                                found_sessions.push((diff.as_secs(), entry.file_name().to_string_lossy().to_string(), t_path));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        found_sessions.sort_by_key(|s| s.0);
-
-        for (diff_secs, session_id, t_path) in found_sessions {
-            if primary_transcript_path.is_none() {
-                primary_transcript_path = Some(t_path.clone());
-            }
-
-            let is_active = diff_secs < 300;
-            session_list.push(ActiveAgentSession {
-                session_id: if session_id.len() > 8 { session_id[..8].to_string() } else { session_id },
-                is_active,
-                model: "Gemini Pro/Flash".to_string(),
-                last_tool: "working".to_string(),
-                updated_ago_secs: diff_secs,
-            });
-            if session_list.len() >= 6 {
-                break;
-            }
-        }
-    }
+    let (mut session_list, primary_transcript_path) = collect_agy_sessions(&agy_dir, now);
+    session_list.extend(collect_claude_sessions(&home, now));
+    session_list.extend(collect_codex_sessions(&home, now));
+    session_list.sort_by_key(|s| s.updated_ago_secs);
+    session_list.truncate(20);
 
     let mut recent_tools = Vec::new();
     let mut ticker_squares = Vec::new();
