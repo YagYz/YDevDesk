@@ -5281,7 +5281,7 @@ dependencies = [
 
 [[package]]
 name = "ydevdesk"
-version = "0.4.1"
+version = "1.0.0"
 dependencies = [
  "dirs",
  "portable-pty",

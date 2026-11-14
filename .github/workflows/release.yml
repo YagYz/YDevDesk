@@ -51,7 +51,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "YDevDesk ${{ github.ref_name }}"
-          releaseBody: "Ön sürüm (pre-release). Linux: AppImage/deb/rpm (Arch/CachyOS için AppImage). macOS: imzasız dmg (ilk açılışta sağ tık > Aç veya `xattr -cr /Applications/ydevdesk.app`)."
+          releaseBody: "YDevDesk ${{ github.ref_name }} kararlı sürüm. Linux: AppImage/deb/rpm (Arch/CachyOS için `install.sh`). macOS: imzasız dmg (ilk açılışta sağ tık > Aç veya `xattr -cr /Applications/ydevdesk.app`)."
           releaseDraft: false
-          prerelease: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
           args: ${{ matrix.args }}

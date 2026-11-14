@@ -17,6 +17,7 @@ src-tauri/target
 target
 docs/*
 !docs/screenshots/
+!docs/site/
 *.pem
 *.key
 

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YDevDesk — Homelab &amp; Multi-Agent Desktop Command Center</title>
+  <meta name="description" content="Antigravity (AGY), Claude Code, OpenAI Codex, yerleşik PTY terminal ve Homelab servislerini tek masaüstü komuta merkezinde birleştirin." />
+  <link rel="icon" type="image/png" href="logo.png" />
+  <style>
+    :root {
+      --bg: #080c14;
+      --surface: #101724;
+      --surface-2: #162033;
+      --border: #22304a;
+      --text: #e6edf7;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-2: #3b82f6;
+      --green: #22c55e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: radial-gradient(circle at 50% 0%, #111c33 0%, var(--bg) 55%);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .container { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 0; border-bottom: 1px solid rgba(34,48,74,.6);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 18px; color: var(--text); }
+    .brand img { width: 34px; height: 34px; border-radius: 9px; }
+    .nav-links { display: flex; gap: 20px; font-size: 14px; color: var(--muted); }
+    .nav-links a { color: var(--muted); }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+    .hero { text-align: center; padding: 64px 0 40px; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 12px; font-weight: 600; color: var(--accent);
+      background: rgba(56,189,248,.1); border: 1px solid rgba(56,189,248,.28);
+      padding: 5px 12px; border-radius: 999px; margin-bottom: 18px;
+    }
+    h1 {
+      margin: 0 auto 16px; max-width: 780px;
+      font-size: clamp(32px, 5vw, 50px); line-height: 1.15; letter-spacing: -.02em;
+    }
+    .subtitle {
+      margin: 0 auto 28px; max-width: 680px; color: var(--muted); font-size: 17px;
+    }
+    .install-box {
+      max-width: 740px; margin: 0 auto 36px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 14px 18px; text-align: left; box-shadow: 0 18px 50px rgba(0,0,0,.45);
+    }
+    .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .tab-btn {
+      background: transparent; border: 1px solid var(--border); color: var(--muted);
+      padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .tab-btn.active {
+      background: rgba(56,189,248,.14); border-color: var(--accent); color: var(--text);
+    }
+    .cmd-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      background: #070a11; border: 1px solid #1d283d; border-radius: 10px;
+      padding: 12px 14px; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 13px;
+      overflow-x: auto;
+    }
+    .cmd-row code { white-space: pre; color: #dbeafe; }
+    .copy-btn {
+      background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+      padding: 6px 12px; border-radius: 7px; font-size: 12px; cursor: pointer; shrink: 0;
+    }
+    .copy-btn:hover { border-color: var(--accent); }
+
+    .screenshot-wrap {
+      margin: 20px auto 64px;
+      border-radius: 16px; overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 28px 80px rgba(0,0,0,.65);
+    }
+    .screenshot-wrap img { display: block; width: 100%; height: auto; }
+
+    .section-title { text-align: center; font-size: 28px; margin: 0 0 10px; }
+    .section-sub { text-align: center; color: var(--muted); margin: 0 0 36px; font-size: 15px; }
+    .features {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 18px; margin-bottom: 64px;
+    }
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px;
+    }
+    .card h3 { margin: 0 0 8px; font-size: 16px; }
+    .card p { margin: 0; color: var(--muted); font-size: 14px; }
+
+    footer {
+      border-top: 1px solid var(--border); padding: 28px 0 44px;
+      display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px;
+      color: var(--muted); font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav>
+      <a class="brand" href="./">
+        <img src="logo.png" alt="YDevDesk Logo" />
+        <span>YDevDesk</span>
+      </a>
+      <div class="nav-links">
+        <a href="#features">Özellikler</a>
+        <a href="https://github.com/YagYz/YDevDesk/releases">Sürümler</a>
+        <a href="https://github.com/YagYz/YDevDesk">GitHub</a>
+      </div>
+    </nav>
+
+    <section class="hero">
+      <div class="badge">Tauri v2 &bull; React 19 &bull; Linux &amp; macOS</div>
+      <h1>Homelab &amp; Çoklu Ajan Masaüstü Komuta Merkezi</h1>
+      <p class="subtitle">
+        <strong>Antigravity (AGY)</strong>, <strong>Claude Code</strong> ve <strong>OpenAI Codex</strong> ajanlarını,
+        yerleşik PTY terminallerini ve Homelab servislerinizi tek bir modüler çalışma alanında yönetin.
+      </p>
+
+      <div class="install-box">
+        <div class="tabs">
+          <button class="tab-btn active" onclick="setTab('quick', this)">Tek Komut (Önerilen)</button>
+          <button class="tab-btn" onclick="setTab('aur', this)">Arch / CachyOS (AUR)</button>
+          <button class="tab-btn" onclick="setTab('apt', this)">Ubuntu / Debian (APT)</button>
+          <button class="tab-btn" onclick="setTab('mac', this)">macOS</button>
+        </div>
+        <div class="cmd-row">
+          <code id="install-cmd">curl -fsSL https://raw.githubusercontent.com/YagYz/YDevDesk/main/install.sh | bash</code>
+          <button class="copy-btn" onclick="copyCmd()">Kopyala</button>
+        </div>
+      </div>
+
+      <div class="screenshot-wrap">
+        <img src="workspace.png" alt="YDevDesk Masaüstü Arayüzü" />
+      </div>
+    </section>
+
+    <section id="features">
+      <h2 class="section-title">Öne Çıkan Özellikler</h2>
+      <p class="section-sub">Geliştiriciler ve Homelab yöneticileri için sıfır sürtünmeli çalışma ortamı</p>
+      <div class="features">
+        <div class="card">
+          <h3>Çoklu Ajan Oturumları</h3>
+          <p>AGY, Claude Code ve Codex oturumlarını tek listede arayın, sabitleyin, yeniden adlandırın ve tek tıkla <code>--resume</code> ile açın.</p>
+        </div>
+        <div class="card">
+          <h3>Canlı &amp; 30 Günlük Analitik</h3>
+          <p>Eklentisiz olarak 1g / 7g / 30g girdi-çıktı token, tahmini USD maliyet ve 5 saatlik / haftalık kota durumunu izleyin.</p>
+        </div>
+        <div class="card">
+          <h3>Dockview Çalışma Alanları</h3>
+          <p>Panelleri sürükleyip bölün, proje bazlı adlandırılmış düzenler kaydedin, <code>Ctrl+Shift+T</code> ve çökme kurtarma ile işinizi kaybetmeyin.</p>
+        </div>
+        <div class="card">
+          <h3>Homelab &amp; Git Entegrasyonu</h3>
+          <p>YDevHub notları, görevleri, Bilgi Ağı, YNetMon canlı ağ trafiği ve yerel Git / PR durumu her an elinizin altında.</p>
+        </div>
+        <div class="card">
+          <h3>Doğal Ses &amp; Bildirimler</h3>
+          <p>Ajan görevi tamamladığında veya kota eşiğine düştüğünde Linux (<code>notify-send</code>) ve macOS masaüstü bildirimi + DSP ses uyarısı alın.</p>
+        </div>
+        <div class="card">
+          <h3>Sertleştirilmiş Güvenlik</h3>
+          <p>Strict CSP, <code>0o600</code> yapılandırma izinleri, doğrulanmış GitHub Release güncelleyici ve <code>unsafe</code> bloksuz Rust çekirdeği.</p>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <span>YDevDesk &mdash; MIT Lisansı</span>
+      <span><a href="https://github.com/YagYz/YDevDesk">github.com/YagYz/YDevDesk</a></span>
+    </footer>
+  </div>
+
+  <script>
+    const CMDS = {
+      quick: "curl -fsSL https://raw.githubusercontent.com/YagYz/YDevDesk/main/install.sh | bash",
+      aur: "paru -S ydevdesk-bin",
+      apt: "echo 'deb [trusted=yes] https://yagyz.github.io/YDevDesk/apt ./' | sudo tee /etc/apt/sources.list.d/ydevdesk.list && sudo apt update && sudo apt install -y ydevdesk",
+      mac: "xattr -cr /Applications/ydevdesk.app"
+    };
+    function setTab(key, btn) {
+      document.getElementById("install-cmd").textContent = CMDS[key];
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+    }
+    function copyCmd() {
+      const txt = document.getElementById("install-cmd").textContent;
+      navigator.clipboard.writeText(txt).then(() => {
+        const btn = document.querySelector(".copy-btn");
+        btn.textContent = "Kopyalandı!";
+        setTimeout(() => btn.textContent = "Kopyala", 1500);
+      });
+    }
+  </script>
+</body>
+</html>
