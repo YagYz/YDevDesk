@@ -1,0 +1,54 @@
+name: Publish AUR (ydevdesk-bin)
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  aur:
+    if: ${{ secrets.AUR_SSH_PRIVATE_KEY != '' }}
+    runs-on: archlinux
+    container:
+      image: archlinux:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Paketleri kur
+        run: |
+          pacman -Syu --noconfirm --needed base-devel git openssh jq curl
+
+      - name: PKGBUILD ve .SRCINFO güncelle & AUR'a pushla
+        env:
+          AUR_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases?per_page=5" \
+            | jq -r '.[0].tag_name')"
+          VER="${TAG#v}"
+          DEB_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/ydevdesk_${VER}_amd64.deb"
+          curl -fL "$DEB_URL" -o /tmp/ydevdesk.deb
+          SHA="$(sha256sum /tmp/ydevdesk.deb | awk '{print $1}')"
+
+          mkdir -p ~/.ssh
+          printf '%s\n' "$AUR_KEY" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          ssh-keyscan -H aur.archlinux.org >> ~/.ssh/known_hosts
+          printf 'Host aur.archlinux.org\n  IdentityFile ~/.ssh/aur\n  User aur\n' > ~/.ssh/config
+
+          git clone ssh://aur@aur.archlinux.org/ydevdesk-bin.git /tmp/aur-repo
+          cp packaging/arch/PKGBUILD /tmp/aur-repo/PKGBUILD
+          sed -i "s/^pkgver=.*/pkgver=${VER}/" /tmp/aur-repo/PKGBUILD
+          sed -i "s/^sha256sums=.*/sha256sums=('${SHA}')/" /tmp/aur-repo/PKGBUILD
+
+          useradd -m builder || true
+          chown -R builder:builder /tmp/aur-repo
+          su - builder -c "cd /tmp/aur-repo && makepkg --printsrcinfo > .SRCINFO"
+
+          cd /tmp/aur-repo
+          git config user.name "YagYz"
+          git config user.email "babalaraga@gmail.com"
+          git add PKGBUILD .SRCINFO
+          git commit -m "Update ydevdesk-bin to v${VER}" || exit 0
+          git push origin master

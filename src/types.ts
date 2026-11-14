@@ -126,6 +126,8 @@ export type TerminalPreset = {
 
 export type NotificationSettings = {
   enabled: boolean;
+  sound_enabled: boolean;
+  sound_preset?: "notify" | "notify2";
   agent_done: boolean;
   quota_low: boolean;
   service_down: boolean;

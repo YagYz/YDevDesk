@@ -41,6 +41,8 @@ export const DEFAULT_TERMINAL_PRESETS: TerminalPreset[] = [
 
 export const DEFAULT_NOTIFICATIONS: NotificationSettings = {
   enabled: true,
+  sound_enabled: true,
+  sound_preset: "notify2",
   agent_done: true,
   quota_low: true,
   service_down: true,

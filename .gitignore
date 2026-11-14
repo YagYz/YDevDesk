@@ -15,7 +15,8 @@ dist-ssr
 # Tauri Rust target
 src-tauri/target
 target
-docs
+docs/*
+!docs/screenshots/
 *.pem
 *.key
 
