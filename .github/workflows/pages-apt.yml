@@ -47,13 +47,10 @@ jobs:
             dpkg-scanpackages --multiversion . /dev/null > Packages
             gzip -9c Packages > Packages.gz
             apt-ftparchive release . > Release
-            cat > index.html <<'EOF'
-<!doctype html><meta charset="utf-8"><title>YDevDesk APT Repo</title>
-<pre>
-echo 'deb [trusted=yes] https://yagyz.github.io/YDevDesk/apt ./' | sudo tee /etc/apt/sources.list.d/ydevdesk.list
-sudo apt update && sudo apt install -y ydevdesk
-</pre>
-EOF
+            printf '%s\n' \
+              '<!doctype html><meta charset="utf-8"><title>YDevDesk APT Repo</title>' \
+              '<pre>echo '\''deb [trusted=yes] https://yagyz.github.io/YDevDesk/apt ./'\'' | sudo tee /etc/apt/sources.list.d/ydevdesk.list' \
+              'sudo apt update && sudo apt install -y ydevdesk</pre>' > index.html
           else
             echo "Henüz .deb release varlığı bulunamadı; boş APT dizini oluşturuldu."
           fi
