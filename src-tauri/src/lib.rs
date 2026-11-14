@@ -1173,6 +1173,18 @@ fn get_agent_status() -> AgentStatus {
 
     let cost = (inp as f64 / 1_000_000.0) * 0.15 + (out as f64 / 1_000_000.0) * 0.60;
     let active_count = session_list.iter().filter(|s| s.is_active).count();
+    let other_agent_working = session_list
+        .iter()
+        .any(|s| s.agent != "agy" && s.updated_ago_secs < 6);
+    let agy_fallback_working = !has_live_status
+        && session_list
+            .iter()
+            .any(|s| s.agent == "agy" && s.updated_ago_secs < 6);
+    let final_agent_state = if agent_state == "working" || other_agent_working || agy_fallback_working {
+        "working".to_string()
+    } else {
+        agent_state
+    };
 
     AgentStatus {
         model,
@@ -1181,7 +1193,7 @@ fn get_agent_status() -> AgentStatus {
         total_input_tokens: inp,
         total_output_tokens: out,
         mode: "CAVEMAN".to_string(),
-        agent_state: if active_count > 0 { "working".to_string() } else { agent_state },
+        agent_state: final_agent_state,
         active_sessions_count: active_count.max(1),
         quota_5h_percent: quota_5h,
         quota_weekly_percent: quota_weekly,
