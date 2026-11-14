@@ -146,7 +146,7 @@
     </nav>
 
     <section class="hero">
-      <div class="badge" id="ver-badge">v1.0.0 &bull; Tauri v2 &bull; Linux &amp; macOS</div>
+      <div class="badge" id="ver-badge">v1.0.1 &bull; Tauri v2 &bull; Linux, macOS &amp; Windows</div>
       <h1>Homelab &amp; Çoklu Ajan Masaüstü Komuta Merkezi</h1>
       <p class="subtitle">
         <strong>Antigravity (AGY)</strong>, <strong>Claude Code</strong> ve <strong>OpenAI Codex</strong> ajanlarını,
@@ -159,6 +159,7 @@
           <button class="tab-btn" onclick="setTab('aur', this)">Arch / CachyOS</button>
           <button class="tab-btn" onclick="setTab('apt', this)">Ubuntu / Debian (APT)</button>
           <button class="tab-btn" onclick="setTab('mac', this)">macOS</button>
+          <button class="tab-btn" onclick="setTab('win', this)">Windows</button>
         </div>
         <div class="cmd-row">
           <code id="install-cmd">curl -fsSL https://raw.githubusercontent.com/YagYz/YDevDesk/main/install.sh | bash</code>
@@ -175,6 +176,7 @@
         <a class="dl-btn" id="dl-rpm" href="https://github.com/YagYz/YDevDesk/releases/latest">Fedora / RHEL <span>.rpm</span></a>
         <a class="dl-btn" id="dl-dmg-arm" href="https://github.com/YagYz/YDevDesk/releases/latest">macOS <span>Apple Silicon</span></a>
         <a class="dl-btn" id="dl-dmg-x64" href="https://github.com/YagYz/YDevDesk/releases/latest">macOS <span>Intel</span></a>
+        <a class="dl-btn" id="dl-win-exe" href="https://github.com/YagYz/YDevDesk/releases/latest">Windows <span>.exe (NSIS)</span></a>
       </div>
 
       <div class="gallery-tabs">
@@ -260,7 +262,8 @@
       quick: "curl -fsSL https://raw.githubusercontent.com/YagYz/YDevDesk/main/install.sh | bash",
       aur: "curl -fsSL https://raw.githubusercontent.com/YagYz/YDevDesk/main/install.sh | bash",
       apt: "echo 'deb [trusted=yes] https://yagyz.github.io/YDevDesk/apt ./' | sudo tee /etc/apt/sources.list.d/ydevdesk.list && sudo apt update && sudo apt install -y ydevdesk",
-      mac: "xattr -cr /Applications/ydevdesk.app"
+      mac: "xattr -cr /Applications/ydevdesk.app",
+      win: "https://github.com/YagYz/YDevDesk/releases/latest  # *-setup.exe kurup Başlat menüsüne YDevDesk yazın"
     };
     function setTab(key, btn) {
       document.getElementById("install-cmd").textContent = CMDS[key];
@@ -286,7 +289,7 @@
       .then(r => r.ok ? r.json() : null)
       .then(rel => {
         if (!rel || !rel.assets) return;
-        document.getElementById("ver-badge").textContent = `${rel.tag_name} • Tauri v2 • Linux & macOS`;
+        document.getElementById("ver-badge").textContent = `${rel.tag_name} • Tauri v2 • Linux, macOS & Windows`;
         const find = (re) => rel.assets.find(a => re.test(a.name))?.browser_download_url;
         const map = {
           "dl-appimage": find(/\.AppImage$/),
@@ -294,6 +297,7 @@
           "dl-rpm": find(/\.x86_64\.rpm$/),
           "dl-dmg-arm": find(/aarch64\.dmg$/),
           "dl-dmg-x64": find(/x64\.dmg$/),
+          "dl-win-exe": find(/-setup\.exe$/),
         };
         for (const [id, url] of Object.entries(map)) {
           if (url) document.getElementById(id).href = url;

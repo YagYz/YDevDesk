@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Tauri v2](https://img.shields.io/badge/Tauri-v2-24C8DB?logo=tauri&logoColor=white)](https://tauri.app)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
-[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS-lightgrey)]()
+[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey)]()
 
 **YDevDesk**, yapay zeka kodlama ajanlarını (**Antigravity / AGY**, **Claude Code**, **OpenAI Codex**), yerel PTY terminallerini ve Homelab servislerini (**YDevHub**, **YNetMon**, **Git/GitHub**) tek bir modüler masaüstü komuta merkezinde birleştiren **Tauri v2 (Rust) + React 19 + Dockview** uygulamasıdır.
 
@@ -35,6 +35,7 @@ curl -fsSL https://raw.githubusercontent.com/YagYz/YDevDesk/main/install.sh | ba
 | **Debian / Ubuntu (APT)** | Resmi YDevDesk APT Deposu | `echo 'deb [trusted=yes] https://yagyz.github.io/YDevDesk/apt ./' \| sudo tee /etc/apt/sources.list.d/ydevdesk.list && sudo apt update && sudo apt install -y ydevdesk` |
 | **Linux (Genel)** | AppImage | `chmod +x ydevdesk_*.AppImage && WEBKIT_DISABLE_DMABUF_RENDERER=1 ./ydevdesk_*.AppImage` |
 | **macOS (Apple Silicon / Intel)** | İmzasız `.dmg` | Uygulamayı `/Applications` içine taşıyıp ilk açılışta `xattr -cr /Applications/ydevdesk.app` çalıştırın |
+| **Windows (10 / 11)** | NSIS Kurulum Sihirbazı (`.exe` / `.msi`) | [Son sürümden](https://github.com/YagYz/YDevDesk/releases/latest) `*-setup.exe` dosyasını kurun; Başlat menüsüne **YDevDesk** yazarak açın |
 
 ---
 
@@ -58,7 +59,7 @@ curl -fsSL https://raw.githubusercontent.com/YagYz/YDevDesk/main/install.sh | ba
 - **YDevHub:** Notlar, görevler ve Bilgi Ağı (Knowledge Graph) doğrudan yan panellerde.
 - **YNetMon:** Canlı ağ indirme/yükleme hızı ve bağlantı durumu grafiği.
 - **Git & PR Durumu:** Seçili proje deposunda dal, commit, değişiklik listesi ve açık PR durumunu izler.
-- **Sesli & Masaüstü Bildirimleri:** Rust DSP senteziyle üretilen çoklu bildirim sesleri + Linux (`notify-send`) ve macOS doğal masaüstü bildirimleri.
+- **Sesli & Masaüstü Bildirimleri:** Rust DSP senteziyle üretilen çoklu bildirim sesleri + Linux (`notify-send`), macOS ve Windows doğal masaüstü bildirimleri.
 
 ---
 
