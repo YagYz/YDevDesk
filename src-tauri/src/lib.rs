@@ -2869,3 +2869,67 @@ pub fn run() {
         .run(context)
         .expect("error while running tauri application");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_target_asset_suffix_matches_os() {
+        let suffix = target_asset_suffix();
+        #[cfg(target_os = "windows")]
+        assert_eq!(suffix, "x64-setup.exe");
+        #[cfg(target_os = "macos")]
+        assert!(suffix == "aarch64.app.tar.gz" || suffix == "x64.app.tar.gz");
+        #[cfg(target_os = "linux")]
+        assert_eq!(suffix, "amd64.AppImage");
+    }
+
+    #[test]
+    fn test_parse_semver_and_compare() {
+        assert_eq!(parse_semver("v1.0.0"), (1, 0, 0));
+        assert_eq!(parse_semver("1.2.3-beta"), (1, 2, 3));
+        assert!(parse_semver("v1.10.0") > parse_semver("v1.2.9"));
+        assert!(parse_semver("2.0.0") > parse_semver("1.99.99"));
+    }
+
+    #[test]
+    fn test_write_agy_statusline_hook_cross_platform() {
+        let tmp = std::env::temp_dir().join(format!("ydevdesk_hook_test_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).expect("create temp home");
+
+        let cmd = platform::write_agy_statusline_hook(&tmp).expect("write hook");
+        #[cfg(target_os = "windows")]
+        {
+            assert!(cmd.contains("powershell"));
+            assert!(tmp.join(".gemini/antigravity-cli/hooks/ydevdesk-statusline.ps1").is_file());
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            let hook_file = tmp.join(".config/ydevdesk/agy-quota-hook.sh");
+            assert!(hook_file.is_file());
+            assert_eq!(cmd, hook_file.to_string_lossy());
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let mode = std::fs::metadata(&hook_file).unwrap().permissions().mode();
+                assert_ne!(mode & 0o111, 0);
+            }
+        }
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_build_chime_wav_header_and_payload() {
+        for kind in ["done", "notify", "notify2", "warn"] {
+            let wav = build_chime_wav(kind);
+            assert!(wav.len() > 44, "wav too short for {}", kind);
+            assert_eq!(&wav[0..4], b"RIFF");
+            assert_eq!(&wav[8..12], b"WAVE");
+            assert_eq!(&wav[12..16], b"fmt ");
+            assert_eq!(&wav[36..40], b"data");
+        }
+    }
+}
