@@ -35,6 +35,15 @@ pub struct ActiveAgentSession {
     pub model: String,
     pub last_tool: String,
     pub updated_ago_secs: u64,
+    pub subagent_count: u32,
+}
+
+#[derive(Serialize, Deserialize, Default)]
+pub struct SessionPrefs {
+    #[serde(default)]
+    pub pinned: HashMap<String, bool>,
+    #[serde(default)]
+    pub aliases: HashMap<String, String>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -112,7 +121,7 @@ pub struct AgentInstallResult {
 pub fn get_enhanced_path() -> String {
     let current_path = std::env::var("PATH").unwrap_or_default();
     let home = dirs::home_dir().unwrap_or_default();
-    let candidates = [
+    let mut candidates = vec![
         std::path::PathBuf::from("/usr/local/bin"),
         std::path::PathBuf::from("/usr/bin"),
         std::path::PathBuf::from("/bin"),
@@ -122,11 +131,28 @@ pub fn get_enhanced_path() -> String {
         home.join(".local").join("bin"),
         home.join(".npm-global").join("bin"),
         home.join(".cargo").join("bin"),
+        home.join(".volta").join("bin"),
         home.join(".nvm").join("current").join("bin"),
+        home.join(".fnm").join("aliases").join("default").join("bin"),
+        home.join(".local").join("share").join("fnm").join("aliases").join("default").join("bin"),
         std::path::PathBuf::from("/usr/local/sbin"),
         std::path::PathBuf::from("/usr/sbin"),
         std::path::PathBuf::from("/sbin"),
     ];
+
+    // nvm 'current' sembolik bağı yoksa kurulu en güncel Node sürümünü ekle
+    let nvm_versions = home.join(".nvm").join("versions").join("node");
+    if let Ok(entries) = std::fs::read_dir(&nvm_versions) {
+        let mut bins: Vec<std::path::PathBuf> = entries
+            .flatten()
+            .map(|e| e.path().join("bin"))
+            .filter(|p| p.is_dir())
+            .collect();
+        bins.sort();
+        if let Some(latest) = bins.pop() {
+            candidates.push(latest);
+        }
+    }
 
     let mut parts: Vec<String> = Vec::new();
     for c in &candidates {
@@ -143,6 +169,86 @@ pub fn get_enhanced_path() -> String {
         }
     }
     parts.join(":")
+}
+
+/// AppImage çalışma zamanının enjekte ettiği (PYTHONHOME, PYTHONPATH, LD_LIBRARY_PATH vb.)
+/// mount içi ortam değişkenlerini temizleyerek sistem ikili dosyalarının bozulmasını önler.
+fn appimage_env_actions() -> Vec<(&'static str, Option<String>)> {
+    let appdir = std::env::var("APPDIR").unwrap_or_default();
+    let is_mount_path = |val: &str| -> bool {
+        (!appdir.is_empty() && val.starts_with(&appdir)) || val.starts_with("/tmp/.mount_")
+    };
+
+    const SINGLE_VARS: &[&str] = &[
+        "PYTHONHOME",
+        "GSETTINGS_SCHEMA_DIR",
+        "GIO_MODULE_DIR",
+        "GTK_PATH",
+        "GDK_PIXBUF_MODULE_FILE",
+        "GDK_PIXBUF_MODULEDIR",
+        "QT_PLUGIN_PATH",
+        "GST_PLUGIN_SYSTEM_PATH",
+        "GST_PLUGIN_SCANNER",
+        "LD_PRELOAD",
+    ];
+    const LIST_VARS: &[&str] = &[
+        "PYTHONPATH",
+        "LD_LIBRARY_PATH",
+        "PERLLIB",
+        "PERL5LIB",
+        "XDG_DATA_DIRS",
+    ];
+
+    let mut actions = Vec::new();
+    for &key in SINGLE_VARS {
+        if let Ok(val) = std::env::var(key) {
+            if is_mount_path(&val) {
+                actions.push((key, None));
+            }
+        }
+    }
+    for &key in LIST_VARS {
+        if let Ok(val) = std::env::var(key) {
+            let parts: Vec<&str> = val.split(':').collect();
+            if parts.iter().any(|p| is_mount_path(p)) {
+                let kept: Vec<&str> = parts
+                    .into_iter()
+                    .filter(|p| !p.is_empty() && !is_mount_path(p))
+                    .collect();
+                if kept.is_empty() {
+                    actions.push((key, None));
+                } else {
+                    actions.push((key, Some(kept.join(":"))));
+                }
+            }
+        }
+    }
+    actions
+}
+
+fn sanitize_std_cmd(cmd: &mut std::process::Command) {
+    for (key, val) in appimage_env_actions() {
+        match val {
+            Some(v) => {
+                cmd.env(key, v);
+            }
+            None => {
+                cmd.env_remove(key);
+            }
+        }
+    }
+}
+
+fn sanitize_pty_cmd(cmd: &mut CommandBuilder) {
+    for (key, val) in appimage_env_actions() {
+        match val {
+            Some(v) => cmd.env(key, v),
+            None => cmd.env_remove(key),
+        }
+    }
+    for key in ["APPIMAGE", "APPDIR", "ARGV0", "OWD"] {
+        cmd.env_remove(key);
+    }
 }
 
 fn find_binary(name: &str) -> Option<std::path::PathBuf> {
@@ -167,11 +273,10 @@ fn find_binary(name: &str) -> Option<std::path::PathBuf> {
 }
 
 fn get_binary_version(bin: &std::path::Path, args: &[&str]) -> Option<String> {
-    let out = std::process::Command::new(bin)
-        .args(args)
-        .env("PATH", get_enhanced_path())
-        .output()
-        .ok()?;
+    let mut cmd = std::process::Command::new(bin);
+    cmd.args(args).env("PATH", get_enhanced_path());
+    sanitize_std_cmd(&mut cmd);
+    let out = cmd.output().ok()?;
     if !out.status.success() {
         return None;
     }
@@ -216,6 +321,7 @@ fn start_pty(app: AppHandle, state: State<'_, TerminalState>, session_id: String
     });
 
     let mut cmd = CommandBuilder::new(&shell);
+    sanitize_pty_cmd(&mut cmd);
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
     cmd.env("PATH", get_enhanced_path());
@@ -424,6 +530,48 @@ fn mtime_ago_secs(path: &std::path::Path, now: std::time::SystemTime) -> Option<
     now.duration_since(mtime).ok().map(|d| d.as_secs())
 }
 
+fn is_uuid_like(s: &str) -> bool {
+    s.len() == 36
+        && s.bytes().enumerate().all(|(i, b)| {
+            if matches!(i, 8 | 13 | 18 | 23) {
+                b == b'-'
+            } else {
+                b.is_ascii_hexdigit()
+            }
+        })
+}
+
+fn extract_agy_subagent_ids(t_path: &std::path::Path) -> std::collections::HashSet<String> {
+    let mut ids = std::collections::HashSet::new();
+    let Ok(file) = std::fs::File::open(t_path) else {
+        return ids;
+    };
+    let reader = std::io::BufReader::new(file);
+    for line in std::io::BufRead::lines(reader).map_while(Result::ok) {
+        if !line.contains("conversationId")
+            || (!line.contains("Created the following subagent") && !line.contains("invoke_subagent"))
+        {
+            continue;
+        }
+        let mut search_from = 0;
+        while let Some(pos) = line[search_from..].find("conversationId") {
+            let after_key = &line[search_from + pos + "conversationId".len()..];
+            if let Some(colon) = after_key.find(':') {
+                let rest = after_key[colon + 1..]
+                    .trim_start_matches(|c: char| c.is_whitespace() || c == '\\' || c == '"');
+                if rest.len() >= 36 {
+                    let candidate = &rest[..36];
+                    if is_uuid_like(candidate) {
+                        ids.insert(candidate.to_string());
+                    }
+                }
+            }
+            search_from += pos + "conversationId".len();
+        }
+    }
+    ids
+}
+
 fn collect_agy_sessions(
     agy_dir: &std::path::Path,
     now: std::time::SystemTime,
@@ -444,13 +592,44 @@ fn collect_agy_sessions(
     }
     found.sort_by_key(|s| s.0);
 
-    let primary_transcript_path = found.first().map(|s| s.2.clone());
+    let mut known_subagents = std::collections::HashSet::new();
+    let mut parent_subagent_counts: HashMap<String, u32> = HashMap::new();
+    for (_, parent_id, t_path) in &found {
+        let mut sub_ids = extract_agy_subagent_ids(t_path);
+        sub_ids.remove(parent_id);
+        if !sub_ids.is_empty() {
+            parent_subagent_counts.insert(parent_id.clone(), sub_ids.len() as u32);
+            known_subagents.extend(sub_ids);
+        }
+    }
+
+    let mut primary_transcript_path: Option<std::path::PathBuf> = None;
     let mut sessions = Vec::new();
 
-    for (diff_secs, full_id, t_path) in found.into_iter().take(20) {
+    for (diff_secs, full_id, t_path) in found {
+        if sessions.len() >= 30 {
+            break;
+        }
+        if known_subagents.contains(&full_id) {
+            continue;
+        }
+        let head = read_head(&t_path, 16 * 1024);
+        if let Some(ref head_str) = head {
+            let starts_with_system_sdk = head_str
+                .lines()
+                .next()
+                .is_some_and(|first| first.contains("SYSTEM_SDK"));
+            if starts_with_system_sdk && !head_str.contains("USER_EXPLICIT") {
+                continue;
+            }
+        }
+        if primary_transcript_path.is_none() {
+            primary_transcript_path = Some(t_path.clone());
+        }
+
         let mut title = String::new();
-        if let Some(head) = read_head(&t_path, 16 * 1024) {
-            for line in head.lines() {
+        if let Some(head_str) = head {
+            for line in head_str.lines() {
                 if let Ok(v) = serde_json::from_str::<serde_json::Value>(line) {
                     if v.get("type").and_then(|t| t.as_str()) == Some("USER_INPUT") {
                         if let Some(content) = v.get("content").and_then(|c| c.as_str()) {
@@ -466,6 +645,7 @@ fn collect_agy_sessions(
         if title.is_empty() {
             title = "AGY Oturumu".to_string();
         }
+        let subagent_count = *parent_subagent_counts.get(&full_id).unwrap_or(&0);
         sessions.push(ActiveAgentSession {
             session_id: short_id(&full_id),
             full_session_id: full_id,
@@ -476,6 +656,7 @@ fn collect_agy_sessions(
             model: "AGY".to_string(),
             last_tool: "working".to_string(),
             updated_ago_secs: diff_secs,
+            subagent_count,
         });
     }
 
@@ -505,9 +686,24 @@ fn extract_claude_user_text(v: &serde_json::Value) -> Option<String> {
     None
 }
 
+fn extract_claude_subagent_parent_id(f_path: &std::path::Path) -> Option<String> {
+    let head = read_head(f_path, 4096)?;
+    for line in head.lines() {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(line) {
+            if let Some(sid) = v.get("sessionId").and_then(|s| s.as_str()) {
+                if !sid.is_empty() {
+                    return Some(sid.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
 fn collect_claude_sessions(home: &std::path::Path, now: std::time::SystemTime) -> Vec<ActiveAgentSession> {
     let projects_dir = home.join(".claude").join("projects");
     let mut files = Vec::new();
+    let mut subagent_counts: HashMap<String, u32> = HashMap::new();
     if let Ok(proj_entries) = std::fs::read_dir(&projects_dir) {
         for proj in proj_entries.flatten() {
             let p_path = proj.path();
@@ -516,9 +712,25 @@ fn collect_claude_sessions(home: &std::path::Path, now: std::time::SystemTime) -
                     for s_entry in sess_entries.flatten() {
                         let f_path = s_entry.path();
                         let fname = s_entry.file_name().to_string_lossy().to_string();
-                        if fname.ends_with(".jsonl") && !fname.starts_with("agent-") {
-                            if let Some(diff_secs) = mtime_ago_secs(&f_path, now) {
+                        if fname.ends_with(".jsonl") {
+                            if fname.starts_with("agent-") {
+                                if let Some(parent_sid) = extract_claude_subagent_parent_id(&f_path) {
+                                    *subagent_counts.entry(parent_sid).or_insert(0) += 1;
+                                }
+                            } else if let Some(diff_secs) = mtime_ago_secs(&f_path, now) {
                                 files.push((diff_secs, f_path));
+                            }
+                        } else if f_path.is_dir() {
+                            let sub_dir = f_path.join("subagents");
+                            if let Ok(sub_entries) = std::fs::read_dir(&sub_dir) {
+                                for sub_entry in sub_entries.flatten() {
+                                    let sub_fname = sub_entry.file_name().to_string_lossy().to_string();
+                                    if sub_fname.starts_with("agent-") && sub_fname.ends_with(".jsonl") {
+                                        let parent_sid = extract_claude_subagent_parent_id(&sub_entry.path())
+                                            .unwrap_or_else(|| fname.clone());
+                                        *subagent_counts.entry(parent_sid).or_insert(0) += 1;
+                                    }
+                                }
                             }
                         }
                     }
@@ -529,7 +741,7 @@ fn collect_claude_sessions(home: &std::path::Path, now: std::time::SystemTime) -
     files.sort_by_key(|f| f.0);
 
     let mut sessions = Vec::new();
-    for (diff_secs, f_path) in files.into_iter().take(20) {
+    for (diff_secs, f_path) in files.into_iter().take(30) {
         let stem = f_path
             .file_stem()
             .and_then(|s| s.to_str())
@@ -572,6 +784,7 @@ fn collect_claude_sessions(home: &std::path::Path, now: std::time::SystemTime) -
         if title.is_empty() {
             title = "Claude Code Oturumu".to_string();
         }
+        let subagent_count = *subagent_counts.get(&full_id).unwrap_or(&0);
         sessions.push(ActiveAgentSession {
             session_id: short_id(&full_id),
             full_session_id: full_id,
@@ -582,6 +795,7 @@ fn collect_claude_sessions(home: &std::path::Path, now: std::time::SystemTime) -
             model,
             last_tool: "working".to_string(),
             updated_ago_secs: diff_secs,
+            subagent_count,
         });
     }
     sessions
@@ -634,7 +848,7 @@ fn collect_codex_sessions(home: &std::path::Path, now: std::time::SystemTime) ->
     files.sort_by_key(|f| f.0);
 
     let mut sessions = Vec::new();
-    for (diff_secs, f_path) in files.into_iter().take(20) {
+    for (diff_secs, f_path) in files.into_iter().take(30) {
         let mut full_id = String::new();
         let mut cwd: Option<String> = None;
         let mut title = String::new();
@@ -699,6 +913,7 @@ fn collect_codex_sessions(home: &std::path::Path, now: std::time::SystemTime) ->
             model,
             last_tool: "working".to_string(),
             updated_ago_secs: diff_secs,
+            subagent_count: 0,
         });
     }
     sessions
@@ -768,13 +983,13 @@ fn get_agent_status() -> AgentStatus {
         }
     }
 
-    // Disk üzerindeki AGY, Claude Code ve Codex oturumlarını tara (en güncel 20 oturum)
+    // Disk üzerindeki AGY, Claude Code ve Codex oturumlarını tara (en güncel 50 oturum)
     let now = std::time::SystemTime::now();
     let (mut session_list, primary_transcript_path) = collect_agy_sessions(&agy_dir, now);
     session_list.extend(collect_claude_sessions(&home, now));
     session_list.extend(collect_codex_sessions(&home, now));
     session_list.sort_by_key(|s| s.updated_ago_secs);
-    session_list.truncate(20);
+    session_list.truncate(50);
 
     let mut recent_tools = Vec::new();
     let mut ticker_squares = Vec::new();
@@ -974,8 +1189,16 @@ fn expand_home(p: &str) -> std::path::PathBuf {
     std::path::PathBuf::from(p)
 }
 
+fn ydevdesk_config_dir() -> std::path::PathBuf {
+    dirs::home_dir().unwrap_or_default().join(".config").join("ydevdesk")
+}
+
 fn app_settings_path() -> std::path::PathBuf {
-    dirs::home_dir().unwrap_or_default().join(".config").join("ydevdesk").join("settings.json")
+    ydevdesk_config_dir().join("settings.json")
+}
+
+fn session_prefs_path() -> std::path::PathBuf {
+    ydevdesk_config_dir().join("session_prefs.json")
 }
 
 /// Kayıtlı uygulama ayarları; dosya yoksa null döner (arayüz varsayılanları üretir).
@@ -992,6 +1215,26 @@ fn save_app_settings(settings: serde_json::Value) -> Result<(), String> {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
     std::fs::write(path, serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn load_session_prefs() -> Result<SessionPrefs, String> {
+    let path = session_prefs_path();
+    match std::fs::read_to_string(&path) {
+        Ok(content) => serde_json::from_str(&content).map_err(|e| e.to_string()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(SessionPrefs::default()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
+fn save_session_prefs(prefs: SessionPrefs) -> Result<(), String> {
+    let path = session_prefs_path();
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    let json = serde_json::to_string_pretty(&prefs).map_err(|e| e.to_string())?;
+    std::fs::write(path, json).map_err(|e| e.to_string())
 }
 
 /// İlk kurulumda önerilecek proje kök dizini (yoksa boş).
@@ -1369,7 +1612,7 @@ fn check_agent_environment() -> Result<AgentEnvironmentStatus, String> {
         version: agy_version,
         path: agy_path,
         description: "Google'un agentic platform CLI'ı, Zettelkasten hafıza ve araç yürütme çekirdeği.".into(),
-        install_cmd: "curl -fsSL https://antigravity.google/product/antigravity-cli/install.sh | bash".into(),
+        install_cmd: "curl -fsSL https://antigravity.google/cli/install.sh | bash".into(),
         bypass_cmd: Some("agy --dangerously-skip-permissions".into()),
     });
 
@@ -1418,55 +1661,113 @@ fn check_agent_environment() -> Result<AgentEnvironmentStatus, String> {
     })
 }
 
+fn run_clean_shell(script: &str, enhanced_path: &str) -> Result<(bool, String), String> {
+    let shell_bin = if find_binary("bash").is_some() { "bash" } else { "sh" };
+    let mut cmd = std::process::Command::new(shell_bin);
+    cmd.args(["-c", script]).env("PATH", enhanced_path);
+    sanitize_std_cmd(&mut cmd);
+    let out = cmd
+        .output()
+        .map_err(|e| format!("Kurulum komutu çalıştırılamadı: {}", e))?;
+    let combined = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    )
+    .trim()
+    .to_string();
+    Ok((out.status.success(), combined))
+}
+
 #[tauri::command]
-fn install_agent_cli(agent_id: String) -> Result<AgentInstallResult, String> {
+async fn install_agent_cli(agent_id: String, force_update: Option<bool>) -> Result<AgentInstallResult, String> {
+    tauri::async_runtime::spawn_blocking(move || install_agent_cli_sync(agent_id, force_update.unwrap_or(false)))
+        .await
+        .map_err(|e| format!("Kurulum görevi hatası: {}", e))?
+}
+
+fn install_agent_cli_sync(agent_id: String, force_update: bool) -> Result<AgentInstallResult, String> {
     let enhanced_path = get_enhanced_path();
     let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("/tmp"));
 
     match agent_id.as_str() {
         "claude" => {
-            if let Some(bin) = find_binary("claude") {
-                if let Some(ver) = get_binary_version(&bin, &["--version"]) {
+            if !force_update {
+                if let Some(bin) = find_binary("claude") {
+                    if let Some(ver) = get_binary_version(&bin, &["--version"]) {
+                        return Ok(AgentInstallResult {
+                            success: true,
+                            agent_id: "claude".into(),
+                            message: format!("Claude Code zaten kurulu ve aktif ({})", ver),
+                            output: format!("Konum: {}", bin.display()),
+                        });
+                    }
+                }
+            }
+
+            if force_update && find_binary("claude").is_some() {
+                if let Ok((true, out)) = run_clean_shell("claude update", &enhanced_path) {
+                    let ver = find_binary("claude")
+                        .and_then(|b| get_binary_version(&b, &["--version"]))
+                        .unwrap_or_else(|| "güncellendi".into());
                     return Ok(AgentInstallResult {
                         success: true,
                         agent_id: "claude".into(),
-                        message: format!("Claude Code zaten kurulu ve aktif ({})", ver),
-                        output: format!("Konum: {}", bin.display()),
+                        message: format!("Claude Code güncellendi ({})", ver),
+                        output: out,
                     });
                 }
             }
 
-            // Claude native installer betiğini çalıştır
-            let out = std::process::Command::new("sh")
-                .args(["-c", "curl -fsSL https://claude.ai/install.sh | bash"])
-                .env("PATH", &enhanced_path)
-                .output()
-                .map_err(|e| format!("Claude kurulum betiği çalıştırılamadı: {}", e))?;
+            let (ok, mut output_str) = run_clean_shell(
+                "curl -fsSL https://claude.ai/install.sh | bash",
+                &enhanced_path,
+            )?;
 
-            let output_str = format!("{}
-{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+            // Native betik başarısız olursa ve npm varsa ~/.local altına kurmayı dene
+            if !ok {
+                if let Some(npm_bin) = find_binary("npm") {
+                    let local_prefix = home.join(".local");
+                    let _ = std::fs::create_dir_all(local_prefix.join("bin"));
+                    let mut npm_cmd = std::process::Command::new(&npm_bin);
+                    npm_cmd
+                        .args(["install", "-g", "--prefix", &local_prefix.to_string_lossy(), "@anthropic-ai/claude-code@latest"])
+                        .env("PATH", &enhanced_path);
+                    sanitize_std_cmd(&mut npm_cmd);
+                    if let Ok(nout) = npm_cmd.output() {
+                        let nstr = format!(
+                            "{}\n{}",
+                            String::from_utf8_lossy(&nout.stdout),
+                            String::from_utf8_lossy(&nout.stderr)
+                        );
+                        output_str = format!("{}\n--- npm fallback ---\n{}", output_str, nstr.trim());
+                    }
+                }
+            }
+
             if let Some(bin) = find_binary("claude") {
                 let ver = get_binary_version(&bin, &["--version"]).unwrap_or_else(|| "kuruldu".into());
                 Ok(AgentInstallResult {
                     success: true,
                     agent_id: "claude".into(),
-                    message: format!("Claude Code başarıyla kuruldu ({})", ver),
+                    message: format!("Claude Code {} ({})", if force_update { "güncellendi" } else { "kuruldu" }, ver),
                     output: output_str,
                 })
             } else {
-                Err(format!("Claude Code kurulumu tamamlandı fakat ikili dosya doğrulanamadı:
-{}", output_str))
+                Err(format!("Claude Code kurulumu başarısız:\n{}", output_str))
             }
         }
         "codex" => {
-            if let Some(bin) = find_binary("codex") {
-                if let Some(ver) = get_binary_version(&bin, &["--version"]) {
-                    return Ok(AgentInstallResult {
-                        success: true,
-                        agent_id: "codex".into(),
-                        message: format!("OpenAI Codex CLI zaten kurulu ve aktif ({})", ver),
-                        output: format!("Konum: {}", bin.display()),
-                    });
+            if !force_update {
+                if let Some(bin) = find_binary("codex") {
+                    if let Some(ver) = get_binary_version(&bin, &["--version"]) {
+                        return Ok(AgentInstallResult {
+                            success: true,
+                            agent_id: "codex".into(),
+                            message: format!("OpenAI Codex CLI zaten kurulu ve aktif ({})", ver),
+                            output: format!("Konum: {}", bin.display()),
+                        });
+                    }
                 }
             }
 
@@ -1474,65 +1775,97 @@ fn install_agent_cli(agent_id: String) -> Result<AgentInstallResult, String> {
             let local_prefix = home.join(".local");
             let _ = std::fs::create_dir_all(local_prefix.join("bin"));
 
-            let out = std::process::Command::new(&npm_bin)
-                .args(["install", "-g", "--prefix", &local_prefix.to_string_lossy(), "@openai/codex"])
-                .env("PATH", &enhanced_path)
+            let mut cmd = std::process::Command::new(&npm_bin);
+            cmd.args(["install", "-g", "--prefix", &local_prefix.to_string_lossy(), "@openai/codex@latest"])
+                .env("PATH", &enhanced_path);
+            sanitize_std_cmd(&mut cmd);
+            let out = cmd
                 .output()
                 .map_err(|e| format!("npm çalıştırılamadı: {}", e))?;
 
-            let combined = format!("{}
-{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+            let combined = format!(
+                "{}\n{}",
+                String::from_utf8_lossy(&out.stdout),
+                String::from_utf8_lossy(&out.stderr)
+            )
+            .trim()
+            .to_string();
+
+            if !out.status.success() {
+                return Err(format!("Codex kurulumu başarısız:\n{}", combined));
+            }
+
             if let Some(bin) = find_binary("codex") {
                 let ver = get_binary_version(&bin, &["--version"]).unwrap_or_else(|| "kuruldu".into());
                 Ok(AgentInstallResult {
                     success: true,
                     agent_id: "codex".into(),
-                    message: format!("OpenAI Codex CLI başarıyla kuruldu ({})", ver),
+                    message: format!("OpenAI Codex CLI {} ({})", if force_update { "güncellendi" } else { "kuruldu" }, ver),
                     output: combined,
                 })
-            } else if out.status.success() {
+            } else {
                 Ok(AgentInstallResult {
                     success: true,
                     agent_id: "codex".into(),
                     message: "Codex kuruldu. Terminal yeniden başlatıldığında kullanılabilir.".into(),
                     output: combined,
                 })
-            } else {
-                Err(format!("Codex kurulumu başarısız:
-{}", combined))
             }
         }
         "agy" => {
-            let agy_bin = find_binary("agy").or_else(|| find_binary("antigravity"));
-            if let Some(bin) = agy_bin {
-                let ver = get_binary_version(&bin, &["--version"]).unwrap_or_else(|| "bilinmiyor".into());
-                return Ok(AgentInstallResult {
-                    success: true,
-                    agent_id: "agy".into(),
-                    message: format!("Google Antigravity zaten kurulu ({})", ver),
-                    output: format!("Konum: {}", bin.display()),
-                });
+            if !force_update {
+                if let Some(bin) = find_binary("agy").or_else(|| find_binary("antigravity")) {
+                    let ver = get_binary_version(&bin, &["--version"]).unwrap_or_else(|| "bilinmiyor".into());
+                    return Ok(AgentInstallResult {
+                        success: true,
+                        agent_id: "agy".into(),
+                        message: format!("Google Antigravity zaten kurulu ({})", ver),
+                        output: format!("Konum: {}", bin.display()),
+                    });
+                }
             }
 
-            let out = std::process::Command::new("sh")
-                .args(["-c", "curl -fsSL https://antigravity.google/product/antigravity-cli/install.sh | bash"])
-                .env("PATH", &enhanced_path)
-                .output()
-                .map_err(|e| format!("Kurulum betiği çalıştırılamadı: {}", e))?;
+            let (mut ok, mut output_str) = run_clean_shell(
+                "curl -fsSL https://antigravity.google/cli/install.sh | bash",
+                &enhanced_path,
+            )?;
 
-            let output_str = format!("{}
-{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+            // macOS üzerinde Homebrew fallback
+            if !ok && cfg!(target_os = "macos") && find_binary("brew").is_some() {
+                if let Ok((bok, bout)) = run_clean_shell("brew install --cask antigravity-cli", &enhanced_path) {
+                    ok = bok;
+                    output_str = format!("{}\n--- brew fallback ---\n{}", output_str, bout);
+                }
+            }
+
             let verified = find_binary("agy").or_else(|| find_binary("antigravity"));
-            if verified.is_some() {
+            if ok && verified.is_some() {
+                let ver = verified
+                    .as_deref()
+                    .and_then(|b| get_binary_version(b, &["--version"]))
+                    .unwrap_or_else(|| "kuruldu".into());
                 Ok(AgentInstallResult {
                     success: true,
                     agent_id: "agy".into(),
-                    message: "Google Antigravity (AGY) başarıyla kuruldu.".into(),
+                    message: format!(
+                        "Google Antigravity (AGY) {} ({})",
+                        if force_update { "güncellendi" } else { "kuruldu" },
+                        ver
+                    ),
                     output: output_str,
                 })
             } else {
-                Err(format!("AGY kurulum betiği tamamlandı ancak ikili dosya doğrulanamadı.
-{}", output_str))
+                let aur_hint = if find_binary("yay").is_some() {
+                    "\nİpucu (Arch Linux): Terminalde `yay -S antigravity-cli` ile kurabilirsiniz."
+                } else if find_binary("paru").is_some() {
+                    "\nİpucu (Arch Linux): Terminalde `paru -S antigravity-cli` ile kurabilirsiniz."
+                } else {
+                    ""
+                };
+                Err(format!(
+                    "AGY kurulumu başarısız veya ikili dosya doğrulanamadı.{}\n{}",
+                    aur_hint, output_str
+                ))
             }
         }
         _ => Err(format!("Bilinmeyen ajan: {}", agent_id)),
@@ -1612,6 +1945,8 @@ pub fn run() {
             get_git_status,
             load_app_settings,
             save_app_settings,
+            load_session_prefs,
+            save_session_prefs,
             default_projects_root,
             get_app_version,
             check_app_update,

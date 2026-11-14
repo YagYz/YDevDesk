@@ -1,5 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { AgentEnvironmentStatus, AgentInstallResult, AgentStatus, HomelabConfig, UpdateCheckResult } from "../types";
+import type {
+  AgentEnvironmentStatus,
+  AgentInstallResult,
+  AgentStatus,
+  HomelabConfig,
+  SessionPrefs,
+  UpdateCheckResult,
+} from "../types";
 
 export const api = {
   loadConfig: () => invoke<HomelabConfig>("load_homelab_config"),
@@ -31,12 +38,15 @@ export const api = {
   gitStatus: (root: string, project: string) => invoke<any>("get_git_status", { root, project }),
   loadAppSettings: () => invoke<any | null>("load_app_settings"),
   saveAppSettings: (settings: unknown) => invoke<void>("save_app_settings", { settings }),
+  loadSessionPrefs: () => invoke<SessionPrefs>("load_session_prefs"),
+  saveSessionPrefs: (prefs: SessionPrefs) => invoke<void>("save_session_prefs", { prefs }),
   defaultProjectsRoot: () => invoke<string>("default_projects_root"),
   appVersion: () => invoke<string>("get_app_version"),
   checkUpdate: () => invoke<UpdateCheckResult>("check_app_update"),
   installUpdate: (assetUrl: string) => invoke<string>("install_app_update", { assetUrl }),
   checkAgentEnvironment: () => invoke<AgentEnvironmentStatus>("check_agent_environment"),
-  installAgentCli: (agentId: string) => invoke<AgentInstallResult>("install_agent_cli", { agentId }),
+  installAgentCli: (agentId: string, forceUpdate = false) =>
+    invoke<AgentInstallResult>("install_agent_cli", { agentId, forceUpdate }),
   windowClose: () => invoke<void>("app_window_close"),
   windowMinimize: () => invoke<void>("app_window_minimize"),
   windowToggleMaximize: () => invoke<void>("app_window_toggle_maximize"),
