@@ -6,6 +6,8 @@ use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize}
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
 
+mod platform;
+
 pub struct PtySession {
     writer: Box<dyn Write + Send>,
     master: Box<dyn MasterPty + Send>,
@@ -302,28 +304,11 @@ fn sanitize_pty_cmd(cmd: &mut CommandBuilder) {
 }
 
 fn find_binary(name: &str) -> Option<std::path::PathBuf> {
-    let full_path = get_enhanced_path();
-    for dir in full_path.split(':') {
-        let p = std::path::Path::new(dir).join(name);
-        if p.is_file() {
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                if let Ok(meta) = p.metadata() {
-                    if meta.permissions().mode() & 0o111 != 0 {
-                        return Some(p);
-                    }
-                }
-            }
-            #[cfg(not(unix))]
-            return Some(p);
-        }
-    }
-    None
+    platform::find_binary(name)
 }
 
 fn get_binary_version(bin: &std::path::Path, args: &[&str]) -> Option<String> {
-    let mut cmd = std::process::Command::new(bin);
+    let mut cmd = platform::hidden_command(&bin.to_string_lossy());
     cmd.args(args).env("PATH", get_enhanced_path());
     sanitize_std_cmd(&mut cmd);
     let out = cmd.output().ok()?;
@@ -362,13 +347,7 @@ fn start_pty(app: AppHandle, state: State<'_, TerminalState>, session_id: String
         })
         .map_err(|e| e.to_string())?;
 
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| {
-        if cfg!(target_os = "macos") {
-            "/bin/zsh".to_string()
-        } else {
-            "/bin/bash".to_string()
-        }
-    });
+    let shell = platform::default_shell();
 
     let mut cmd = CommandBuilder::new(&shell);
     sanitize_pty_cmd(&mut cmd);
@@ -1772,18 +1751,7 @@ fn enable_agy_quota_hook() -> Result<String, String> {
         return Ok("AGY statusLine zaten yapılandırılmış.".to_string());
     }
 
-    let hook_dir = home.join(".config").join("ydevdesk");
-    std::fs::create_dir_all(&hook_dir).map_err(|e| e.to_string())?;
-    let hook_path = hook_dir.join("agy-quota-hook.sh");
-    let hook_script = "#!/bin/sh\nmkdir -p \"$HOME/.gemini/antigravity-cli/cache\"\ncat > \"$HOME/.gemini/antigravity-cli/cache/last_statusline.json\"\n";
-    std::fs::write(&hook_path, hook_script).map_err(|e| e.to_string())?;
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let perms = std::fs::Permissions::from_mode(0o755);
-        std::fs::set_permissions(&hook_path, perms).map_err(|e| e.to_string())?;
-    }
+    let hook_cmd = platform::write_agy_statusline_hook(&home)?;
 
     let obj = settings
         .as_object_mut()
@@ -1792,7 +1760,7 @@ fn enable_agy_quota_hook() -> Result<String, String> {
         "statusLine".to_string(),
         serde_json::json!({
             "type": "command",
-            "command": hook_path.to_string_lossy().to_string()
+            "command": hook_cmd
         }),
     );
 
@@ -2148,6 +2116,8 @@ fn target_asset_suffix() -> &'static str {
         } else {
             "x64.app.tar.gz"
         }
+    } else if cfg!(target_os = "windows") {
+        "x64-setup.exe"
     } else {
         "amd64.AppImage"
     }
@@ -2289,7 +2259,18 @@ async fn install_app_update(app: AppHandle, asset_url: String) -> Result<String,
         return Ok("Güncellendi, yeniden başlatılıyor…".into());
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
+    {
+        let out = std::env::temp_dir().join("ydevdesk-setup.exe");
+        std::fs::write(&out, &bytes).map_err(|e| e.to_string())?;
+        std::process::Command::new(&out)
+            .spawn()
+            .map_err(|e| format!("Kurulum sihirbazı başlatılamadı: {}", e))?;
+        app.exit(0);
+        return Ok("Windows kurulum sihirbazı başlatılıyor…".into());
+    }
+
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
     {
         if let Ok(appimage_path) = std::env::var("APPIMAGE") {
             use std::os::unix::fs::PermissionsExt;
@@ -2390,9 +2371,20 @@ fn check_agent_environment() -> Result<AgentEnvironmentStatus, String> {
 }
 
 fn run_clean_shell(script: &str, enhanced_path: &str) -> Result<(bool, String), String> {
-    let shell_bin = if find_binary("bash").is_some() { "bash" } else { "sh" };
-    let mut cmd = std::process::Command::new(shell_bin);
-    cmd.args(["-c", script]).env("PATH", enhanced_path);
+    #[cfg(target_os = "windows")]
+    let mut cmd = {
+        let mut c = platform::hidden_command("powershell");
+        c.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script]);
+        c
+    };
+    #[cfg(not(target_os = "windows"))]
+    let mut cmd = {
+        let shell_bin = if find_binary("bash").is_some() { "bash" } else { "sh" };
+        let mut c = platform::hidden_command(shell_bin);
+        c.args(["-c", script]);
+        c
+    };
+    cmd.env("PATH", enhanced_path);
     sanitize_std_cmd(&mut cmd);
     let out = cmd
         .output()
@@ -2447,10 +2439,12 @@ fn install_agent_cli_sync(agent_id: String, force_update: bool) -> Result<AgentI
                 }
             }
 
-            let (ok, mut output_str) = run_clean_shell(
-                "curl -fsSL https://claude.ai/install.sh | bash",
-                &enhanced_path,
-            )?;
+            let claude_script = if cfg!(target_os = "windows") {
+                "irm https://claude.ai/install.ps1 | iex"
+            } else {
+                "curl -fsSL https://claude.ai/install.sh | bash"
+            };
+            let (ok, mut output_str) = run_clean_shell(claude_script, &enhanced_path)?;
 
             // Native betik başarısız olursa ve npm varsa ~/.local altına kurmayı dene
             if !ok {
@@ -2553,10 +2547,12 @@ fn install_agent_cli_sync(agent_id: String, force_update: bool) -> Result<AgentI
                 }
             }
 
-            let (mut ok, mut output_str) = run_clean_shell(
-                "curl -fsSL https://antigravity.google/cli/install.sh | bash",
-                &enhanced_path,
-            )?;
+            let agy_script = if cfg!(target_os = "windows") {
+                "irm https://antigravity.google/cli/install.ps1 | iex"
+            } else {
+                "curl -fsSL https://antigravity.google/cli/install.sh | bash"
+            };
+            let (mut ok, mut output_str) = run_clean_shell(agy_script, &enhanced_path)?;
 
             // macOS üzerinde Homebrew fallback
             if !ok && cfg!(target_os = "macos") && find_binary("brew").is_some() {
@@ -2617,7 +2613,18 @@ fn app_window_toggle_maximize(window: tauri::Window) -> Result<(), String> {
         let is_fs = window.is_fullscreen().unwrap_or(false);
         window.set_fullscreen(!is_fs).map_err(|e| e.to_string())
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
+    {
+        let out = std::env::temp_dir().join("ydevdesk-setup.exe");
+        std::fs::write(&out, &bytes).map_err(|e| e.to_string())?;
+        std::process::Command::new(&out)
+            .spawn()
+            .map_err(|e| format!("Kurulum sihirbazı başlatılamadı: {}", e))?;
+        app.exit(0);
+        return Ok("Windows kurulum sihirbazı başlatılıyor…".into());
+    }
+
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
     {
         if window.is_maximized().unwrap_or(false) {
             window.unmaximize().map_err(|e| e.to_string())
@@ -2779,10 +2786,8 @@ fn play_notification_sound(kind: Option<String>) -> Result<(), String> {
 
     #[cfg(target_os = "windows")]
     {
-        let _ = std::process::Command::new("powershell")
-            .args(["-NoProfile", "-Command", "[System.Media.SystemSounds]::Asterisk.Play()"])
-            .spawn();
-        return Ok(());
+        let wav = build_chime_wav(k);
+        return platform::play_wav_windows(&wav);
     }
 }
 
