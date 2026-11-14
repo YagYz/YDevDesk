@@ -1,4 +1,5 @@
 import { createContext, useContext } from "react";
+import type { SavedWorkspace } from "../lib/workspaces";
 import type { Knowledge } from "../types";
 
 export type WorkspaceActions = {
@@ -9,6 +10,10 @@ export type WorkspaceActions = {
   toggleModule: (id: string) => void;
   isModuleOpen: (id: string) => boolean;
   resetLayout: () => void;
+  workspaces: SavedWorkspace[];
+  saveCurrentWorkspace: (name: string) => void;
+  loadSavedWorkspace: (id: string) => void;
+  deleteSavedWorkspace: (id: string) => void;
   openKnowledge: (kb: Knowledge) => void;
   openOmniBar: () => void;
   openAgentSetup: () => void;

@@ -5,6 +5,7 @@ import { WorkspaceContext, type WorkspaceActions } from "./context/WorkspaceCont
 import { terminalManager } from "./lib/terminalManager";
 import { DOCK_COMPONENTS, TERMINAL_COMPONENT } from "./panels/registry";
 import { addModuleDefault, buildDefaultLayout, clearSavedLayout, hasTerminal, LAYOUT_KEY, MAIN_TERMINAL_ID, newTerminalId, saveLayout } from "./lib/layout";
+import { deleteWorkspacePreset, loadWorkspaces, saveWorkspacePreset, type SavedWorkspace } from "./lib/workspaces";
 import { TitleBar } from "./components/TitleBar";
 import { StatusBar } from "./components/StatusBar";
 import { OmniBar } from "./components/OmniBar";
@@ -91,6 +92,7 @@ export default function Workspace() {
   const [showAgentSetup, setShowAgentSetup] = useState(false);
   const [knowledgeItem, setKnowledgeItem] = useState<Knowledge | null>(null);
   const [crashBanner, setCrashBanner] = useState<RecoverySnapshot | null>(null);
+  const [workspaces, setWorkspaces] = useState<SavedWorkspace[]>(() => loadWorkspaces());
 
   const syncOpen = useCallback(() => {
     const api = apiRef.current;
@@ -158,6 +160,37 @@ export default function Workspace() {
     buildDefaultLayout(api);
     syncOpen();
   }, [syncOpen]);
+
+  const saveCurrentWorkspace = useCallback((name: string) => {
+    const api = apiRef.current;
+    if (!api) return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setWorkspaces(saveWorkspacePreset(trimmed, api));
+  }, []);
+
+  const loadSavedWorkspace = useCallback(
+    (id: string) => {
+      const api = apiRef.current;
+      if (!api) return;
+      const target = workspaces.find((w) => w.id === id);
+      if (!target) return;
+      restoringRef.current = true;
+      try {
+        api.fromJSON(target.layout);
+      } finally {
+        restoringRef.current = false;
+      }
+      saveLayout(api);
+      panelHistory.captureSnapshot(api);
+      syncOpen();
+    },
+    [workspaces, syncOpen],
+  );
+
+  const deleteSavedWorkspace = useCallback((id: string) => {
+    setWorkspaces(deleteWorkspacePreset(id));
+  }, []);
 
   const onReady = useCallback(
     (e: DockviewReadyEvent) => {
@@ -279,11 +312,15 @@ export default function Workspace() {
       toggleModule,
       isModuleOpen: (id) => openIds.has(id),
       resetLayout,
+      workspaces,
+      saveCurrentWorkspace,
+      loadSavedWorkspace,
+      deleteSavedWorkspace,
       openKnowledge: setKnowledgeItem,
       openOmniBar: () => setShowOmni(true),
       openAgentSetup: () => setShowAgentSetup(true),
     }),
-    [openTerminal, runInTerminal, toggleModule, openIds, resetLayout],
+    [openTerminal, runInTerminal, toggleModule, openIds, resetLayout, workspaces, saveCurrentWorkspace, loadSavedWorkspace, deleteSavedWorkspace],
   );
 
 

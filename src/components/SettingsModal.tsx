@@ -7,6 +7,8 @@ import { Modal } from "./Modal";
 import { AgentSetupContent } from "./AgentSetupModal";
 import { MODULES } from "../panels/registry";
 import { CONNECTION_TYPES, hasConnection, newId } from "../lib/settings";
+import { playChime } from "../lib/sound";
+import { notify } from "../lib/notify";
 import type { AppSettings, Connection, ConnectionType, UpdateCheckResult } from "../types";
 
 export type SettingsTab = "connections" | "modules" | "commands" | "notifications" | "agents" | "update";
@@ -275,6 +277,7 @@ export function SettingsModal({ onClose, initialTab = "connections" }: { onClose
             {(
               [
                 ["enabled", "Masaüstü bildirimleri"],
+                ["sound_enabled", "Sesli bildirim (Chime)"],
                 ["agent_done", "Ajan bitti"],
                 ["quota_low", "Kota azaldı"],
                 ["service_down", "Servis koptu"],
@@ -290,17 +293,57 @@ export function SettingsModal({ onClose, initialTab = "connections" }: { onClose
                 {label}
               </label>
             ))}
-            <label className="flex items-center gap-2.5 px-2.5 text-xs text-[var(--txt-muted)]">
-              Kota eşiği (%)
-              <input
-                type="number"
-                min={1}
-                max={99}
-                value={draft.notifications.quota_threshold}
-                onChange={(e) => patch({ notifications: { ...draft.notifications, quota_threshold: Number(e.target.value) || 20 } })}
-                className={`${input} w-20`}
-              />
-            </label>
+            <div className="flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 border border-[var(--border)] text-xs">
+              <span className="text-[var(--txt-muted)]">Bildirim Sesi</span>
+              <select
+                value={draft.notifications.sound_preset ?? "notify2"}
+                onChange={(e) =>
+                  patch({
+                    notifications: {
+                      ...draft.notifications,
+                      sound_preset: e.target.value as "notify" | "notify2",
+                    },
+                  })
+                }
+                className="rounded-md border border-[var(--border)] bg-[var(--bg)] px-2 py-1 text-xs outline-none focus:border-[var(--accent)]"
+              >
+                <option value="notify">Bildirim Sesi 1 (Kristal)</option>
+                <option value="notify2">Bildirim Sesi 2 (Yumuşak)</option>
+              </select>
+            </div>
+            <div className="flex items-center justify-between px-2.5 pt-1">
+              <label className="flex items-center gap-2.5 text-xs text-[var(--txt-muted)]">
+                Kota eşiği (%)
+                <input
+                  type="number"
+                  min={1}
+                  max={99}
+                  value={draft.notifications.quota_threshold}
+                  onChange={(e) => patch({ notifications: { ...draft.notifications, quota_threshold: Number(e.target.value) || 20 } })}
+                  className={`${input} w-20`}
+                />
+              </label>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => playChime("done")}
+                  className="px-2.5 py-1 rounded-lg border border-[var(--border)] text-xs text-[var(--txt-muted)] hover:text-[var(--txt-main)] hover:bg-[var(--surface-raised)]"
+                >
+                  Ajan Sesi Test
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const preset = draft.notifications.sound_preset ?? "notify2";
+                    playChime(preset);
+                    notify("YDevDesk", "Masaüstü bildirimi ve seçili bildirim sesi aktif.");
+                  }}
+                  className="px-2.5 py-1 rounded-lg border border-[var(--border)] text-xs text-[var(--txt-muted)] hover:text-[var(--txt-main)] hover:bg-[var(--surface-raised)]"
+                >
+                  Bildirim + Sesi Test Et
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
