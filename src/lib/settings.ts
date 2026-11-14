@@ -44,6 +44,7 @@ export const DEFAULT_NOTIFICATIONS: NotificationSettings = {
   agent_done: true,
   quota_low: true,
   service_down: true,
+  app_update: true,
   quota_threshold: 20,
 };
 

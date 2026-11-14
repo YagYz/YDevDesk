@@ -84,10 +84,18 @@ class TerminalManager {
     this.entries.set(id, entry);
 
     term.attachCustomKeyEventHandler((e) => {
-      if (e.type === "keydown" && e.ctrlKey && e.shiftKey && (e.key === "C" || e.key === "c")) {
-        const sel = term.getSelection();
-        if (sel) navigator.clipboard.writeText(sel).catch(() => {});
-        return false;
+      if (e.type === "keydown") {
+        if (e.ctrlKey && e.shiftKey && (e.key === "C" || e.key === "c")) {
+          const sel = term.getSelection();
+          if (sel) navigator.clipboard.writeText(sel).catch(() => {});
+          return false;
+        }
+        if (
+          ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "t") ||
+          ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "k")
+        ) {
+          return false;
+        }
       }
       return true;
     });

@@ -1,8 +1,19 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api } from "../lib/tauri";
+import { notify } from "../lib/notify";
 import { useNotifications } from "../lib/useNotifications";
 import { deriveConfig, normalizeSettings } from "../lib/settings";
-import type { AgentStatus, AppSettings, HomelabConfig, HubStatus, Knowledge, NetworkData, Note } from "../types";
+import type {
+  AgentStatus,
+  AppSettings,
+  HomelabConfig,
+  HubStatus,
+  Knowledge,
+  NetworkData,
+  Note,
+  UpdateCheckResult,
+  UsageAnalytics,
+} from "../types";
 
 const DEFAULT_CONFIG: HomelabConfig = {
   ydevhub_url: "",
@@ -54,6 +65,10 @@ type DataContextValue = {
   refreshHub: () => Promise<void>;
   addNote: (content: string) => Promise<void>;
   addKnowledge: (title: string, summary: string) => Promise<void>;
+  availableUpdate: UpdateCheckResult | null;
+  dismissUpdate: () => void;
+  usage: UsageAnalytics | null;
+  refreshUsage: () => Promise<void>;
 };
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -75,6 +90,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [knowledge, setKnowledge] = useState<Knowledge[]>([]);
   const [hubStatus, setHubStatus] = useState<HubStatus>("unconfigured");
   const [hubError, setHubError] = useState("");
+  const [usage, setUsage] = useState<UsageAnalytics | null>(null);
   const configRef = useRef(config);
   configRef.current = config;
 
@@ -140,6 +156,39 @@ export function DataProvider({ children }: { children: ReactNode }) {
     };
     tick();
     const id = setInterval(tick, 2000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
+
+  const refreshUsage = useCallback(async () => {
+    try {
+      const data = await api.usageAnalytics();
+      setUsage(data);
+    } catch (e) {
+      console.error("Kullanım analitiği alınamadı:", e);
+    }
+  }, []);
+
+  // Token, maliyet & kota analitiği: açılışta ve 30 sn'de bir
+  useEffect(() => {
+    let alive = true;
+    let busy = false;
+    const tick = async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        const data = await api.usageAnalytics();
+        if (alive) setUsage(data);
+      } catch (e) {
+        console.error("Kullanım analitiği alınamadı:", e);
+      } finally {
+        busy = false;
+      }
+    };
+    tick();
+    const id = setInterval(tick, 30_000);
     return () => {
       alive = false;
       clearInterval(id);
@@ -218,6 +267,49 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   useNotifications({ agent, hubStatus, network }, settings.notifications, configLoaded);
 
+  const [availableUpdate, setAvailableUpdate] = useState<UpdateCheckResult | null>(null);
+  const notifiedUpdateRef = useRef<string | null>(null);
+  const dismissedUpdateRef = useRef<string | null>(null);
+  const notifRef = useRef(settings.notifications);
+  notifRef.current = settings.notifications;
+
+  useEffect(() => {
+    if (!configLoaded) return;
+    let alive = true;
+    const runCheck = () => {
+      api
+        .checkUpdate()
+        .then((info) => {
+          if (!alive || !info.has_update) return;
+          if (dismissedUpdateRef.current === info.latest_version) return;
+          if (!notifRef.current.app_update) return;
+          setAvailableUpdate(info);
+          if (notifRef.current.enabled && notifiedUpdateRef.current !== info.latest_version) {
+            notifiedUpdateRef.current = info.latest_version;
+            notify(
+              "YDevDesk Güncellemesi Hazır",
+              `v${info.latest_version} yayınlandı. Uygulama içinden güncelleyebilirsin.`,
+            );
+          }
+        })
+        .catch(() => {});
+    };
+    const startTimer = window.setTimeout(runCheck, 4000);
+    const interval = window.setInterval(runCheck, 30 * 60 * 1000);
+    return () => {
+      alive = false;
+      window.clearTimeout(startTimer);
+      window.clearInterval(interval);
+    };
+  }, [configLoaded]);
+
+  const dismissUpdate = useCallback(() => {
+    if (availableUpdate) {
+      dismissedUpdateRef.current = availableUpdate.latest_version;
+    }
+    setAvailableUpdate(null);
+  }, [availableUpdate]);
+
   const value = useMemo<DataContextValue>(
     () => ({
       config,
@@ -233,8 +325,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       refreshHub,
       addNote,
       addKnowledge,
+      availableUpdate,
+      dismissUpdate,
+      usage,
+      refreshUsage,
     }),
-    [config, settings, saveSettings, agent, network, bandwidth, notes, knowledge, hubStatus, hubError, refreshHub, addNote, addKnowledge],
+    [config, settings, saveSettings, agent, network, bandwidth, notes, knowledge, hubStatus, hubError, refreshHub, addNote, addKnowledge, availableUpdate, dismissUpdate, usage, refreshUsage],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

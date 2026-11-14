@@ -9,9 +9,9 @@ import { MODULES } from "../panels/registry";
 import { CONNECTION_TYPES, hasConnection, newId } from "../lib/settings";
 import type { AppSettings, Connection, ConnectionType, UpdateCheckResult } from "../types";
 
-type Tab = "connections" | "modules" | "commands" | "notifications" | "agents" | "update";
+export type SettingsTab = "connections" | "modules" | "commands" | "notifications" | "agents" | "update";
 
-const TABS: { id: Tab; label: string }[] = [
+const TABS: { id: SettingsTab; label: string }[] = [
   { id: "connections", label: "Bağlantılar" },
   { id: "modules", label: "Modüller" },
   { id: "commands", label: "Komutlar" },
@@ -24,11 +24,11 @@ const input =
   "w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-2.5 py-1.5 text-xs font-mono outline-none focus:border-[var(--accent)] select-text";
 const iconBtn = "p-1.5 rounded-md text-[var(--txt-dim)] hover:text-[var(--err)] hover:bg-[var(--surface-raised)]";
 
-export function SettingsModal({ onClose }: { onClose: () => void }) {
+export function SettingsModal({ onClose, initialTab = "connections" }: { onClose: () => void; initialTab?: SettingsTab }) {
   const { settings, saveSettings } = useData();
   const ws = useWorkspace();
   const [draft, setDraft] = useState<AppSettings>(settings);
-  const [tab, setTab] = useState<Tab>("connections");
+  const [tab, setTab] = useState<SettingsTab>(initialTab);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [version, setVersion] = useState("");
@@ -278,6 +278,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 ["agent_done", "Ajan bitti"],
                 ["quota_low", "Kota azaldı"],
                 ["service_down", "Servis koptu"],
+                ["app_update", "Uygulama güncellemesi"],
               ] as const
             ).map(([k, label]) => (
               <label key={k} className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 border border-[var(--border)] text-xs cursor-pointer">

@@ -6,6 +6,7 @@ import type {
   HomelabConfig,
   SessionPrefs,
   UpdateCheckResult,
+  UsageAnalytics,
 } from "../types";
 
 export const api = {
@@ -50,4 +51,6 @@ export const api = {
   windowClose: () => invoke<void>("app_window_close"),
   windowMinimize: () => invoke<void>("app_window_minimize"),
   windowToggleMaximize: () => invoke<void>("app_window_toggle_maximize"),
+  usageAnalytics: () => invoke<UsageAnalytics>("get_usage_analytics"),
+  enableAgyQuotaHook: () => invoke<string>("enable_agy_quota_hook"),
 };

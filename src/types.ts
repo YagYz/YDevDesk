@@ -129,6 +129,7 @@ export type NotificationSettings = {
   agent_done: boolean;
   quota_low: boolean;
   service_down: boolean;
+  app_update: boolean;
   quota_threshold: number;
 };
 
@@ -177,4 +178,44 @@ export type AgentInstallResult = {
   agent_id: string;
   message: string;
   output: string;
+};
+
+export type AgentUsageTotals = {
+  agent: string;
+  input_tokens: number;
+  output_tokens: number;
+  cache_tokens: number;
+  cost_usd: number;
+  estimated: boolean;
+};
+
+export type DailyUsagePoint = {
+  date: string;
+  agy_tokens: number;
+  claude_tokens: number;
+  codex_tokens: number;
+  agy_cost: number;
+  claude_cost: number;
+  codex_cost: number;
+};
+
+export type UsageWindowSummary = {
+  days: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_cache_tokens: number;
+  total_cost_usd: number;
+  by_agent: AgentUsageTotals[];
+  daily: DailyUsagePoint[];
+};
+
+export type UsageAnalytics = {
+  windows: {
+    d1: UsageWindowSummary;
+    d7: UsageWindowSummary;
+    d30: UsageWindowSummary;
+  };
+  agy_quota_configured: boolean;
+  codex_quota_5h_remaining: number | null;
+  codex_quota_weekly_remaining: number | null;
 };
