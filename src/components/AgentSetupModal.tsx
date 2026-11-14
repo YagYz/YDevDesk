@@ -61,12 +61,12 @@ export function AgentSetupContent({ onClose }: { onClose?: () => void }) {
     if (onClose) onClose();
   };
 
-  const handleInstall = async (agentId: string) => {
+  const handleInstall = async (agentId: string, forceUpdate = false) => {
     setBusyAgent(agentId);
     setGlobalMsg("");
     setGlobalErr("");
     try {
-      const res = await api.installAgentCli(agentId);
+      const res = await api.installAgentCli(agentId, forceUpdate);
       setInstallLogs((prev) => ({ ...prev, [agentId]: res.output }));
       setGlobalMsg(res.message);
       await loadEnv();
@@ -217,7 +217,7 @@ export function AgentSetupContent({ onClose }: { onClose?: () => void }) {
                       <button
                         type="button"
                         disabled={isBusy || busyAgent !== null}
-                        onClick={() => handleInstall(a.id)}
+                        onClick={() => handleInstall(a.id, true)}
                         title="Güncelle"
                         className="px-1.5 py-0.5 rounded text-[10px] font-mono border border-[var(--border)] text-[var(--txt-dim)] hover:text-[var(--txt-main)] hover:bg-[var(--surface-raised)] transition-colors disabled:opacity-50"
                       >
@@ -229,7 +229,7 @@ export function AgentSetupContent({ onClose }: { onClose?: () => void }) {
                       <button
                         type="button"
                         disabled={isBusy || busyAgent !== null}
-                        onClick={() => handleInstall(a.id)}
+                        onClick={() => handleInstall(a.id, false)}
                         className="px-2.5 py-0.5 rounded text-[11px] font-mono border border-[var(--border)] text-[var(--accent)] hover:border-[var(--accent)] hover:bg-[var(--surface-raised)] transition-colors disabled:opacity-50"
                       >
                         {isBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : "kur"}

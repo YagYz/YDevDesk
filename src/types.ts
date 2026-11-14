@@ -42,6 +42,12 @@ export type ActiveAgentSession = {
   model: string;
   last_tool: string;
   updated_ago_secs: number;
+  subagent_count?: number;
+};
+
+export type SessionPrefs = {
+  pinned: Record<string, boolean>;
+  aliases: Record<string, string>;
 };
 
 export type SubagentInfo = {

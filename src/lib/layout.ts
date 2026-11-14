@@ -40,8 +40,7 @@ export function buildDefaultLayout(api: DockviewApi) {
   });
 
   addModule(api, "agent_usage", { referencePanel: MAIN_TERMINAL_ID, direction: "right" });
-  addModule(api, "network", { referencePanel: "agent_usage", direction: "below" });
-  addModule(api, "recent_tools", { referencePanel: "network", direction: "below" });
+  addModule(api, "recent_tools", { referencePanel: "agent_usage", direction: "below" });
   addModule(api, "notes", { referencePanel: "recent_tools", direction: "within" });
   addModule(api, "knowledge", { referencePanel: "recent_tools", direction: "within" });
   addModule(api, "file_heat", { referencePanel: "recent_tools", direction: "within" });
@@ -51,7 +50,6 @@ export function buildDefaultLayout(api: DockviewApi) {
   addModule(api, "quick_actions", { referencePanel: "sessions", direction: "below" });
 
   api.getPanel("agent_usage")?.api.setSize({ width: 320, height: 250 });
-  api.getPanel("network")?.api.setSize({ height: 240 });
   api.getPanel("sessions")?.api.setSize({ width: 250 });
   api.getPanel(MAIN_TERMINAL_ID)?.api.setActive();
 }
