@@ -1,0 +1,66 @@
+name: GitHub Pages & APT Repo
+
+on:
+  push:
+    branches: ["main"]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build-pages:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: APT araçlarını kur
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev apt-utils jq
+
+      - name: GitHub Pages & APT deposu içeriğini hazırla
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p public/apt
+          cp docs/site/index.html public/index.html
+          cp docs/screenshots/workspace.png public/workspace.png
+          cp src-tauri/icons/128x128@2x.png public/logo.png
+
+          DEB_URL="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases?per_page=5" \
+            | jq -r '[.[].assets[] | select(.name | endswith("_amd64.deb"))][0].browser_download_url // empty')"
+
+          if [ -n "$DEB_URL" ]; then
+            echo "İndirilen .deb: $DEB_URL"
+            curl -fL "$DEB_URL" -o "public/apt/$(basename "$DEB_URL")"
+            cd public/apt
+            dpkg-scanpackages --multiversion . /dev/null > Packages
+            gzip -9c Packages > Packages.gz
+            apt-ftparchive release . > Release
+          else
+            echo "Henüz .deb release varlığı bulunamadı; boş APT dizini oluşturuldu."
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    needs: build-pages
+    runs-on: ubuntu-22.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -13,7 +13,9 @@ export function UpdatePopup({ onOpenDetails }: { onOpenDetails: () => void }) {
 
   const handleInstall = async () => {
     if (!availableUpdate.asset_url) {
-      openUrl(availableUpdate.html_url).catch(() => {});
+      if (availableUpdate.html_url.startsWith("https://github.com/")) {
+        openUrl(availableUpdate.html_url).catch(() => {});
+      }
       return;
     }
     setInstalling(true);

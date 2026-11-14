@@ -382,7 +382,8 @@ fn start_pty(app: AppHandle, state: State<'_, TerminalState>, session_id: String
 
     if let Some(initial_command) = &init_cmd {
         cmd.arg("-c");
-        cmd.arg(format!("{}; exec {}", initial_command, shell));
+        cmd.arg(format!("{}; exec \"$0\"", initial_command));
+        cmd.arg(&shell);
     }
 
     let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
@@ -502,12 +503,41 @@ fn load_homelab_config() -> HomelabConfig {
     }
 }
 
+/// Hassas yapılandırma dosyalarını Unix'te 0700 klasör / 0600 dosya izniyle yazar.
+fn write_private_file(path: &std::path::Path, content: &str) -> Result<(), String> {
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700));
+        }
+    }
+    #[cfg(unix)]
+    {
+        use std::io::Write;
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+        let mut f = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(path)
+            .map_err(|e| e.to_string())?;
+        f.write_all(content.as_bytes()).map_err(|e| e.to_string())?;
+        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
+        Ok(())
+    }
+    #[cfg(not(unix))]
+    {
+        std::fs::write(path, content).map_err(|e| e.to_string())
+    }
+}
+
 #[tauri::command]
 fn save_homelab_config(cfg: HomelabConfig) -> Result<(), String> {
     let home = dirs::home_dir().unwrap_or_default();
-    let dir = home.join(".config").join("ydevhub");
-    let _ = std::fs::create_dir_all(&dir);
-    let config_path = dir.join("config.json");
+    let config_path = home.join(".config").join("ydevhub").join("config.json");
 
     let val = serde_json::json!({
         "api_url": cfg.ydevhub_url,
@@ -516,8 +546,8 @@ fn save_homelab_config(cfg: HomelabConfig) -> Result<(), String> {
         "ynetmon_key": cfg.ynetmon_key
     });
 
-    std::fs::write(config_path, serde_json::to_string_pretty(&val).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())
+    let json = serde_json::to_string_pretty(&val).map_err(|e| e.to_string())?;
+    write_private_file(&config_path, &json)
 }
 
 // Büyük transcript dosyalarının tamamını okumamak için yalnızca sondaki baytları okur.
@@ -609,8 +639,7 @@ fn extract_agy_subagent_ids(t_path: &std::path::Path) -> std::collections::HashS
             if let Some(colon) = after_key.find(':') {
                 let rest = after_key[colon + 1..]
                     .trim_start_matches(|c: char| c.is_whitespace() || c == '\\' || c == '"');
-                if rest.len() >= 36 {
-                    let candidate = &rest[..36];
+                if let Some(candidate) = rest.get(..36) {
                     if is_uuid_like(candidate) {
                         ids.insert(candidate.to_string());
                     }
@@ -938,8 +967,10 @@ fn collect_codex_sessions(home: &std::path::Path, now: std::time::SystemTime) ->
         if full_id.is_empty() {
             // Dosya adından UUID çıkar (rollout-...-<uuid>.jsonl)
             if let Some(stem) = f_path.file_stem().and_then(|s| s.to_str()) {
-                if stem.len() >= 36 {
-                    full_id = stem[stem.len() - 36..].to_string();
+                if let Some(idx) = stem.len().checked_sub(36) {
+                    if let Some(tail) = stem.get(idx..) {
+                        full_id = tail.to_string();
+                    }
                 }
             }
         }
@@ -1188,11 +1219,14 @@ fn system_time_to_ymd(t: std::time::SystemTime) -> String {
 }
 
 fn extract_ymd_prefix(s: &str) -> Option<&str> {
-    if s.len() >= 10 {
-        let b = s.as_bytes();
-        if b[4] == b'-' && b[7] == b'-' && b[0..4].iter().all(|c| c.is_ascii_digit()) {
-            return Some(&s[..10]);
-        }
+    let b = s.as_bytes();
+    if b.len() >= 10
+        && s.is_char_boundary(10)
+        && b[4] == b'-'
+        && b[7] == b'-'
+        && b[0..4].iter().all(|c| c.is_ascii_digit())
+    {
+        return s.get(..10);
     }
     None
 }
@@ -1886,10 +1920,8 @@ fn load_app_settings() -> Option<serde_json::Value> {
 #[tauri::command]
 fn save_app_settings(settings: serde_json::Value) -> Result<(), String> {
     let path = app_settings_path();
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-    }
-    std::fs::write(path, serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
+    let json = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
+    write_private_file(&path, &json)
 }
 
 #[tauri::command]
@@ -1954,12 +1986,15 @@ fn list_git_projects(root: String) -> Vec<String> {
 
 #[tauri::command]
 async fn get_git_status(root: String, project: String) -> Result<serde_json::Value, String> {
-    if project.is_empty() || project.contains('/') || project.contains("..") {
+    if project.is_empty() || project.contains('/') || project.contains('\\') || project.contains("..") {
         return Err("Geçersiz proje adı".into());
     }
     tauri::async_runtime::spawn_blocking(move || {
-        let dir = expand_home(&root).join(&project);
-        if !dir.join(".git").exists() {
+        let root_dir = expand_home(&root);
+        let dir = root_dir.join(&project);
+        let canon_root = root_dir.canonicalize().map_err(|_| "Kök dizin bulunamadı".to_string())?;
+        let canon_dir = dir.canonicalize().map_err(|_| "Proje dizini bulunamadı".to_string())?;
+        if !canon_dir.starts_with(&canon_root) || !canon_dir.join(".git").exists() {
             return Err("Git deposu bulunamadı".to_string());
         }
         let branch = run_cmd(&dir, "git", &["rev-parse", "--abbrev-ref", "HEAD"])
@@ -1974,8 +2009,11 @@ async fn get_git_status(root: String, project: String) -> Result<serde_json::Val
         let changes: Vec<serde_json::Value> = run_cmd(&dir, "git", &["status", "--porcelain"])
             .unwrap_or_default()
             .lines()
-            .filter(|l| l.len() > 3)
-            .map(|l| serde_json::json!({ "status": l[..2].trim(), "path": l[3..] }))
+            .filter_map(|l| {
+                let st = l.get(..2)?;
+                let p = l.get(3..)?;
+                Some(serde_json::json!({ "status": st.trim(), "path": p }))
+            })
             .collect();
         let last_commit = run_cmd(&dir, "git", &["log", "-1", "--pretty=%h %s"])
             .map(|s| s.trim().to_string())
@@ -2181,11 +2219,14 @@ async fn check_app_update() -> Result<UpdateCheckResult, String> {
 
 #[tauri::command]
 async fn install_app_update(app: AppHandle, asset_url: String) -> Result<String, String> {
-    if asset_url.is_empty() {
-        return Err("İndirme adresi boş".into());
+    let allowed = asset_url.starts_with("https://github.com/YagYz/YDevDesk/releases/download/")
+        || asset_url.starts_with("https://objects.githubusercontent.com/");
+    if !allowed {
+        return Err("Geçersiz veya güvensiz güncelleme adresi".into());
     }
     let client = reqwest::Client::builder()
         .user_agent("YDevDesk-Updater")
+        .timeout(std::time::Duration::from_secs(180))
         .build()
         .map_err(|e| e.to_string())?;
 
@@ -2697,7 +2738,17 @@ fn play_notification_sound(kind: Option<String>) -> Result<(), String> {
 
     #[cfg(target_os = "linux")]
     {
-        let wav_path = std::env::temp_dir().join(format!("ydevdesk_chime_v4_{}.wav", k));
+        let cache_dir = dirs::config_dir()
+            .unwrap_or_else(std::env::temp_dir)
+            .join("ydevdesk")
+            .join("cache");
+        let _ = std::fs::create_dir_all(&cache_dir);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&cache_dir, std::fs::Permissions::from_mode(0o700));
+        }
+        let wav_path = cache_dir.join(format!("ydevdesk_chime_v4_{}.wav", k));
         if !wav_path.exists() {
             let _ = std::fs::write(&wav_path, build_chime_wav(k));
         }
