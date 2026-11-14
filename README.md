@@ -11,14 +11,11 @@
 
 ![YDevDesk Çalışma Alanı](docs/screenshots/workspace.png)
 
-<details>
-<summary>📸 Diğer Ekran Görüntüleri (30 Günlük Analiz &amp; Komut Paleti)</summary>
+### 📸 Ekran Görüntüleri
 
 | 30 Günlük Token & Maliyet Analizi | Komut Paleti (`Ctrl+K`) |
 |---|---|
 | ![30 Günlük Analiz](docs/screenshots/analytics.png) | ![Komut Paleti](docs/screenshots/omnibar.png) |
-
-</details>
 
 ---
 
