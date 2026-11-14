@@ -129,6 +129,7 @@ export type NotificationSettings = {
   agent_done: boolean;
   quota_low: boolean;
   service_down: boolean;
+  app_update: boolean;
   quota_threshold: number;
 };
 

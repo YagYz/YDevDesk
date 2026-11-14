@@ -8,7 +8,8 @@ import { addModuleDefault, buildDefaultLayout, clearSavedLayout, hasTerminal, LA
 import { TitleBar } from "./components/TitleBar";
 import { StatusBar } from "./components/StatusBar";
 import { OmniBar } from "./components/OmniBar";
-import { SettingsModal } from "./components/SettingsModal";
+import { SettingsModal, type SettingsTab } from "./components/SettingsModal";
+import { UpdatePopup } from "./components/UpdatePopup";
 import { AgentSetupModal } from "./components/AgentSetupModal";
 import { api } from "./lib/tauri";
 import { KnowledgeModal } from "./components/KnowledgeModal";
@@ -86,7 +87,7 @@ export default function Workspace() {
   const restoringRef = useRef(false);
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
   const [showOmni, setShowOmni] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
   const [showAgentSetup, setShowAgentSetup] = useState(false);
   const [knowledgeItem, setKnowledgeItem] = useState<Knowledge | null>(null);
   const [crashBanner, setCrashBanner] = useState<RecoverySnapshot | null>(null);
@@ -289,7 +290,7 @@ export default function Workspace() {
   return (
     <WorkspaceContext.Provider value={actions}>
       <div className="h-full w-full flex flex-col bg-[var(--bg)]">
-        <TitleBar onSettings={() => setShowSettings(true)} />
+        <TitleBar onSettings={() => setSettingsTab("connections")} />
         {crashBanner && (
           <div className="flex items-center justify-between gap-3 px-3 py-1.5 bg-amber-500/10 border-b border-amber-500/30 text-xs text-amber-200">
             <span>
@@ -342,9 +343,10 @@ export default function Workspace() {
         <StatusBar />
       </div>
       {showOmni && <OmniBar onClose={() => setShowOmni(false)} />}
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {settingsTab && <SettingsModal initialTab={settingsTab} onClose={() => setSettingsTab(null)} />}
       {showAgentSetup && <AgentSetupModal onClose={() => setShowAgentSetup(false)} />}
       {knowledgeItem && <KnowledgeModal item={knowledgeItem} onClose={() => setKnowledgeItem(null)} />}
+      <UpdatePopup onOpenDetails={() => setSettingsTab("update")} />
     </WorkspaceContext.Provider>
   );
 }
