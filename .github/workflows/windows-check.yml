@@ -1,14 +1,6 @@
-name: Cross-Platform Test & Check
+name: Cross-Platform Test & Check (Manual)
 
 on:
-  push:
-    branches: [dev]
-    paths:
-      - "src-tauri/**"
-      - "src/**"
-      - ".github/workflows/**"
-  pull_request:
-    branches: [main, dev]
   workflow_dispatch:
 
 jobs:
