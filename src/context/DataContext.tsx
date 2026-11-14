@@ -3,7 +3,17 @@ import { api } from "../lib/tauri";
 import { notify } from "../lib/notify";
 import { useNotifications } from "../lib/useNotifications";
 import { deriveConfig, normalizeSettings } from "../lib/settings";
-import type { AgentStatus, AppSettings, HomelabConfig, HubStatus, Knowledge, NetworkData, Note, UpdateCheckResult } from "../types";
+import type {
+  AgentStatus,
+  AppSettings,
+  HomelabConfig,
+  HubStatus,
+  Knowledge,
+  NetworkData,
+  Note,
+  UpdateCheckResult,
+  UsageAnalytics,
+} from "../types";
 
 const DEFAULT_CONFIG: HomelabConfig = {
   ydevhub_url: "",
@@ -57,6 +67,8 @@ type DataContextValue = {
   addKnowledge: (title: string, summary: string) => Promise<void>;
   availableUpdate: UpdateCheckResult | null;
   dismissUpdate: () => void;
+  usage: UsageAnalytics | null;
+  refreshUsage: () => Promise<void>;
 };
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -78,6 +90,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [knowledge, setKnowledge] = useState<Knowledge[]>([]);
   const [hubStatus, setHubStatus] = useState<HubStatus>("unconfigured");
   const [hubError, setHubError] = useState("");
+  const [usage, setUsage] = useState<UsageAnalytics | null>(null);
   const configRef = useRef(config);
   configRef.current = config;
 
@@ -143,6 +156,39 @@ export function DataProvider({ children }: { children: ReactNode }) {
     };
     tick();
     const id = setInterval(tick, 2000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
+
+  const refreshUsage = useCallback(async () => {
+    try {
+      const data = await api.usageAnalytics();
+      setUsage(data);
+    } catch (e) {
+      console.error("Kullanım analitiği alınamadı:", e);
+    }
+  }, []);
+
+  // Token, maliyet & kota analitiği: açılışta ve 30 sn'de bir
+  useEffect(() => {
+    let alive = true;
+    let busy = false;
+    const tick = async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        const data = await api.usageAnalytics();
+        if (alive) setUsage(data);
+      } catch (e) {
+        console.error("Kullanım analitiği alınamadı:", e);
+      } finally {
+        busy = false;
+      }
+    };
+    tick();
+    const id = setInterval(tick, 30_000);
     return () => {
       alive = false;
       clearInterval(id);
@@ -281,8 +327,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addKnowledge,
       availableUpdate,
       dismissUpdate,
+      usage,
+      refreshUsage,
     }),
-    [config, settings, saveSettings, agent, network, bandwidth, notes, knowledge, hubStatus, hubError, refreshHub, addNote, addKnowledge, availableUpdate, dismissUpdate],
+    [config, settings, saveSettings, agent, network, bandwidth, notes, knowledge, hubStatus, hubError, refreshHub, addNote, addKnowledge, availableUpdate, dismissUpdate, usage, refreshUsage],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
