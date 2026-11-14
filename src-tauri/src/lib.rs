@@ -2613,18 +2613,7 @@ fn app_window_toggle_maximize(window: tauri::Window) -> Result<(), String> {
         let is_fs = window.is_fullscreen().unwrap_or(false);
         window.set_fullscreen(!is_fs).map_err(|e| e.to_string())
     }
-    #[cfg(target_os = "windows")]
-    {
-        let out = std::env::temp_dir().join("ydevdesk-setup.exe");
-        std::fs::write(&out, &bytes).map_err(|e| e.to_string())?;
-        std::process::Command::new(&out)
-            .spawn()
-            .map_err(|e| format!("Kurulum sihirbazı başlatılamadı: {}", e))?;
-        app.exit(0);
-        return Ok("Windows kurulum sihirbazı başlatılıyor…".into());
-    }
-
-    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    #[cfg(not(target_os = "macos"))]
     {
         if window.is_maximized().unwrap_or(false) {
             window.unmaximize().map_err(|e| e.to_string())
@@ -2804,6 +2793,8 @@ fn send_desktop_notification(title: String, body: String) -> Result<(), String> 
             }
         }
     }
+    #[cfg(not(target_os = "linux"))]
+    let _ = (&title, &body);
     Err("Native notify-send kullanılamadı".into())
 }
 
