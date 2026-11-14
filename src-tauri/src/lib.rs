@@ -6,6 +6,8 @@ use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize}
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
 
+mod platform;
+
 pub struct PtySession {
     writer: Box<dyn Write + Send>,
     master: Box<dyn MasterPty + Send>,
@@ -302,28 +304,11 @@ fn sanitize_pty_cmd(cmd: &mut CommandBuilder) {
 }
 
 fn find_binary(name: &str) -> Option<std::path::PathBuf> {
-    let full_path = get_enhanced_path();
-    for dir in full_path.split(':') {
-        let p = std::path::Path::new(dir).join(name);
-        if p.is_file() {
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                if let Ok(meta) = p.metadata() {
-                    if meta.permissions().mode() & 0o111 != 0 {
-                        return Some(p);
-                    }
-                }
-            }
-            #[cfg(not(unix))]
-            return Some(p);
-        }
-    }
-    None
+    platform::find_binary(name)
 }
 
 fn get_binary_version(bin: &std::path::Path, args: &[&str]) -> Option<String> {
-    let mut cmd = std::process::Command::new(bin);
+    let mut cmd = platform::hidden_command(&bin.to_string_lossy());
     cmd.args(args).env("PATH", get_enhanced_path());
     sanitize_std_cmd(&mut cmd);
     let out = cmd.output().ok()?;
@@ -362,13 +347,7 @@ fn start_pty(app: AppHandle, state: State<'_, TerminalState>, session_id: String
         })
         .map_err(|e| e.to_string())?;
 
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| {
-        if cfg!(target_os = "macos") {
-            "/bin/zsh".to_string()
-        } else {
-            "/bin/bash".to_string()
-        }
-    });
+    let shell = platform::default_shell();
 
     let mut cmd = CommandBuilder::new(&shell);
     sanitize_pty_cmd(&mut cmd);
@@ -1173,6 +1152,18 @@ fn get_agent_status() -> AgentStatus {
 
     let cost = (inp as f64 / 1_000_000.0) * 0.15 + (out as f64 / 1_000_000.0) * 0.60;
     let active_count = session_list.iter().filter(|s| s.is_active).count();
+    let other_agent_working = session_list
+        .iter()
+        .any(|s| s.agent != "agy" && s.updated_ago_secs < 6);
+    let agy_fallback_working = !has_live_status
+        && session_list
+            .iter()
+            .any(|s| s.agent == "agy" && s.updated_ago_secs < 6);
+    let final_agent_state = if agent_state == "working" || other_agent_working || agy_fallback_working {
+        "working".to_string()
+    } else {
+        agent_state
+    };
 
     AgentStatus {
         model,
@@ -1181,7 +1172,7 @@ fn get_agent_status() -> AgentStatus {
         total_input_tokens: inp,
         total_output_tokens: out,
         mode: "CAVEMAN".to_string(),
-        agent_state: if active_count > 0 { "working".to_string() } else { agent_state },
+        agent_state: final_agent_state,
         active_sessions_count: active_count.max(1),
         quota_5h_percent: quota_5h,
         quota_weekly_percent: quota_weekly,
@@ -1760,18 +1751,7 @@ fn enable_agy_quota_hook() -> Result<String, String> {
         return Ok("AGY statusLine zaten yapılandırılmış.".to_string());
     }
 
-    let hook_dir = home.join(".config").join("ydevdesk");
-    std::fs::create_dir_all(&hook_dir).map_err(|e| e.to_string())?;
-    let hook_path = hook_dir.join("agy-quota-hook.sh");
-    let hook_script = "#!/bin/sh\nmkdir -p \"$HOME/.gemini/antigravity-cli/cache\"\ncat > \"$HOME/.gemini/antigravity-cli/cache/last_statusline.json\"\n";
-    std::fs::write(&hook_path, hook_script).map_err(|e| e.to_string())?;
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let perms = std::fs::Permissions::from_mode(0o755);
-        std::fs::set_permissions(&hook_path, perms).map_err(|e| e.to_string())?;
-    }
+    let hook_cmd = platform::write_agy_statusline_hook(&home)?;
 
     let obj = settings
         .as_object_mut()
@@ -1780,7 +1760,7 @@ fn enable_agy_quota_hook() -> Result<String, String> {
         "statusLine".to_string(),
         serde_json::json!({
             "type": "command",
-            "command": hook_path.to_string_lossy().to_string()
+            "command": hook_cmd
         }),
     );
 
@@ -2136,6 +2116,8 @@ fn target_asset_suffix() -> &'static str {
         } else {
             "x64.app.tar.gz"
         }
+    } else if cfg!(target_os = "windows") {
+        "x64-setup.exe"
     } else {
         "amd64.AppImage"
     }
@@ -2277,7 +2259,18 @@ async fn install_app_update(app: AppHandle, asset_url: String) -> Result<String,
         return Ok("Güncellendi, yeniden başlatılıyor…".into());
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
+    {
+        let out = std::env::temp_dir().join("ydevdesk-setup.exe");
+        std::fs::write(&out, &bytes).map_err(|e| e.to_string())?;
+        std::process::Command::new(&out)
+            .spawn()
+            .map_err(|e| format!("Kurulum sihirbazı başlatılamadı: {}", e))?;
+        app.exit(0);
+        return Ok("Windows kurulum sihirbazı başlatılıyor…".into());
+    }
+
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
     {
         if let Ok(appimage_path) = std::env::var("APPIMAGE") {
             use std::os::unix::fs::PermissionsExt;
@@ -2378,9 +2371,20 @@ fn check_agent_environment() -> Result<AgentEnvironmentStatus, String> {
 }
 
 fn run_clean_shell(script: &str, enhanced_path: &str) -> Result<(bool, String), String> {
-    let shell_bin = if find_binary("bash").is_some() { "bash" } else { "sh" };
-    let mut cmd = std::process::Command::new(shell_bin);
-    cmd.args(["-c", script]).env("PATH", enhanced_path);
+    #[cfg(target_os = "windows")]
+    let mut cmd = {
+        let mut c = platform::hidden_command("powershell");
+        c.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script]);
+        c
+    };
+    #[cfg(not(target_os = "windows"))]
+    let mut cmd = {
+        let shell_bin = if find_binary("bash").is_some() { "bash" } else { "sh" };
+        let mut c = platform::hidden_command(shell_bin);
+        c.args(["-c", script]);
+        c
+    };
+    cmd.env("PATH", enhanced_path);
     sanitize_std_cmd(&mut cmd);
     let out = cmd
         .output()
@@ -2435,10 +2439,12 @@ fn install_agent_cli_sync(agent_id: String, force_update: bool) -> Result<AgentI
                 }
             }
 
-            let (ok, mut output_str) = run_clean_shell(
-                "curl -fsSL https://claude.ai/install.sh | bash",
-                &enhanced_path,
-            )?;
+            let claude_script = if cfg!(target_os = "windows") {
+                "irm https://claude.ai/install.ps1 | iex"
+            } else {
+                "curl -fsSL https://claude.ai/install.sh | bash"
+            };
+            let (ok, mut output_str) = run_clean_shell(claude_script, &enhanced_path)?;
 
             // Native betik başarısız olursa ve npm varsa ~/.local altına kurmayı dene
             if !ok {
@@ -2541,10 +2547,12 @@ fn install_agent_cli_sync(agent_id: String, force_update: bool) -> Result<AgentI
                 }
             }
 
-            let (mut ok, mut output_str) = run_clean_shell(
-                "curl -fsSL https://antigravity.google/cli/install.sh | bash",
-                &enhanced_path,
-            )?;
+            let agy_script = if cfg!(target_os = "windows") {
+                "irm https://antigravity.google/cli/install.ps1 | iex"
+            } else {
+                "curl -fsSL https://antigravity.google/cli/install.sh | bash"
+            };
+            let (mut ok, mut output_str) = run_clean_shell(agy_script, &enhanced_path)?;
 
             // macOS üzerinde Homebrew fallback
             if !ok && cfg!(target_os = "macos") && find_binary("brew").is_some() {
@@ -2767,10 +2775,8 @@ fn play_notification_sound(kind: Option<String>) -> Result<(), String> {
 
     #[cfg(target_os = "windows")]
     {
-        let _ = std::process::Command::new("powershell")
-            .args(["-NoProfile", "-Command", "[System.Media.SystemSounds]::Asterisk.Play()"])
-            .spawn();
-        return Ok(());
+        let wav = build_chime_wav(k);
+        return platform::play_wav_windows(&wav);
     }
 }
 
@@ -2787,6 +2793,8 @@ fn send_desktop_notification(title: String, body: String) -> Result<(), String> 
             }
         }
     }
+    #[cfg(not(target_os = "linux"))]
+    let _ = (&title, &body);
     Err("Native notify-send kullanılamadı".into())
 }
 
@@ -2851,4 +2859,68 @@ pub fn run() {
         ])
         .run(context)
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_target_asset_suffix_matches_os() {
+        let suffix = target_asset_suffix();
+        #[cfg(target_os = "windows")]
+        assert_eq!(suffix, "x64-setup.exe");
+        #[cfg(target_os = "macos")]
+        assert!(suffix == "aarch64.app.tar.gz" || suffix == "x64.app.tar.gz");
+        #[cfg(target_os = "linux")]
+        assert_eq!(suffix, "amd64.AppImage");
+    }
+
+    #[test]
+    fn test_parse_semver_and_compare() {
+        assert_eq!(parse_semver("v1.0.0"), (1, 0, 0));
+        assert_eq!(parse_semver("1.2.3-beta"), (1, 2, 3));
+        assert!(parse_semver("v1.10.0") > parse_semver("v1.2.9"));
+        assert!(parse_semver("2.0.0") > parse_semver("1.99.99"));
+    }
+
+    #[test]
+    fn test_write_agy_statusline_hook_cross_platform() {
+        let tmp = std::env::temp_dir().join(format!("ydevdesk_hook_test_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).expect("create temp home");
+
+        let cmd = platform::write_agy_statusline_hook(&tmp).expect("write hook");
+        #[cfg(target_os = "windows")]
+        {
+            assert!(cmd.contains("powershell"));
+            assert!(tmp.join(".gemini/antigravity-cli/hooks/ydevdesk-statusline.ps1").is_file());
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            let hook_file = tmp.join(".config/ydevdesk/agy-quota-hook.sh");
+            assert!(hook_file.is_file());
+            assert_eq!(cmd, hook_file.to_string_lossy());
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let mode = std::fs::metadata(&hook_file).unwrap().permissions().mode();
+                assert_ne!(mode & 0o111, 0);
+            }
+        }
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_build_chime_wav_header_and_payload() {
+        for kind in ["done", "notify", "notify2", "warn"] {
+            let wav = build_chime_wav(kind);
+            assert!(wav.len() > 44, "wav too short for {}", kind);
+            assert_eq!(&wav[0..4], b"RIFF");
+            assert_eq!(&wav[8..12], b"WAVE");
+            assert_eq!(&wav[12..16], b"fmt ");
+            assert_eq!(&wav[36..40], b"data");
+        }
+    }
 }

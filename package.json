@@ -1,13 +1,14 @@
 {
   "name": "ydevdesk",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test:local": "npm run build && cargo test --manifest-path src-tauri/Cargo.toml"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.5",

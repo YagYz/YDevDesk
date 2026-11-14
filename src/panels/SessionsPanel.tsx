@@ -24,13 +24,19 @@ const AGENT_META: Record<string, { label: string; badgeClass: string }> = {
   },
 };
 
+const isWindows = typeof navigator !== "undefined" && navigator.userAgent.includes("Windows");
+
 function shellQuote(value: string): string {
+  if (isWindows) {
+    return `"${value.replace(/"/g, '\\"')}"`;
+  }
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
 function buildResumeCommand(session: ActiveAgentSession, bypass: boolean): string {
   const id = session.full_session_id || session.session_id;
-  const cdPrefix = session.cwd ? `cd ${shellQuote(session.cwd)} && ` : "";
+  const cdCmd = isWindows ? "pushd" : "cd";
+  const cdPrefix = session.cwd ? `${cdCmd} ${shellQuote(session.cwd)} && ` : "";
   const quotedId = shellQuote(id);
 
   switch (session.agent) {
@@ -48,7 +54,7 @@ function buildResumeCommand(session: ActiveAgentSession, bypass: boolean): strin
 
 function folderName(cwd?: string | null): string | null {
   if (!cwd) return null;
-  const parts = cwd.replace(/\/+$/, "").split("/");
+  const parts = cwd.replace(/[/\\]+$/, "").split(/[/\\]/);
   return parts[parts.length - 1] || cwd;
 }
 
