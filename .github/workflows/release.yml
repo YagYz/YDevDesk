@@ -20,6 +20,8 @@ jobs:
             args: "--target aarch64-apple-darwin"
           - platform: macos-latest
             args: "--target x86_64-apple-darwin"
+          - platform: windows-latest
+            args: ""
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -51,7 +53,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "YDevDesk ${{ github.ref_name }}"
-          releaseBody: "YDevDesk ${{ github.ref_name }} kararlı sürüm. Linux: AppImage/deb/rpm (Arch/CachyOS için `install.sh`). macOS: imzasız dmg (ilk açılışta sağ tık > Aç veya `xattr -cr /Applications/ydevdesk.app`)."
+          releaseBody: "YDevDesk ${{ github.ref_name }} kararlı sürüm. Linux: AppImage/deb/rpm (Arch/CachyOS için `install.sh`). macOS: imzasız dmg (ilk açılışta sağ tık > Aç veya `xattr -cr /Applications/ydevdesk.app`). Windows: `.exe` NSIS kurulum sihirbazı / `.msi` paketi."
           releaseDraft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
           args: ${{ matrix.args }}

@@ -37,6 +37,14 @@
       "icons/icon.ico",
       "icons/64x64.png",
       "icons/icon.png"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "displayLanguageSelector": false,
+        "startMenuFolder": "YDevDesk"
+      }
+    }
   }
 }
