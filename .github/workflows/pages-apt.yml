@@ -1,4 +1,4 @@
-name: GitHub Pages, APT & Arch Repo
+name: GitHub Pages & APT Repo
 
 on:
   push:
@@ -17,69 +17,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-arch:
-    runs-on: ubuntu-22.04
-    container:
-      image: archlinux:latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Pacman paketlerini kur
-        run: |
-          pacman -Syu --noconfirm --needed base-devel jq curl
-
-      - name: Arch pacman deposu oluştur
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          mkdir -p public-arch
-          REL_JSON="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases?per_page=5")"
-          DEB_URL="$(printf '%s' "$REL_JSON" | jq -r '[.[].assets[] | select(.name | endswith("_amd64.deb"))][0].browser_download_url // empty')"
-          TAG="$(printf '%s' "$REL_JSON" | jq -r '[.[] | select(.assets | any(.name | endswith("_amd64.deb")))][0].tag_name // empty')"
-
-          if [ -n "$DEB_URL" ] && [ -n "$TAG" ]; then
-            VER="${TAG#v}"
-            VER="${VER//-/_}"
-            mkdir -p /tmp/archbuild
-            cp packaging/arch/PKGBUILD /tmp/archbuild/PKGBUILD
-            curl -fL "$DEB_URL" -o /tmp/archbuild/pkg.deb
-            SHA="$(sha256sum /tmp/archbuild/pkg.deb | awk '{print $1}')"
-            sed -i "s|^pkgver=.*|pkgver=${VER}|" /tmp/archbuild/PKGBUILD
-            sed -i "s|^source=.*|source=(\"${DEB_URL}\")|" /tmp/archbuild/PKGBUILD
-            sed -i "s|^sha256sums=.*|sha256sums=('${SHA}')|" /tmp/archbuild/PKGBUILD
-
-            useradd -m builder || true
-            chown -R builder:builder /tmp/archbuild
-            su - builder -c "cd /tmp/archbuild && makepkg -d --noconfirm"
-            cp /tmp/archbuild/*.pkg.tar.* public-arch/
-            cd public-arch
-            repo-add ydevdesk.db.tar.gz *.pkg.tar.*
-            cat > index.html <<'EOF'
-<!doctype html><meta charset="utf-8"><title>YDevDesk Arch Repo</title>
-<pre>
-[ydevdesk]
-SigLevel = Optional TrustAll
-Server = https://yagyz.github.io/YDevDesk/arch
-</pre>
-EOF
-          fi
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: arch-repo
-          path: public-arch
-
   build-pages:
-    needs: build-arch
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: arch-repo
-          path: public/arch
 
       - name: APT araçlarını kur
         run: |

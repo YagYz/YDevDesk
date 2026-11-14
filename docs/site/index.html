@@ -131,7 +131,7 @@
       <div class="install-box">
         <div class="tabs">
           <button class="tab-btn active" onclick="setTab('quick', this)">Tek Komut (Önerilen)</button>
-          <button class="tab-btn" onclick="setTab('arch', this)">Arch / CachyOS (Pacman)</button>
+          <button class="tab-btn" onclick="setTab('aur', this)">Arch / CachyOS</button>
           <button class="tab-btn" onclick="setTab('apt', this)">Ubuntu / Debian (APT)</button>
           <button class="tab-btn" onclick="setTab('mac', this)">macOS</button>
         </div>
@@ -140,7 +140,7 @@
           <button class="copy-btn" onclick="copyCmd()">Kopyala</button>
         </div>
         <div style="margin-top:10px;font-size:12px;color:var(--muted);">
-          Not: AUR yeni hesap kayıtları geçici olarak kapalı olduğundan Arch / CachyOS için resmi GitHub Pages <code>pacman</code> deposu veya tek komut <code>install.sh</code> aktiftir.
+          Not: AUR yeni hesap kayıtları geçici olarak kapalı olduğu için Arch / CachyOS kullanıcıları şimdilik tek komut <code>install.sh</code> ile kurabilir.
         </div>
       </div>
 
@@ -189,7 +189,7 @@
   <script>
     const CMDS = {
       quick: "curl -fsSL https://raw.githubusercontent.com/YagYz/YDevDesk/main/install.sh | bash",
-      arch: "printf '\\n[ydevdesk]\\nSigLevel = Optional TrustAll\\nServer = https://yagyz.github.io/YDevDesk/arch\\n' | sudo tee -a /etc/pacman.conf && sudo pacman -Sy ydevdesk-bin",
+      aur: "curl -fsSL https://raw.githubusercontent.com/YagYz/YDevDesk/main/install.sh | bash",
       apt: "echo 'deb [trusted=yes] https://yagyz.github.io/YDevDesk/apt ./' | sudo tee /etc/apt/sources.list.d/ydevdesk.list && sudo apt update && sudo apt install -y ydevdesk",
       mac: "xattr -cr /Applications/ydevdesk.app"
     };

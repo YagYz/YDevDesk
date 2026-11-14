@@ -25,7 +25,7 @@ curl -fsSL https://raw.githubusercontent.com/YagYz/YDevDesk/main/install.sh | ba
 
 | Platform | Kurulum Yöntemi | Komut |
 |---|---|---|
-| **Arch / CachyOS (Pacman)** | Resmi YDevDesk Arch Deposu | `printf '\n[ydevdesk]\nSigLevel = Optional TrustAll\nServer = https://yagyz.github.io/YDevDesk/arch\n' \| sudo tee -a /etc/pacman.conf && sudo pacman -Sy ydevdesk-bin` |
+| **Arch / CachyOS** | Tek Komut (`install.sh`) | `curl -fsSL https://raw.githubusercontent.com/YagYz/YDevDesk/main/install.sh \| bash` *(AUR kayıtları geçici olarak kapalı)* |
 | **Debian / Ubuntu (APT)** | Resmi YDevDesk APT Deposu | `echo 'deb [trusted=yes] https://yagyz.github.io/YDevDesk/apt ./' \| sudo tee /etc/apt/sources.list.d/ydevdesk.list && sudo apt update && sudo apt install -y ydevdesk` |
 | **Linux (Genel)** | AppImage | `chmod +x ydevdesk_*.AppImage && WEBKIT_DISABLE_DMABUF_RENDERER=1 ./ydevdesk_*.AppImage` |
 | **macOS (Apple Silicon / Intel)** | İmzasız `.dmg` | Uygulamayı `/Applications` içine taşıyıp ilk açılışta `xattr -cr /Applications/ydevdesk.app` çalıştırın |
