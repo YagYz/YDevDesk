@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>YDevDesk — Homelab &amp; Multi-Agent Desktop Command Center</title>
   <meta name="description" content="Antigravity (AGY), Claude Code, OpenAI Codex, yerleşik PTY terminal ve Homelab servislerini tek masaüstü komuta merkezinde birleştirin." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="YDevDesk — Homelab & Multi-Agent Desktop Command Center" />
+  <meta property="og:description" content="Çoklu ajan oturumları, 30 günlük token/maliyet analitiği, Dockview çalışma alanları ve Homelab izleme tek masaüstü merkezinde." />
+  <meta property="og:image" content="https://yagyz.github.io/YDevDesk/social-preview.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="YDevDesk — Homelab & Multi-Agent Command Center" />
+  <meta name="twitter:image" content="https://yagyz.github.io/YDevDesk/social-preview.png" />
   <link rel="icon" type="image/png" href="logo.png" />
   <style>
     :root {
@@ -39,7 +46,7 @@
     .nav-links a { color: var(--muted); }
     .nav-links a:hover { color: var(--text); text-decoration: none; }
 
-    .hero { text-align: center; padding: 64px 0 40px; }
+    .hero { text-align: center; padding: 56px 0 36px; }
     .badge {
       display: inline-flex; align-items: center; gap: 8px;
       font-size: 12px; font-weight: 600; color: var(--accent);
@@ -54,9 +61,9 @@
       margin: 0 auto 28px; max-width: 680px; color: var(--muted); font-size: 17px;
     }
     .install-box {
-      max-width: 740px; margin: 0 auto 36px;
+      max-width: 780px; margin: 0 auto 24px;
       background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-      padding: 14px 18px; text-align: left; box-shadow: 0 18px 50px rgba(0,0,0,.45);
+      padding: 16px 18px; text-align: left; box-shadow: 0 18px 50px rgba(0,0,0,.45);
     }
     .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
     .tab-btn {
@@ -75,12 +82,25 @@
     .cmd-row code { white-space: pre; color: #dbeafe; }
     .copy-btn {
       background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
-      padding: 6px 12px; border-radius: 7px; font-size: 12px; cursor: pointer; shrink: 0;
+      padding: 6px 12px; border-radius: 7px; font-size: 12px; cursor: pointer; flex-shrink: 0;
     }
     .copy-btn:hover { border-color: var(--accent); }
 
+    .dl-bar {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;
+      margin: 0 auto 36px; max-width: 780px;
+    }
+    .dl-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--surface); border: 1px solid var(--border); color: var(--text);
+      padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 600;
+    }
+    .dl-btn:hover { border-color: var(--accent); text-decoration: none; background: var(--surface-2); }
+    .dl-btn span { color: var(--muted); font-weight: 400; font-size: 12px; }
+
+    .gallery-tabs { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
     .screenshot-wrap {
-      margin: 20px auto 64px;
+      margin: 0 auto 64px;
       border-radius: 16px; overflow: hidden;
       border: 1px solid var(--border);
       box-shadow: 0 28px 80px rgba(0,0,0,.65);
@@ -89,7 +109,7 @@
 
     .section-title { text-align: center; font-size: 28px; margin: 0 0 10px; }
     .section-sub { text-align: center; color: var(--muted); margin: 0 0 36px; font-size: 15px; }
-    .features {
+    .features, .faq-grid {
       display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 18px; margin-bottom: 64px;
     }
@@ -98,6 +118,10 @@
     }
     .card h3 { margin: 0 0 8px; font-size: 16px; }
     .card p { margin: 0; color: var(--muted); font-size: 14px; }
+    .card code {
+      font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px;
+      background: #070a11; padding: 2px 6px; border-radius: 5px; color: #cbd5e1;
+    }
 
     footer {
       border-top: 1px solid var(--border); padding: 28px 0 44px;
@@ -115,13 +139,14 @@
       </a>
       <div class="nav-links">
         <a href="#features">Özellikler</a>
+        <a href="#faq">SSS</a>
         <a href="https://github.com/YagYz/YDevDesk/releases">Sürümler</a>
         <a href="https://github.com/YagYz/YDevDesk">GitHub</a>
       </div>
     </nav>
 
     <section class="hero">
-      <div class="badge">Tauri v2 &bull; React 19 &bull; Linux &amp; macOS</div>
+      <div class="badge" id="ver-badge">v1.0.0 &bull; Tauri v2 &bull; Linux &amp; macOS</div>
       <h1>Homelab &amp; Çoklu Ajan Masaüstü Komuta Merkezi</h1>
       <p class="subtitle">
         <strong>Antigravity (AGY)</strong>, <strong>Claude Code</strong> ve <strong>OpenAI Codex</strong> ajanlarını,
@@ -144,8 +169,21 @@
         </div>
       </div>
 
+      <div class="dl-bar" id="dl-bar">
+        <a class="dl-btn" id="dl-appimage" href="https://github.com/YagYz/YDevDesk/releases/latest">Linux AppImage <span>x86_64</span></a>
+        <a class="dl-btn" id="dl-deb" href="https://github.com/YagYz/YDevDesk/releases/latest">Debian / Ubuntu <span>.deb</span></a>
+        <a class="dl-btn" id="dl-rpm" href="https://github.com/YagYz/YDevDesk/releases/latest">Fedora / RHEL <span>.rpm</span></a>
+        <a class="dl-btn" id="dl-dmg-arm" href="https://github.com/YagYz/YDevDesk/releases/latest">macOS <span>Apple Silicon</span></a>
+        <a class="dl-btn" id="dl-dmg-x64" href="https://github.com/YagYz/YDevDesk/releases/latest">macOS <span>Intel</span></a>
+      </div>
+
+      <div class="gallery-tabs">
+        <button class="tab-btn active" onclick="setShot('workspace.png', 'YDevDesk Çalışma Alanı', this)">Çalışma Alanı</button>
+        <button class="tab-btn" onclick="setShot('analytics.png', '30 Günlük Token & Maliyet Analizi', this)">30 Günlük Analiz</button>
+        <button class="tab-btn" onclick="setShot('omnibar.png', 'Komut Paleti (Ctrl+K)', this)">Komut Paleti (Ctrl+K)</button>
+      </div>
       <div class="screenshot-wrap">
-        <img src="workspace.png" alt="YDevDesk Masaüstü Arayüzü" />
+        <img id="gallery-img" src="workspace.png" alt="YDevDesk Masaüstü Arayüzü" />
       </div>
     </section>
 
@@ -180,6 +218,25 @@
       </div>
     </section>
 
+    <section id="faq">
+      <h2 class="section-title">Kurulum Notları &amp; SSS</h2>
+      <p class="section-sub">Sık sorulan platform ayarları</p>
+      <div class="faq-grid">
+        <div class="card">
+          <h3>Linux Wayland / NVIDIA beyaz ekran</h3>
+          <p><code>install.sh</code> otomatik olarak <code>WEBKIT_DISABLE_DMABUF_RENDERER=1</code> sarmalayıcısı kurar. Elle çalıştırırken bu değişkeni ekleyin.</p>
+        </div>
+        <div class="card">
+          <h3>macOS "Hasarlı" veya imzasız uyarısı</h3>
+          <p>Uygulamayı <code>/Applications</code> içine taşıdıktan sonra terminalde <code>xattr -cr /Applications/ydevdesk.app</code> komutunu çalıştırın.</p>
+        </div>
+        <div class="card">
+          <h3>Ubuntu / Debian güncelleme</h3>
+          <p>APT deposunu bir kez ekledikten sonra yeni sürümleri doğrudan <code>sudo apt update &amp;&amp; sudo apt upgrade</code> ile alabilirsiniz.</p>
+        </div>
+      </div>
+    </section>
+
     <footer>
       <span>YDevDesk &mdash; MIT Lisansı</span>
       <span><a href="https://github.com/YagYz/YDevDesk">github.com/YagYz/YDevDesk</a></span>
@@ -195,7 +252,14 @@
     };
     function setTab(key, btn) {
       document.getElementById("install-cmd").textContent = CMDS[key];
-      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      btn.parentElement.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+    }
+    function setShot(src, alt, btn) {
+      const img = document.getElementById("gallery-img");
+      img.src = src;
+      img.alt = alt;
+      btn.parentElement.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
     }
     function copyCmd() {
@@ -206,6 +270,24 @@
         setTimeout(() => btn.textContent = "Kopyala", 1500);
       });
     }
+    fetch("https://api.github.com/repos/YagYz/YDevDesk/releases/latest")
+      .then(r => r.ok ? r.json() : null)
+      .then(rel => {
+        if (!rel || !rel.assets) return;
+        document.getElementById("ver-badge").textContent = `${rel.tag_name} • Tauri v2 • Linux & macOS`;
+        const find = (re) => rel.assets.find(a => re.test(a.name))?.browser_download_url;
+        const map = {
+          "dl-appimage": find(/\.AppImage$/),
+          "dl-deb": find(/_amd64\.deb$/),
+          "dl-rpm": find(/\.x86_64\.rpm$/),
+          "dl-dmg-arm": find(/aarch64\.dmg$/),
+          "dl-dmg-x64": find(/x64\.dmg$/),
+        };
+        for (const [id, url] of Object.entries(map)) {
+          if (url) document.getElementById(id).href = url;
+        }
+      })
+      .catch(() => {});
   </script>
 </body>
 </html>

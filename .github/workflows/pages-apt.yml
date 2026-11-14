@@ -34,6 +34,9 @@ jobs:
           mkdir -p public/apt
           cp docs/site/index.html public/index.html
           cp docs/screenshots/workspace.png public/workspace.png
+          cp docs/screenshots/analytics.png public/analytics.png
+          cp docs/screenshots/omnibar.png public/omnibar.png
+          cp docs/screenshots/social-preview.png public/social-preview.png
           cp src-tauri/icons/128x128@2x.png public/logo.png
 
           DEB_URL="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" \
