@@ -7,18 +7,32 @@ on:
 
 jobs:
   aur:
-    if: ${{ secrets.AUR_SSH_PRIVATE_KEY != '' }}
     runs-on: archlinux
     container:
       image: archlinux:latest
     steps:
+      - name: AUR anahtarı kontrolü
+        id: check
+        env:
+          AUR_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        run: |
+          if [ -z "$AUR_KEY" ]; then
+            echo "AUR_SSH_PRIVATE_KEY tanımlı değil, atlanıyor."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.check.outputs.skip != 'true'
 
       - name: Paketleri kur
+        if: steps.check.outputs.skip != 'true'
         run: |
           pacman -Syu --noconfirm --needed base-devel git openssh jq curl
 
       - name: PKGBUILD ve .SRCINFO güncelle & AUR'a pushla
+        if: steps.check.outputs.skip != 'true'
         env:
           AUR_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
