@@ -381,6 +381,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const refreshSyncStatus = useCallback(async () => {
     try {
       const st = await api.syncStatus();
+      syncStatusRef.current = st;
       setSyncStatus(st);
       return st;
     } catch {
@@ -394,7 +395,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const syncNow = useCallback(async (forcePush = false) => {
-    const st = syncStatusRef.current;
+    let st = syncStatusRef.current;
+    if (!st?.connected) {
+      st = await refreshSyncStatus();
+    }
     if (!st?.connected || syncBusyRef.current) return;
     syncBusyRef.current = true;
     setSyncing(true);

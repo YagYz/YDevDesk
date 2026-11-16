@@ -54,7 +54,7 @@ export function SyncSettingsContent() {
           setAuthBusy(false);
           setAuthError("");
           await refreshSyncStatus();
-          void syncNow(false);
+          void syncNow(true);
           return;
         }
         if (res.status === "slow_down") {
