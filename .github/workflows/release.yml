@@ -46,6 +46,8 @@ jobs:
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          key: ${{ matrix.platform }}-${{ matrix.args }}
+          cache-on-failure: true
 
       - run: npm ci
 
