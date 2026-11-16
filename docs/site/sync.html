@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>YDevDesk — Çoklu Cihaz Canlı Senkronizasyon</title>
+  <meta name="description" content="YDevDesk GitHub OAuth Device Flow + Secret Gist ile sunucusuz, güvenli çoklu cihaz senkronizasyonu." />
+  <link rel="icon" type="image/png" href="logo.png" />
+  <style>
+    :root {
+      --bg: #080c14;
+      --surface: #101724;
+      --surface-2: #162033;
+      --border: #22304a;
+      --text: #e6edf7;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --green: #22c55e;
+      --warn: #f59e0b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: radial-gradient(circle at 50% 0%, #111c33 0%, var(--bg) 55%);
+      color: var(--text);
+      line-height: 1.65;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .container { max-width: 920px; margin: 0 auto; padding: 0 24px 64px; }
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 0; border-bottom: 1px solid rgba(34,48,74,.6);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 18px; color: var(--text); }
+    .brand img { width: 34px; height: 34px; border-radius: 9px; }
+    .nav-links { display: flex; gap: 20px; font-size: 14px; }
+    .nav-links a { color: var(--muted); }
+    .nav-links a:hover, .nav-links a.active { color: var(--text); text-decoration: none; }
+    .hero { padding: 48px 0 28px; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 12px; font-weight: 600; color: var(--accent);
+      background: rgba(56,189,248,.1); border: 1px solid rgba(56,189,248,.28);
+      padding: 5px 12px; border-radius: 999px; margin-bottom: 14px;
+    }
+    h1 { margin: 0 0 12px; font-size: clamp(28px, 4vw, 42px); line-height: 1.2; }
+    .subtitle { color: var(--muted); font-size: 16px; max-width: 680px; margin: 0; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px 24px;
+      margin-top: 20px;
+    }
+    .card h2 { margin: 0 0 10px; font-size: 18px; color: var(--text); }
+    .card p, .card li { color: var(--muted); font-size: 14px; }
+    .card ul { margin: 8px 0 0; padding-left: 20px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 20px; }
+    .pill-ok { color: var(--green); font-weight: 600; }
+    .pill-warn { color: var(--warn); font-weight: 600; }
+    pre {
+      background: #06090e;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      overflow-x: auto;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #cbd5e1;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      background: var(--surface-2);
+      padding: 2px 6px;
+      border-radius: 5px;
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav>
+      <a class="brand" href="./">
+        <img src="logo.png" alt="YDevDesk" />
+        <span>YDevDesk</span>
+      </a>
+      <div class="nav-links">
+        <a href="./">Ana Sayfa</a>
+        <a href="sync.html" class="active">Senkronizasyon</a>
+        <a href="https://github.com/YagYz/YDevDesk/releases">Sürümler</a>
+        <a href="https://github.com/YagYz/YDevDesk">GitHub</a>
+      </div>
+    </nav>
+
+    <section class="hero">
+      <div class="badge">GitHub OAuth Device Flow + Secret Gist</div>
+      <h1>Çoklu Cihaz Canlı Senkronizasyon</h1>
+      <p class="subtitle">
+        YDevDesk, hiçbir üçüncü parti bulut sunucusu kullanmadan ayarlarını, çalışma alanlarını, oturum tercihlerini ve
+        birleşik token analitiğini doğrudan kendi GitHub hesabındaki gizli bir Gist üzerinden senkronize eder.
+      </p>
+    </section>
+
+    <div class="card">
+      <h2>Nasıl Çalışır?</h2>
+      <ul>
+        <li><strong>Tek Tık Giriş (Device Flow):</strong> Ayarlar → Senkronizasyon sekmesinden <em>GitHub ile Bağlan</em> dediğinde tarayıcıda 8 haneli doğrulama kodu onaylanır. Yalnızca <code>gist</code> izni istenir; kod repolarına erişilmez.</li>
+        <li><strong>Uçtan Uca Şifreleme (AES-256-GCM):</strong> İlk cihazda otomatik bir <code>YDEV-...</code> Sync Anahtarı üretilir ve tüm veri GitHub'a gönderilmeden önce yerel olarak şifrelenir. İkinci cihazda bu anahtar girilmeden veri çözülemez.</li>
+        <li><strong>Kotasız Canlı Kontrol (ETag):</strong> Uygulama her 30 saniyede bir ve pencereye her odaklandığında <code>If-None-Match</code> başlığıyla kontrol yapar. Değişiklik yoksa GitHub <code>304 Not Modified</code> döner ve saatlik API kotasından düşmez.</li>
+        <li><strong>Bölüm Bazlı Çakışma Çözümü:</strong> Her bölümün kendi <code>updatedAt</code> zaman damgası vardır. MacBook'ta yeni bir çalışma alanı eklerken masaüstünde hızlı komut eklesen bile veriler birbirini ezmez.</li>
+      </ul>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2><span class="pill-ok">✓</span> Senkronize Edilenler</h2>
+        <ul>
+          <li>Hızlı komutlar (<code>quick_actions</code>)</li>
+          <li>Terminal şablonları (<code>terminal_presets</code>)</li>
+          <li>Modül ve bildirim tercihleri</li>
+          <li>Kayıtlı çalışma alanları (<code>workspaces</code>)</li>
+          <li>Oturum sabitleme ve özel isimler (<code>session_prefs</code>)</li>
+          <li>Cihaz bazlı token &amp; maliyet özeti (tüm cihazlar toplanır)</li>
+          <li>Diğer cihazlardaki son oturumların özeti (cihaz rozeti ile)</li>
+          <li>İsteğe bağlı: Panel düzeni (<code>layout</code>)</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2><span class="pill-warn">✕</span> Senkronize Edilmeyenler (Gizlilik)</h2>
+        <ul>
+          <li><code>projects-root</code> (OS'e özel klasör yolları)</li>
+          <li><code>ydevhub_key</code> / <code>ynetmon_key</code> API anahtarları</li>
+          <li>GitHub OAuth erişim anahtarı (yalnızca yerel <code>sync_auth.json</code> içinde <code>0600</code> izniyle tutulur)</li>
+          <li>Ham ajan konuşma dosyaları (<code>.jsonl</code> / transcript)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Örnek Gist Veri Yapısı (<code>ydevdesk-sync.json</code>)</h2>
+      <p>GitHub hesabında <code>YDevDesk Sync Profile (v1)</code> açıklamasıyla oluşturulan gizli Gist dosyası şu biçimdedir:</p>
+      <pre>{
+  "version": 1,
+  "quick_actions": {
+    "updatedAt": 1794860400000,
+    "deviceId": "dev-1a2b-c3d4",
+    "data": [
+      { "id": "git-status", "title": "git status", "cmd": "git status -s" }
+    ]
+  },
+  "session_prefs": {
+    "updatedAt": 1794860410000,
+    "deviceId": "dev-1a2b-c3d4",
+    "data": {
+      "pinned": { "claude:abc12345": true },
+      "aliases": { "claude:abc12345": "YDevDesk Sync Mimarisi" }
+    }
+  },
+  "device_snapshots": {
+    "dev-1a2b-c3d4": {
+      "device_id": "dev-1a2b-c3d4",
+      "device_name": "yagyz-desktop",
+      "updated_at": 1794860420000,
+      "usage": { "windows": { "d1": { "...": "..." }, "d7": { "...": "..." }, "d30": { "...": "..." } } },
+      "recent_sessions": [
+        {
+          "session_id": "abc12345",
+          "masked_id": "abc1…2345",
+          "agent": "claude",
+          "title": "YDevDesk Sync",
+          "model": "claude-sonnet-4",
+          "updated_at": 1794860415000,
+          "device_id": "dev-1a2b-c3d4",
+          "device_name": "yagyz-desktop"
+        }
+      ]
+    }
+  }
+}</pre>
+    </div>
+  </div>
+</body>
+</html>
