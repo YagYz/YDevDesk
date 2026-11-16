@@ -1,4 +1,7 @@
+#[cfg(target_os = "linux")]
 use crate::env_helpers::{find_binary, sanitize_std_cmd};
+#[cfg(target_os = "windows")]
+use crate::platform;
 
 #[tauri::command]
 pub fn app_window_close(window: tauri::Window) -> Result<(), String> {
@@ -27,6 +30,7 @@ pub fn app_window_toggle_maximize(window: tauri::Window) -> Result<(), String> {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn build_chime_wav(kind: &str) -> Vec<u8> {
     let sample_rate = 44_100u32;
     // (freq_hz, start_s, dur_s, gain, decay_rate)
