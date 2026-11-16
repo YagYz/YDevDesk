@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { AlertCircle } from "lucide-react";
+import { formatError, type ErrorContext } from "../lib/errors";
 
 export function PanelBody({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <div className={`h-full w-full overflow-auto p-3 ${className}`}>{children}</div>;
@@ -68,5 +70,49 @@ export function Sparkline({ values, height = 44 }: { values: number[]; height?: 
       <polygon points={`0,${height} ${pts.join(" ")} ${w},${height}`} fill="rgba(0,210,255,0.12)" />
       <polyline points={pts.join(" ")} fill="none" stroke="var(--accent)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
     </svg>
+  );
+}
+
+export function ErrorBanner({
+  error,
+  context,
+  compact = false,
+  className = "",
+}: {
+  error: unknown;
+  context?: ErrorContext;
+  compact?: boolean;
+  className?: string;
+}) {
+  const [showDetail, setShowDetail] = useState(false);
+  if (!error) return null;
+
+  const { message, detail } = formatError(error, context);
+
+  return (
+    <div
+      className={`rounded-md border border-[var(--err)]/30 bg-[var(--err)]/10 text-[var(--err)] ${
+        compact ? "px-2 py-1.5 text-[10px]" : "px-2.5 py-2 text-[11px]"
+      } ${className}`}
+    >
+      <div className="flex items-start gap-1.5">
+        <AlertCircle className={`${compact ? "w-3 h-3 mt-0.5" : "w-3.5 h-3.5 mt-0.5"} shrink-0`} />
+        <div className="flex-1 min-w-0 leading-snug break-words">{message}</div>
+        {detail && detail !== message && (
+          <button
+            type="button"
+            onClick={() => setShowDetail((v) => !v)}
+            className="shrink-0 underline opacity-80 hover:opacity-100 cursor-pointer text-[10px]"
+          >
+            {showDetail ? "Gizle" : "Detay"}
+          </button>
+        )}
+      </div>
+      {showDetail && detail && (
+        <pre className="mt-1.5 pt-1.5 border-t border-[var(--err)]/20 font-mono text-[10px] opacity-85 whitespace-pre-wrap break-all max-h-24 overflow-auto select-text">
+          {detail}
+        </pre>
+      )}
+    </div>
   );
 }

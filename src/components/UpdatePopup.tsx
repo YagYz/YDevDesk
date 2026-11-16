@@ -3,11 +3,13 @@ import { Download, ExternalLink, Loader2, Sparkles, X } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useData } from "../context/DataContext";
 import { api } from "../lib/tauri";
+import { ErrorBanner } from "./ui";
 
 export function UpdatePopup({ onOpenDetails }: { onOpenDetails: () => void }) {
   const { availableUpdate, dismissUpdate } = useData();
   const [installing, setInstalling] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
+  const [statusError, setStatusError] = useState("");
 
   if (!availableUpdate) return null;
 
@@ -20,11 +22,12 @@ export function UpdatePopup({ onOpenDetails }: { onOpenDetails: () => void }) {
     }
     setInstalling(true);
     setStatusMsg("");
+    setStatusError("");
     try {
       const msg = await api.installUpdate(availableUpdate.asset_url);
       setStatusMsg(msg);
     } catch (e) {
-      setStatusMsg(String(e));
+      setStatusError(String(e));
     } finally {
       setInstalling(false);
     }
@@ -61,6 +64,7 @@ export function UpdatePopup({ onOpenDetails }: { onOpenDetails: () => void }) {
           {statusMsg}
         </div>
       )}
+      <ErrorBanner error={statusError} context="update" compact />
 
       <div className="flex items-center justify-end gap-1.5">
         <button

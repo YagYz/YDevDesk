@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowDown, ArrowUp, GitBranch, GitPullRequest, RefreshCw } from "lucide-react";
-import { PanelBody } from "../components/ui";
+import { ErrorBanner, PanelBody } from "../components/ui";
 import { api } from "../lib/tauri";
 import { useData } from "../context/DataContext";
 
@@ -87,7 +87,7 @@ export default function GitPanel() {
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
         </button>
       </div>
-      {error && <div className="text-[10px] text-[var(--err)] mb-1 break-all">{error}</div>}
+      <ErrorBanner error={error} context="git" compact className="mb-2" />
       {info && (
         <div className="space-y-2 text-xs">
           <div className="flex items-center gap-2">
