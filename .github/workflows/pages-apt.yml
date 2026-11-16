@@ -32,7 +32,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p public/apt
-          cp docs/site/index.html public/index.html
+          cp docs/site/*.html public/
           cp docs/screenshots/workspace.png public/workspace.png
           cp docs/screenshots/analytics.png public/analytics.png
           cp docs/screenshots/omnibar.png public/omnibar.png
