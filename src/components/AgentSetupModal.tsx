@@ -11,6 +11,7 @@ import {
 import { api } from "../lib/tauri";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { Modal } from "./Modal";
+import { ErrorBanner } from "./ui";
 import type { AgentCliInfo, AgentEnvironmentStatus } from "../types";
 
 const LAUNCH_PREF_KEY = "ydevdesk_hide_agent_setup_on_launch";
@@ -270,7 +271,7 @@ export function AgentSetupContent({ onClose }: { onClose?: () => void }) {
       </div>
 
       {globalMsg && <div className="text-[11px] text-[var(--ok)] font-mono px-1">{globalMsg}</div>}
-      {globalErr && <div className="text-[11px] text-[var(--err)] font-mono px-1 whitespace-pre-wrap">{globalErr}</div>}
+      <ErrorBanner error={globalErr} context="agent" />
 
       {/* Alt Kontrol Çubuğu */}
       <div className="flex items-center justify-between pt-2 border-t border-[var(--border)]">

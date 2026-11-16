@@ -3,6 +3,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
+import { friendlyErrorMessage } from "./errors";
 
 const THEME = {
   background: "#06090e",
@@ -108,7 +109,7 @@ class TerminalManager {
     });
 
     this.start(id, entry, initCmd).catch((e) => {
-      term.write(`\r\n\x1b[31m[PTY başlatılamadı: ${String(e)}]\x1b[0m\r\n`);
+      term.write(`\r\n\x1b[31m[${friendlyErrorMessage(e, "pty")}]\x1b[0m\r\n`);
     });
     return entry;
   }

@@ -4,14 +4,16 @@ import { api } from "../lib/tauri";
 import { useData } from "../context/DataContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { Modal } from "./Modal";
+import { ErrorBanner } from "./ui";
 import { AgentSetupContent } from "./AgentSetupModal";
+import { SyncSettingsContent } from "./SyncSettingsContent";
 import { MODULES } from "../panels/registry";
 import { CONNECTION_TYPES, hasConnection, newId } from "../lib/settings";
 import { playChime } from "../lib/sound";
 import { notify } from "../lib/notify";
 import type { AppSettings, Connection, ConnectionType, UpdateCheckResult } from "../types";
 
-export type SettingsTab = "connections" | "modules" | "commands" | "notifications" | "agents" | "update";
+export type SettingsTab = "connections" | "modules" | "commands" | "notifications" | "agents" | "sync" | "update";
 
 const TABS: { id: SettingsTab; label: string }[] = [
   { id: "connections", label: "Bağlantılar" },
@@ -19,6 +21,7 @@ const TABS: { id: SettingsTab; label: string }[] = [
   { id: "commands", label: "Komutlar" },
   { id: "notifications", label: "Bildirimler" },
   { id: "agents", label: "Ajanlar" },
+  { id: "sync", label: "Senkronizasyon" },
   { id: "update", label: "Sürüm" },
 ];
 
@@ -353,6 +356,8 @@ export function SettingsModal({ onClose, initialTab = "connections" }: { onClose
           </div>
         )}
 
+        {tab === "sync" && <SyncSettingsContent />}
+
         {tab === "update" && (
           <div className="space-y-3 text-xs">
             <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 py-2.5">
@@ -415,7 +420,7 @@ export function SettingsModal({ onClose, initialTab = "connections" }: { onClose
           </div>
         )}
 
-        {error && <p className="text-[11px] text-[var(--err)]">{error}</p>}
+        <ErrorBanner error={error} context={tab === "update" ? "update" : "settings"} />
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-lg text-xs text-[var(--txt-muted)] hover:bg-[var(--surface-raised)]">
             Vazgeç

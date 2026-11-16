@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, Circle, ListTodo, Loader2, Plus, RefreshCw } from "lucide-react";
 import { useData } from "../context/DataContext";
 import { HubEmpty } from "../components/HubEmpty";
-import { PanelBody } from "../components/ui";
+import { ErrorBanner, PanelBody } from "../components/ui";
 import { api } from "../lib/tauri";
 import type { Task } from "../types";
 
@@ -94,7 +94,7 @@ export default function TasksPanel() {
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
         </button>
       </div>
-      {error && <div className="text-[10px] text-[var(--err)] mb-1 break-all">{error}</div>}
+      <ErrorBanner error={error} context="hub" compact className="mb-2" />
       {tasks.length === 0 && !loading ? (
         <div className="text-center text-xs text-[var(--txt-dim)] py-6">
           <ListTodo className="w-5 h-5 mx-auto mb-1.5" />

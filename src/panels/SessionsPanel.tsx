@@ -63,11 +63,12 @@ function sessionKey(session: ActiveAgentSession): string {
 }
 
 export default function SessionsPanel() {
-  const { agent } = useData();
+  const { agent, remoteSnapshots, syncStatus, syncedSessionPrefsVersion, markSectionDirty } = useData();
   const { openTerminal } = useWorkspace();
   const [filter, setFilter] = useState<AgentFilter>("all");
   const [query, setQuery] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [remoteNotice, setRemoteNotice] = useState("");
   const [prefs, setPrefs] = useState<SessionPrefs>({ pinned: {}, aliases: {} });
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
@@ -82,12 +83,15 @@ export default function SessionsPanel() {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [syncedSessionPrefsVersion]);
 
   const updatePrefs = (updater: (prev: SessionPrefs) => SessionPrefs) => {
     setPrefs((prev) => {
       const next = updater(prev);
-      api.saveSessionPrefs(next).catch(() => {});
+      api
+        .saveSessionPrefs(next)
+        .then(() => markSectionDirty("session_prefs"))
+        .catch(() => {});
       return next;
     });
   };
@@ -156,6 +160,27 @@ export default function SessionsPanel() {
     });
     return list;
   }, [agent.sessions, filter, query, prefs]);
+
+  const remoteSessions = useMemo(() => {
+    const localIds = new Set(agent.sessions.map((s) => `${s.agent}:${s.session_id}`));
+    const list = Object.values(remoteSnapshots)
+      .filter((snap) => snap.device_id !== syncStatus?.device_id)
+      .flatMap((snap) => snap.recent_sessions ?? [])
+      .filter((rs) => !localIds.has(`${rs.agent}:${rs.session_id}`))
+      .filter((rs) => filter === "all" || rs.agent === filter)
+      .filter((rs) => {
+        const q = query.trim().toLowerCase();
+        if (!q) return true;
+        const alias = prefs.aliases[`${rs.agent}:${rs.session_id}`] || "";
+        return (
+          rs.title.toLowerCase().includes(q) ||
+          alias.toLowerCase().includes(q) ||
+          rs.device_name.toLowerCase().includes(q) ||
+          rs.masked_id.toLowerCase().includes(q)
+        );
+      });
+    return list.sort((a, b) => b.updated_at - a.updated_at);
+  }, [remoteSnapshots, syncStatus?.device_id, agent.sessions, filter, query, prefs.aliases]);
 
   const launchSession = (session: ActiveAgentSession, bypass: boolean) => {
     const meta = AGENT_META[session.agent] ?? { label: session.agent.toUpperCase(), badgeClass: "" };
@@ -394,7 +419,71 @@ export default function SessionsPanel() {
             })}
           </ul>
         )}
+
+        {remoteNotice && (
+          <div className="mt-2 rounded-md border border-[var(--warn)]/40 bg-[var(--warn)]/10 px-2.5 py-1.5 text-[10px] text-[var(--warn)]">
+            {remoteNotice}
+          </div>
+        )}
       </section>
+
+      {remoteSessions.length > 0 && (
+        <section>
+          <div className="text-[10px] uppercase tracking-wider text-[var(--txt-dim)] mb-1.5">
+            Diğer Cihazlardaki Oturumlar
+          </div>
+          <ul className="space-y-1.5">
+            {remoteSessions.map((rs) => {
+              const meta = AGENT_META[rs.agent] ?? {
+                label: rs.agent.toUpperCase(),
+                badgeClass: "bg-zinc-500/15 text-zinc-300 border-zinc-500/30",
+              };
+              const key = `${rs.agent}:${rs.session_id}`;
+              const displayTitle = prefs.aliases[key] || rs.title || `${meta.label} Oturumu`;
+              const agoSecs = Math.max(0, Math.floor((Date.now() - rs.updated_at) / 1000));
+              return (
+                <li key={`${rs.device_id}:${key}`}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() =>
+                      setRemoteNotice(
+                        `Bu oturum yalnızca '${rs.device_name}' cihazında yerel olarak başlatılabilir.`,
+                      )
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setRemoteNotice(
+                          `Bu oturum yalnızca '${rs.device_name}' cihazında yerel olarak başlatılabilir.`,
+                        );
+                      }
+                    }}
+                    className="rounded-md px-2.5 py-2 bg-[var(--surface-raised)]/60 border border-[var(--border)] opacity-85 hover:opacity-100 transition-opacity cursor-not-allowed"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border ${meta.badgeClass}`}>
+                        {meta.label}
+                      </span>
+                      <span className="font-mono text-[10px] text-[var(--txt-dim)]">{rs.masked_id}</span>
+                      <span className="px-1.5 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] text-[9px] text-[var(--txt-muted)]">
+                        {rs.device_name}
+                      </span>
+                      <span className="ml-auto text-[10px] text-[var(--txt-dim)] font-mono shrink-0">
+                        {formatAgo(agoSecs)}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-xs text-[var(--txt-main)] font-medium truncate">{displayTitle}</div>
+                    <div className="mt-1 text-[10px] text-[var(--txt-dim)]">
+                      Başka cihazda ({rs.device_name}) · Bu cihazda başlatılamaz
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       {agent.subagents.length > 0 && (
         <section>

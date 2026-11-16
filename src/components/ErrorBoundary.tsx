@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { formatError } from "../lib/errors";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -52,9 +53,15 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             </p>
           </div>
 
-          <pre className="rounded-lg border border-[var(--border)] bg-[var(--bg)] p-3 text-xs font-mono text-[var(--err)] overflow-auto max-h-40 whitespace-pre-wrap break-words select-text">
-            {error.message || String(error)}
-          </pre>
+          <div className="rounded-lg border border-[var(--err)]/30 bg-[var(--err)]/10 p-3 text-xs text-[var(--err)] space-y-2">
+            <div>{formatError(error).message}</div>
+            <details className="text-[11px] text-[var(--txt-muted)]">
+              <summary className="cursor-pointer hover:text-[var(--txt-main)] select-none">Teknik detay</summary>
+              <pre className="mt-1.5 font-mono overflow-auto max-h-36 whitespace-pre-wrap break-words select-text text-[var(--txt-dim)]">
+                {error.message || String(error)}
+              </pre>
+            </details>
+          </div>
 
           <div className="flex items-center justify-end gap-2 pt-1">
             <button

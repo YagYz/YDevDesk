@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Brain, StickyNote, TerminalSquare } from "lucide-react";
 import { useData } from "../context/DataContext";
 import { useWorkspace } from "../context/WorkspaceContext";
+import { ErrorBanner } from "./ui";
 
 type Mode = "command" | "note" | "log";
 const MODES: { id: Mode; label: string; icon: typeof Brain; placeholder: string }[] = [
@@ -86,7 +87,7 @@ export function OmniBar({ onClose }: { onClose: () => void }) {
           className="w-full bg-transparent px-4 py-3.5 text-sm font-mono outline-none select-text"
           spellCheck={false}
         />
-        {error && <div className="px-4 pb-3 text-[11px] text-[var(--err)]">{error}</div>}
+        <ErrorBanner error={error} context="hub" compact className="mx-4 mb-3" />
       </form>
     </div>
   );
