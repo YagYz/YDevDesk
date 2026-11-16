@@ -218,7 +218,7 @@ pub async fn github_device_flow_poll(device_code: String) -> Result<DeviceFlowPo
     let client = build_http_client()?;
     let cid = github_client_id();
     let res = client
-        .post("https://github.com/login/device/oauth/access_token")
+        .post("https://github.com/login/oauth/access_token")
         .header("Accept", "application/json")
         .json(&serde_json::json!({
             "client_id": cid,
