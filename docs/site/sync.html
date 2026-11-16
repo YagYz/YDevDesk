@@ -97,21 +97,30 @@
     </nav>
 
     <section class="hero">
-      <div class="badge">GitHub OAuth Device Flow + Secret Gist</div>
-      <h1>Çoklu Cihaz Canlı Senkronizasyon</h1>
+      <div class="badge">Uçtan Uca Şifreli &amp; Sunucusuz Senkronizasyon</div>
+      <h1>Cihazlarınız Arasında Güvenli Eşitleme</h1>
       <p class="subtitle">
-        YDevDesk, hiçbir üçüncü parti bulut sunucusu kullanmadan ayarlarını, çalışma alanlarını, oturum tercihlerini ve
-        birleşik token analitiğini doğrudan kendi GitHub hesabındaki gizli bir Gist üzerinden senkronize eder.
+        YDevDesk hiçbir merkezi sunucu işletmez ve kişisel verilerinizi toplamaz. Çalışma alanlarınız, ayarlarınız ve
+        token analitiğiniz cihazınızdan çıkmadan şifrelenir ve yalnızca sizin kendi GitHub hesabınız üzerinden eşitlenir.
       </p>
     </section>
 
     <div class="card">
       <h2>Nasıl Çalışır?</h2>
       <ul>
-        <li><strong>Tek Tık Giriş (Device Flow):</strong> Ayarlar → Senkronizasyon sekmesinden <em>GitHub ile Bağlan</em> dediğinde tarayıcıda 8 haneli doğrulama kodu onaylanır. Yalnızca <code>gist</code> izni istenir; kod repolarına erişilmez.</li>
-        <li><strong>Uçtan Uca Şifreleme (AES-256-GCM):</strong> İlk cihazda otomatik bir <code>YDEV-...</code> Sync Anahtarı üretilir ve tüm veri GitHub'a gönderilmeden önce yerel olarak şifrelenir. İkinci cihazda bu anahtar girilmeden veri çözülemez.</li>
-        <li><strong>Kotasız Canlı Kontrol (ETag):</strong> Uygulama her 30 saniyede bir ve pencereye her odaklandığında <code>If-None-Match</code> başlığıyla kontrol yapar. Değişiklik yoksa GitHub <code>304 Not Modified</code> döner ve saatlik API kotasından düşmez.</li>
-        <li><strong>Bölüm Bazlı Çakışma Çözümü:</strong> Her bölümün kendi <code>updatedAt</code> zaman damgası vardır. MacBook'ta yeni bir çalışma alanı eklerken masaüstünde hızlı komut eklesen bile veriler birbirini ezmez.</li>
+        <li><strong>Yalnızca Gist İzni (OAuth Device Flow):</strong> Ayarlar &rarr; Senkronizasyon sekmesinden <em>GitHub ile Bağlan</em> dediğinizde tarayıcıda tek kullanımlık bir kod onaylarsınız. Uygulama yalnızca size özel bir Gist oluşturmak için <code>gist</code> izni ister; kod repolarınıza, e-posta adresinize veya özel projelerinize erişmez.</li>
+        <li><strong>Uçtan Uca Şifreleme (AES-256-GCM):</strong> İlk cihazda otomatik olarak <code>YDEV-...</code> biçiminde bir Sync Anahtarı oluşturulur. Tüm veriler cihazınızdan çıkmadan önce yerel olarak şifrelenir. İkinci cihazda bu anahtar girilmeden veriler okunamaz.</li>
+        <li><strong>Otomatik ve Hafif Eşitleme:</strong> Uygulama arka planda yalnızca değişiklik olup olmadığını kontrol eder (ETag). Değişiklik yoksa veri indirilmez ve API kotanız tüketilmez.</li>
+      </ul>
+    </div>
+
+    <div class="card" id="aydinlatma">
+      <h2>Gizlilik ve Veri Güvenliği Aydınlatması</h2>
+      <ul>
+        <li><strong>Veri Toplama ve Üçüncü Taraf Paylaşımı Yoktur:</strong> YDevDesk geliştiricisi tarafından işletilen herhangi bir bulut veritabanı, analitik sunucusu veya takip aracı bulunmaz. Hiçbir veriniz geliştiriciye veya üçüncü taraflara iletilmez.</li>
+        <li><strong>GitHub Hesabı Neden Kullanılır?</strong> Ayrı bir YDevDesk hesabı açmanıza ve şifre yönetmenize gerek kalmaması için yalnızca sizin kontrolünüzdeki GitHub hesabınız kişisel depolama alanı (<em>Secret Gist</em>) olarak kullanılır.</li>
+        <li><strong>Yerel Anahtar Sahipliği:</strong> GitHub erişim belirteciniz ve şifreleme anahtarınız yalnızca kendi cihazınızda, işletim sistemi tarafından korunan özel izinli (<code>0600</code>) yerel dosyada saklanır; başka hiçbir yere gönderilmez.</li>
+        <li><strong>İstediğiniz An Silme ve İptal:</strong> Uygulama içinden <em>Bağlantıyı Kes</em> diyerek yerel yetkiyi kaldırabilir, GitHub hesabınızdaki <em>Gist</em> kaydını silerek tüm eşitleme verilerinizi kalıcı olarak yok edebilirsiniz.</li>
       </ul>
     </div>
 
