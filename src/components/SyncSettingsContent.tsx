@@ -3,6 +3,7 @@ import { Cloud, Copy, Eye, EyeOff, ExternalLink, KeyRound, Loader2, RefreshCw } 
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useData } from "../context/DataContext";
 import { api } from "../lib/tauri";
+import { generateSyncKey } from "../lib/syncCrypto";
 import { ErrorBanner } from "./ui";
 import { Modal } from "./Modal";
 import type { DeviceFlowStart } from "../types";
@@ -137,6 +138,19 @@ export function SyncSettingsContent() {
       setTimeout(() => setCopiedSyncKey(false), 1500);
     } catch {
       // ignore
+    }
+  };
+
+  const handleRotateSyncKey = async () => {
+    setAuthError("");
+    try {
+      const next = generateSyncKey();
+      await api.syncSetKey(next);
+      setRevealedKey(next);
+      await refreshSyncStatus();
+      await syncNow(true);
+    } catch (e) {
+      setAuthError(String(e));
     }
   };
 
@@ -311,6 +325,14 @@ export function SyncSettingsContent() {
                   >
                     <Copy className="w-3 h-3" />
                     {copiedSyncKey ? "Kopyalandı" : "Kopyala"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleRotateSyncKey()}
+                    title="Yeni şifreleme anahtarı üret ve Gist'i güncelle"
+                    className="px-2 py-1 rounded-md border border-[var(--border)] text-[10px] text-[var(--txt-muted)] hover:text-[var(--txt-main)] cursor-pointer"
+                  >
+                    Yenile
                   </button>
                 </div>
               </div>
