@@ -73,12 +73,19 @@ function summarizeWindow(win: UsageWindowSummary, source: SourceKey) {
 }
 
 export default function AgentUsagePanel() {
-  const { agent, usage, refreshUsage } = useData();
+  const { agent, usage, combinedUsage, remoteSnapshots, syncStatus, refreshUsage } = useData();
   const ws = useWorkspace();
   const [tab, setTab] = useState<"live" | "analytics">("live");
   const [windowKey, setWindowKey] = useState<WindowKey>("d7");
   const [sourceKey, setSourceKey] = useState<SourceKey>("all");
+  const [scope, setScope] = useState<"all" | "local">("all");
   const [enablingHook, setEnablingHook] = useState(false);
+
+  const otherDeviceCount = useMemo(
+    () => Object.values(remoteSnapshots).filter((s) => s.device_id !== syncStatus?.device_id).length,
+    [remoteSnapshots, syncStatus?.device_id],
+  );
+  const effectiveUsage = scope === "all" && otherDeviceCount > 0 ? (combinedUsage ?? usage) : usage;
 
   const working = agent.agent_state === "working";
   const quotaTone = (p: number) => (p < 15 ? "warn" : "ok");
@@ -97,7 +104,7 @@ export default function AgentUsagePanel() {
     }
   };
 
-  const activeWindow = usage?.windows[windowKey] ?? null;
+  const activeWindow = effectiveUsage?.windows[windowKey] ?? null;
 
   const summary = useMemo(
     () => (activeWindow ? summarizeWindow(activeWindow, sourceKey) : null),
@@ -230,6 +237,31 @@ export default function AgentUsagePanel() {
 
       {tab === "analytics" && (
         <div className="space-y-2.5">
+        {otherDeviceCount > 0 && (
+          <div className="flex items-center justify-between gap-2 text-[10px]">
+            <span className="text-[var(--txt-dim)]">{otherDeviceCount + 1} cihaz bağlı</span>
+            <div className="inline-flex rounded-md border border-[var(--border)] bg-[var(--surface-raised)] p-0.5">
+              <button
+                type="button"
+                onClick={() => setScope("all")}
+                className={`px-2 py-0.5 rounded cursor-pointer ${
+                  scope === "all" ? "bg-[var(--accent)]/20 text-[var(--accent)] font-medium" : "text-[var(--txt-dim)]"
+                }`}
+              >
+                Tüm Cihazlar
+              </button>
+              <button
+                type="button"
+                onClick={() => setScope("local")}
+                className={`px-2 py-0.5 rounded cursor-pointer ${
+                  scope === "local" ? "bg-[var(--accent)]/20 text-[var(--accent)] font-medium" : "text-[var(--txt-dim)]"
+                }`}
+              >
+                Bu Cihaz
+              </button>
+            </div>
+          </div>
+        )}
         <div className="flex flex-wrap items-center justify-between gap-1.5">
           <div className="inline-flex rounded-md border border-[var(--border)] bg-[var(--surface-raised)] p-0.5">
             {WINDOW_OPTIONS.map((opt) => (

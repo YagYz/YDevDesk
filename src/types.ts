@@ -221,3 +221,59 @@ export type UsageAnalytics = {
   codex_quota_5h_remaining: number | null;
   codex_quota_weekly_remaining: number | null;
 };
+
+export type SyncStatusInfo = {
+  connected: boolean;
+  login: string;
+  gist_id?: string | null;
+  device_id: string;
+  device_name: string;
+  has_sync_key: boolean;
+};
+
+export type DeviceFlowStart = {
+  device_code: string;
+  user_code: string;
+  verification_uri: string;
+  expires_in: number;
+  interval: number;
+};
+
+export type DeviceFlowPollResult = {
+  status: "pending" | "slow_down" | "authorized";
+  interval?: number | null;
+  login?: string | null;
+};
+
+export type SyncPullResult = {
+  changed: boolean;
+  payload_json?: string | null;
+  gist_id?: string | null;
+};
+
+export type SyncPushResult = {
+  gist_id: string;
+};
+
+export type RemoteSessionSummary = {
+  session_id: string;
+  masked_id: string;
+  agent: string;
+  title: string;
+  model: string;
+  updated_at: number;
+  device_id: string;
+  device_name: string;
+};
+
+export type DeviceTelemetrySnapshot = {
+  device_id: string;
+  device_name: string;
+  updated_at: number;
+  usage: UsageAnalytics;
+  recent_sessions: RemoteSessionSummary[];
+};
+
+export type SyncPreferences = {
+  sync_layout: boolean;
+};

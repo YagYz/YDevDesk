@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DockviewReact, type DockviewApi, type DockviewReadyEvent, type IDockviewHeaderActionsProps, type IWatermarkPanelProps } from "dockview-react";
 import { Maximize2, Minimize2, Plus } from "lucide-react";
 import { WorkspaceContext, type WorkspaceActions } from "./context/WorkspaceContext";
+import { useData } from "./context/DataContext";
 import { terminalManager } from "./lib/terminalManager";
 import { DOCK_COMPONENTS, TERMINAL_COMPONENT } from "./panels/registry";
 import { addModuleDefault, buildDefaultLayout, clearSavedLayout, hasTerminal, LAYOUT_KEY, MAIN_TERMINAL_ID, newTerminalId, saveLayout } from "./lib/layout";
@@ -12,6 +13,7 @@ import { OmniBar } from "./components/OmniBar";
 import { SettingsModal, type SettingsTab } from "./components/SettingsModal";
 import { UpdatePopup } from "./components/UpdatePopup";
 import { AgentSetupModal } from "./components/AgentSetupModal";
+import { SyncSetupModal, shouldShowSyncSetupOnLaunch } from "./components/SyncSettingsContent";
 import { api } from "./lib/tauri";
 import { KnowledgeModal } from "./components/KnowledgeModal";
 import { panelHistory } from "./lib/panelHistory";
@@ -82,6 +84,7 @@ function Watermark({ containerApi }: IWatermarkPanelProps) {
 }
 
 export default function Workspace() {
+  const { markSectionDirty, syncStatus } = useData();
   const apiRef = useRef<DockviewApi | null>(null);
   const lastTerminalRef = useRef<string | null>(null);
   const saveTimer = useRef<number | undefined>(undefined);
@@ -90,6 +93,8 @@ export default function Workspace() {
   const [showOmni, setShowOmni] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
   const [showAgentSetup, setShowAgentSetup] = useState(false);
+  const [showSyncSetup, setShowSyncSetup] = useState(false);
+  const syncPromptCheckedRef = useRef(false);
   const [knowledgeItem, setKnowledgeItem] = useState<Knowledge | null>(null);
   const [crashBanner, setCrashBanner] = useState<RecoverySnapshot | null>(null);
   const [workspaces, setWorkspaces] = useState<SavedWorkspace[]>(() => loadWorkspaces());
@@ -167,7 +172,8 @@ export default function Workspace() {
     const trimmed = name.trim();
     if (!trimmed) return;
     setWorkspaces(saveWorkspacePreset(trimmed, api));
-  }, []);
+    markSectionDirty("workspaces");
+  }, [markSectionDirty]);
 
   const loadSavedWorkspace = useCallback(
     (id: string) => {
@@ -190,7 +196,8 @@ export default function Workspace() {
 
   const deleteSavedWorkspace = useCallback((id: string) => {
     setWorkspaces(deleteWorkspacePreset(id));
-  }, []);
+    markSectionDirty("workspaces");
+  }, [markSectionDirty]);
 
   const onReady = useCallback(
     (e: DockviewReadyEvent) => {
@@ -245,6 +252,7 @@ export default function Workspace() {
         saveTimer.current = window.setTimeout(() => {
           saveLayout(api);
           markSessionRunning(snapshotFromDockview(api));
+          markSectionDirty("layout");
         }, 400);
       });
       syncOpen();
@@ -304,6 +312,15 @@ export default function Workspace() {
     }
   }, []);
 
+
+  // İlk açılışta GitHub Sync bağlı değilse bağlantı penceresini göster
+  useEffect(() => {
+    if (syncPromptCheckedRef.current || !syncStatus) return;
+    syncPromptCheckedRef.current = true;
+    if (!syncStatus.connected && shouldShowSyncSetupOnLaunch()) {
+      setShowSyncSetup(true);
+    }
+  }, [syncStatus]);
 
   const actions = useMemo<WorkspaceActions>(
     () => ({
@@ -382,6 +399,7 @@ export default function Workspace() {
       {showOmni && <OmniBar onClose={() => setShowOmni(false)} />}
       {settingsTab && <SettingsModal initialTab={settingsTab} onClose={() => setSettingsTab(null)} />}
       {showAgentSetup && <AgentSetupModal onClose={() => setShowAgentSetup(false)} />}
+      {showSyncSetup && !showAgentSetup && <SyncSetupModal onClose={() => setShowSyncSetup(false)} />}
       {knowledgeItem && <KnowledgeModal item={knowledgeItem} onClose={() => setKnowledgeItem(null)} />}
       <UpdatePopup onOpenDetails={() => setSettingsTab("update")} />
     </WorkspaceContext.Provider>
