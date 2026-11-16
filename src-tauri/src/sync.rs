@@ -474,14 +474,29 @@ pub async fn github_sync_push(payload_json: String) -> Result<SyncPushResult, St
 
     let res = match state.gist_id {
         Some(ref id) => {
-            client
+            let patch_res = client
                 .patch(format!("https://api.github.com/gists/{}", id))
                 .bearer_auth(&state.access_token)
                 .header("Accept", "application/vnd.github+json")
                 .json(&body)
                 .send()
                 .await
-                .map_err(|e| e.to_string())?
+                .map_err(|e| e.to_string())?;
+
+            if patch_res.status() == reqwest::StatusCode::NOT_FOUND {
+                state.gist_id = None;
+                state.etag = None;
+                client
+                    .post("https://api.github.com/gists")
+                    .bearer_auth(&state.access_token)
+                    .header("Accept", "application/vnd.github+json")
+                    .json(&body)
+                    .send()
+                    .await
+                    .map_err(|e| e.to_string())?
+            } else {
+                patch_res
+            }
         }
         None => {
             client
