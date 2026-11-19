@@ -11,6 +11,7 @@ import NotesPanel from "./NotesPanel";
 import KnowledgePanel from "./KnowledgePanel";
 import QuickActionsPanel from "./QuickActionsPanel";
 import TerminalPanel from "./TerminalPanel";
+import MarkdownPanel from "./MarkdownPanel";
 import type { ConnectionType } from "../types";
 
 export type ModuleDef = {
@@ -41,8 +42,10 @@ export const MODULES: ModuleDef[] = [
 export const MODULE_MAP = Object.fromEntries(MODULES.map((m) => [m.id, m])) as Record<string, ModuleDef>;
 
 export const TERMINAL_COMPONENT = "terminal";
+export const MARKDOWN_COMPONENT = "markdown";
 
 export const DOCK_COMPONENTS: Record<string, FunctionComponent<any>> = {
   [TERMINAL_COMPONENT]: TerminalPanel,
+  [MARKDOWN_COMPONENT]: MarkdownPanel,
   ...Object.fromEntries(MODULES.map((m) => [m.id, m.component])),
 };

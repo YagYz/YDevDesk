@@ -17,6 +17,17 @@ pub struct ActiveAgentSession {
     pub subagent_count: u32,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct AgentMarkdownFile {
+    pub path: String,
+    pub name: String,
+    pub agent: String,
+    pub session_id: String,
+    pub full_session_id: String,
+    pub modified_ago_secs: u64,
+    pub size_bytes: u64,
+}
+
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SubagentInfo {
@@ -715,4 +726,155 @@ pub fn get_agent_status() -> AgentStatus {
         subagents: subagents_list,
         recent_tools,
     }
+}
+
+fn collect_md_in_dir(
+    dir: &std::path::Path,
+    agent: &str,
+    depth: usize,
+    session_hint: Option<&str>,
+    now: std::time::SystemTime,
+    seen: &mut std::collections::HashSet<std::path::PathBuf>,
+    out: &mut Vec<AgentMarkdownFile>,
+) {
+    if depth == 0 || !dir.is_dir() {
+        return;
+    }
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let p = entry.path();
+        let fname = entry.file_name().to_string_lossy().to_string();
+        if fname.starts_with('.') || fname == "node_modules" {
+            continue;
+        }
+        if p.is_dir() {
+            let next_hint = session_hint.or(Some(fname.as_str()));
+            collect_md_in_dir(&p, agent, depth - 1, next_hint, now, seen, out);
+        } else if p.is_file() {
+            let is_md = p
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|e| e.eq_ignore_ascii_case("md") || e.eq_ignore_ascii_case("markdown"))
+                .unwrap_or(false);
+            if !is_md {
+                continue;
+            }
+            let canon = std::fs::canonicalize(&p).unwrap_or_else(|_| p.clone());
+            if !seen.insert(canon.clone()) {
+                continue;
+            }
+            let Ok(meta) = std::fs::metadata(&p) else {
+                continue;
+            };
+            let modified_ago_secs = meta
+                .modified()
+                .ok()
+                .and_then(|m| now.duration_since(m).ok())
+                .map(|d| d.as_secs())
+                .unwrap_or(u64::MAX);
+            let full_sid = session_hint.unwrap_or("").to_string();
+            out.push(AgentMarkdownFile {
+                path: canon.to_string_lossy().to_string(),
+                name: fname,
+                agent: agent.to_string(),
+                session_id: if full_sid.is_empty() {
+                    String::new()
+                } else {
+                    short_id(&full_sid)
+                },
+                full_session_id: full_sid,
+                modified_ago_secs,
+                size_bytes: meta.len(),
+            });
+        }
+    }
+}
+
+#[tauri::command]
+pub fn list_agent_markdowns() -> Vec<AgentMarkdownFile> {
+    let Some(home) = dirs::home_dir() else {
+        return Vec::new();
+    };
+    let now = std::time::SystemTime::now();
+    let mut seen = std::collections::HashSet::new();
+    let mut out = Vec::new();
+
+    collect_md_in_dir(
+        &home.join(".gemini").join("antigravity-cli").join("brain"),
+        "agy",
+        2,
+        None,
+        now,
+        &mut seen,
+        &mut out,
+    );
+    collect_md_in_dir(
+        &home.join(".gemini").join("antigravity").join("brain"),
+        "agy",
+        2,
+        None,
+        now,
+        &mut seen,
+        &mut out,
+    );
+    collect_md_in_dir(
+        &home.join(".claude").join("plans"),
+        "claude",
+        2,
+        Some("plans"),
+        now,
+        &mut seen,
+        &mut out,
+    );
+    collect_md_in_dir(
+        &home.join(".claude").join("projects"),
+        "claude",
+        2,
+        None,
+        now,
+        &mut seen,
+        &mut out,
+    );
+    collect_md_in_dir(
+        &home.join(".codex"),
+        "codex",
+        3,
+        None,
+        now,
+        &mut seen,
+        &mut out,
+    );
+
+    out.sort_by_key(|f| f.modified_ago_secs);
+    out.truncate(40);
+    out
+}
+
+#[tauri::command]
+pub fn read_markdown_file(path: String) -> Result<String, String> {
+    let home = dirs::home_dir().ok_or_else(|| "Ev dizini bulunamadı".to_string())?;
+    let canon_home = std::fs::canonicalize(&home).map_err(|e| e.to_string())?;
+    let canon_path = std::fs::canonicalize(&path).map_err(|e| format!("Dosya okunamadı: {}", e))?;
+
+    if !canon_path.starts_with(&canon_home) {
+        return Err("Yalnızca ev dizini altındaki dosyalar açılabilir".to_string());
+    }
+    let is_md = canon_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.eq_ignore_ascii_case("md") || e.eq_ignore_ascii_case("markdown"))
+        .unwrap_or(false);
+    if !is_md {
+        return Err("Yalnızca .md / .markdown dosyaları açılabilir".to_string());
+    }
+    let meta = std::fs::metadata(&canon_path).map_err(|e| e.to_string())?;
+    if !meta.is_file() {
+        return Err("Geçerli bir dosya değil".to_string());
+    }
+    if meta.len() > 2 * 1024 * 1024 {
+        return Err("Dosya 2 MB sınırını aşıyor".to_string());
+    }
+    std::fs::read_to_string(&canon_path).map_err(|e| format!("Okuma hatası: {}", e))
 }

@@ -103,6 +103,21 @@ export type TerminalParams = {
   kind?: "shell" | "agent" | "server";
 };
 
+export type AgentMarkdownFile = {
+  path: string;
+  name: string;
+  agent: string;
+  session_id: string;
+  full_session_id: string;
+  modified_ago_secs: number;
+  size_bytes: number;
+};
+
+export type MarkdownParams = {
+  path: string;
+  agent?: string;
+};
+
 export type ConnectionType = "ydevhub" | "ynetmon" | "projects-root";
 
 export type Connection = {

@@ -8,6 +8,15 @@ export function newTerminalId(): string {
   return `term-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 }
 
+export function markdownPanelId(path: string): string {
+  let h = 2166136261;
+  for (let i = 0; i < path.length; i++) {
+    h ^= path.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return `md-${(h >>> 0).toString(36)}`;
+}
+
 export function saveLayout(api: DockviewApi) {
   try {
     localStorage.setItem(LAYOUT_KEY, JSON.stringify(api.toJSON()));

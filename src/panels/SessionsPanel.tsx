@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Check, Copy, Folder, Pencil, Pin, Play, Search, Users, Zap } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Bot, Check, Copy, FileText, Folder, Pencil, Pin, Play, RefreshCw, Search, Users, Zap } from "lucide-react";
 import { useData } from "../context/DataContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { formatAgo } from "../lib/format";
 import { api } from "../lib/tauri";
 import { Dot, Empty, PanelBody } from "../components/ui";
-import type { ActiveAgentSession, SessionPrefs } from "../types";
+import type { ActiveAgentSession, AgentMarkdownFile, SessionPrefs } from "../types";
 
-type AgentFilter = "all" | "agy" | "claude" | "codex";
+type AgentFilter = "all" | "agy" | "claude" | "codex" | "docs";
 
 const AGENT_META: Record<string, { label: string; badgeClass: string }> = {
   agy: {
@@ -64,7 +64,7 @@ function sessionKey(session: ActiveAgentSession): string {
 
 export default function SessionsPanel() {
   const { agent, remoteSnapshots, syncStatus, syncedSessionPrefsVersion, markSectionDirty } = useData();
-  const { openTerminal } = useWorkspace();
+  const { openTerminal, openMarkdown } = useWorkspace();
   const [filter, setFilter] = useState<AgentFilter>("all");
   const [query, setQuery] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -73,6 +73,40 @@ export default function SessionsPanel() {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
   const cancelEditRef = useRef(false);
+  const [markdowns, setMarkdowns] = useState<AgentMarkdownFile[]>([]);
+
+  const loadMarkdowns = useCallback(() => {
+    api.listAgentMarkdowns().then(setMarkdowns).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    loadMarkdowns();
+    const timer = window.setInterval(loadMarkdowns, 15000);
+    return () => window.clearInterval(timer);
+  }, [loadMarkdowns]);
+
+  const mdBySession = useMemo(() => {
+    const map = new Map<string, AgentMarkdownFile[]>();
+    for (const m of markdowns) {
+      if (!m.full_session_id) continue;
+      const list = map.get(m.full_session_id) ?? [];
+      list.push(m);
+      map.set(m.full_session_id, list);
+    }
+    return map;
+  }, [markdowns]);
+
+  const filteredDocs = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return markdowns;
+    return markdowns.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) ||
+        m.agent.toLowerCase().includes(q) ||
+        m.session_id.toLowerCase().includes(q) ||
+        m.path.toLowerCase().includes(q),
+    );
+  }, [markdowns, query]);
 
   useEffect(() => {
     api
@@ -206,6 +240,7 @@ export default function SessionsPanel() {
     { id: "agy", label: "AGY", count: counts.agy },
     { id: "claude", label: "Claude", count: counts.claude },
     { id: "codex", label: "Codex", count: counts.codex },
+    { id: "docs", label: "Dokümanlar", count: markdowns.length },
   ];
 
   return (
@@ -243,6 +278,65 @@ export default function SessionsPanel() {
         </div>
       </div>
 
+      {filter === "docs" ? (
+        <section>
+          <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-[var(--txt-dim)] mb-1.5">
+            <span>Ajan Markdown Dosyaları</span>
+            <div className="flex items-center gap-1.5">
+              <span className="font-mono">{filteredDocs.length}</span>
+              <button
+                type="button"
+                onClick={loadMarkdowns}
+                title="Listeyi yenile"
+                className="p-0.5 rounded hover:text-[var(--accent)] cursor-pointer"
+              >
+                <RefreshCw className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+
+          {filteredDocs.length === 0 ? (
+            <Empty
+              icon={<FileText className="w-5 h-5" />}
+              title="Markdown dosyası bulunamadı"
+              hint="AGY, Claude veya Codex tarafından üretilen .md dosyaları burada listelenir."
+            />
+          ) : (
+            <ul className="space-y-1.5">
+              {filteredDocs.map((m) => {
+                const meta = AGENT_META[m.agent] ?? {
+                  label: m.agent.toUpperCase(),
+                  badgeClass: "bg-zinc-500/15 text-zinc-300 border-zinc-500/30",
+                };
+                return (
+                  <li key={m.path}>
+                    <button
+                      type="button"
+                      onClick={() => openMarkdown({ path: m.path, title: m.name, agent: m.agent })}
+                      title={`Yeni sekmede aç: ${m.path}`}
+                      className="w-full text-left rounded-md px-2.5 py-2 bg-[var(--surface-raised)] border border-[var(--border)] hover:border-[var(--accent)]/50 transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border ${meta.badgeClass}`}>
+                          {meta.label}
+                        </span>
+                        {m.session_id && (
+                          <span className="font-mono text-[10px] text-[var(--txt-dim)]">{m.session_id}</span>
+                        )}
+                        <span className="ml-auto text-[10px] text-[var(--txt-dim)] font-mono shrink-0">
+                          {formatAgo(m.modified_ago_secs)}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-xs text-[var(--txt-main)] font-medium truncate">{m.name}</div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      ) : (
       <section>
         <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-[var(--txt-dim)] mb-1.5">
           <span>Son Oturumlar (Maks 50)</span>
@@ -270,6 +364,7 @@ export default function SessionsPanel() {
               const customAlias = prefs.aliases[key];
               const displayTitle = customAlias || s.title || `${meta.label} Oturumu`;
               const isEditing = editingKey === key;
+              const sessionDocs = mdBySession.get(fullId) ?? [];
 
               return (
                 <li key={key}>
@@ -365,6 +460,21 @@ export default function SessionsPanel() {
                       )}
 
                       <div className="ml-auto flex items-center gap-0.5 opacity-80 group-hover:opacity-100">
+                        {sessionDocs.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const doc = sessionDocs[0];
+                              openMarkdown({ path: doc.path, title: doc.name, agent: doc.agent });
+                            }}
+                            title={`Markdown aç: ${sessionDocs[0].name}`}
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20 text-[10px] font-mono cursor-pointer"
+                          >
+                            <FileText className="w-3 h-3" />
+                            {sessionDocs.length > 1 ? sessionDocs.length : "md"}
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={(e) => togglePin(e, key)}
@@ -426,6 +536,7 @@ export default function SessionsPanel() {
           </div>
         )}
       </section>
+      )}
 
       {remoteSessions.length > 0 && (
         <section>
