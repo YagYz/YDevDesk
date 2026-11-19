@@ -86,6 +86,9 @@ class TerminalManager {
 
     term.attachCustomKeyEventHandler((e) => {
       if (e.type === "keydown") {
+        if (e.ctrlKey && !e.altKey && !e.metaKey && e.key === "Tab") {
+          return false;
+        }
         if (e.ctrlKey && e.shiftKey && (e.key === "C" || e.key === "c")) {
           const sel = term.getSelection();
           if (sel) navigator.clipboard.writeText(sel).catch(() => {});

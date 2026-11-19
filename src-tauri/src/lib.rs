@@ -53,6 +53,8 @@ pub fn run() {
             config::load_homelab_config,
             config::save_homelab_config,
             agents_sessions::get_agent_status,
+            agents_sessions::list_agent_markdowns,
+            agents_sessions::read_markdown_file,
             agents_usage::get_usage_analytics,
             agents_usage::enable_agy_quota_hook,
             homelab::fetch_homelab_notes,

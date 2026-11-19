@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   AgentEnvironmentStatus,
   AgentInstallResult,
+  AgentMarkdownFile,
   AgentStatus,
   DeviceFlowPollResult,
   DeviceFlowStart,
@@ -18,6 +19,8 @@ export const api = {
   loadConfig: () => invoke<HomelabConfig>("load_homelab_config"),
   saveConfig: (cfg: HomelabConfig) => invoke<void>("save_homelab_config", { cfg }),
   agentStatus: () => invoke<AgentStatus>("get_agent_status"),
+  listAgentMarkdowns: () => invoke<AgentMarkdownFile[]>("list_agent_markdowns"),
+  readMarkdownFile: (path: string) => invoke<string>("read_markdown_file", { path }),
   notes: (cfg: HomelabConfig) =>
     invoke<any>("fetch_homelab_notes", { url: cfg.ydevhub_url, key: cfg.ydevhub_key }),
   knowledge: (cfg: HomelabConfig) =>

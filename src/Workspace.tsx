@@ -4,8 +4,8 @@ import { Maximize2, Minimize2, Plus } from "lucide-react";
 import { WorkspaceContext, type WorkspaceActions } from "./context/WorkspaceContext";
 import { useData } from "./context/DataContext";
 import { terminalManager } from "./lib/terminalManager";
-import { DOCK_COMPONENTS, TERMINAL_COMPONENT } from "./panels/registry";
-import { addModuleDefault, buildDefaultLayout, clearSavedLayout, hasTerminal, LAYOUT_KEY, MAIN_TERMINAL_ID, newTerminalId, saveLayout } from "./lib/layout";
+import { DOCK_COMPONENTS, MARKDOWN_COMPONENT, TERMINAL_COMPONENT } from "./panels/registry";
+import { addModuleDefault, buildDefaultLayout, clearSavedLayout, hasTerminal, LAYOUT_KEY, MAIN_TERMINAL_ID, markdownPanelId, newTerminalId, saveLayout } from "./lib/layout";
 import { deleteWorkspacePreset, loadWorkspaces, saveWorkspacePreset, type SavedWorkspace } from "./lib/workspaces";
 import { TitleBar } from "./components/TitleBar";
 import { StatusBar } from "./components/StatusBar";
@@ -104,32 +104,55 @@ export default function Workspace() {
     if (api) setOpenIds(new Set(api.panels.map((p) => p.id)));
   }, []);
 
-  const openTerminal = useCallback<WorkspaceActions["openTerminal"]>((opts = {}) => {
-    const api = apiRef.current;
-    if (!api) return;
-    const id = newTerminalId();
-    const existingTerm = !opts.groupId
+  const resolveCenterPosition = useCallback((api: DockviewApi, groupId?: string) => {
+    const existingTerm = !groupId
       ? (lastTerminalRef.current && api.getPanel(lastTerminalRef.current)) ||
         api.getPanel(MAIN_TERMINAL_ID) ||
         api.panels.find((p) => p.api.component === TERMINAL_COMPONENT)
       : undefined;
-    const targetGroupId = opts.groupId ?? existingTerm?.group?.id;
+    const targetGroupId = groupId ?? existingTerm?.group?.id;
     const activeGroupId = api.activeGroup?.id;
-    const position = targetGroupId
+    return targetGroupId
       ? { referenceGroup: targetGroupId }
       : activeGroupId
         ? { referenceGroup: activeGroupId, direction: "right" as const }
         : undefined;
+  }, []);
+
+  const openTerminal = useCallback<WorkspaceActions["openTerminal"]>((opts = {}) => {
+    const api = apiRef.current;
+    if (!api) return;
+    const id = newTerminalId();
     api.addPanel({
       id,
       component: TERMINAL_COMPONENT,
       title: opts.title ?? "Terminal",
       params: { initCmd: opts.initCmd, kind: opts.kind ?? "shell" },
       renderer: "always",
-      position,
+      position: resolveCenterPosition(api, opts.groupId),
     });
     api.getPanel(id)?.api.setActive();
-  }, []);
+  }, [resolveCenterPosition]);
+
+  const openMarkdown = useCallback<WorkspaceActions["openMarkdown"]>((opts) => {
+    const api = apiRef.current;
+    if (!api) return;
+    const id = markdownPanelId(opts.path);
+    const existing = api.getPanel(id);
+    if (existing) {
+      existing.api.setActive();
+      return;
+    }
+    const fileName = opts.path.split(/[/\\]/).pop() || "Markdown";
+    api.addPanel({
+      id,
+      component: MARKDOWN_COMPONENT,
+      title: opts.title ?? fileName,
+      params: { path: opts.path, agent: opts.agent },
+      position: resolveCenterPosition(api, opts.groupId),
+    });
+    api.getPanel(id)?.api.setActive();
+  }, [resolveCenterPosition]);
 
   const runInTerminal = useCallback((cmd: string) => {
     const api = apiRef.current;
@@ -260,7 +283,7 @@ export default function Workspace() {
     [syncOpen],
   );
 
-  // Ctrl/Cmd+K: komut paleti, Ctrl/Cmd+Shift+T: son kapanan paneli geri aç
+  // Ctrl/Cmd+K: komut paleti, Ctrl/Cmd+Shift+T: son kapanan paneli geri aç, Ctrl+Tab: terminal/oturum/doküman geçişi
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "k") {
@@ -279,6 +302,20 @@ export default function Workspace() {
         ) {
           syncOpen();
         }
+      } else if (e.ctrlKey && !e.altKey && !e.metaKey && e.key === "Tab") {
+        const dock = apiRef.current;
+        if (!dock) return;
+        const switchable = dock.panels.filter(
+          (p) => p.api.component === TERMINAL_COMPONENT || p.api.component === MARKDOWN_COMPONENT,
+        );
+        if (switchable.length < 2) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const activeId = dock.activePanel?.id;
+        const idx = switchable.findIndex((p) => p.id === activeId);
+        const step = e.shiftKey ? -1 : 1;
+        const nextIdx = idx === -1 ? 0 : (idx + step + switchable.length) % switchable.length;
+        switchable[nextIdx]?.api.setActive();
       }
     };
     window.addEventListener("keydown", onKey, true);
@@ -325,6 +362,7 @@ export default function Workspace() {
   const actions = useMemo<WorkspaceActions>(
     () => ({
       openTerminal,
+      openMarkdown,
       runInTerminal,
       toggleModule,
       isModuleOpen: (id) => openIds.has(id),
@@ -337,7 +375,7 @@ export default function Workspace() {
       openOmniBar: () => setShowOmni(true),
       openAgentSetup: () => setShowAgentSetup(true),
     }),
-    [openTerminal, runInTerminal, toggleModule, openIds, resetLayout, workspaces, saveCurrentWorkspace, loadSavedWorkspace, deleteSavedWorkspace],
+    [openTerminal, openMarkdown, runInTerminal, toggleModule, openIds, resetLayout, workspaces, saveCurrentWorkspace, loadSavedWorkspace, deleteSavedWorkspace],
   );
 
 
