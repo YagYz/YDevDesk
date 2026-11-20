@@ -18,7 +18,8 @@ export function TitleBar({ onSettings }: { onSettings: () => void }) {
   const run = (fn: () => Promise<void>) => () => fn().catch(console.error);
 
   return (
-    <header data-tauri-drag-region className="h-10 shrink-0 flex items-center gap-2 pl-3 pr-2 border-b border-[var(--border)] bg-[var(--surface)]">
+    <header data-tauri-drag-region className="h-10 shrink-0 grid grid-cols-[1fr_auto_1fr] items-center gap-2 pl-3 pr-2 border-b border-[var(--border)] bg-[var(--surface)]">
+      <div data-tauri-drag-region className="flex items-center gap-2 min-w-0 h-full">
       <div className="flex items-center gap-1.5 mr-1" data-tauri-drag-region>
         <button onClick={run(api.windowClose)} className="w-3 h-3 rounded-full bg-[#ff5f57] hover:brightness-125" title="Kapat" />
         <button onClick={run(api.windowMinimize)} className="w-3 h-3 rounded-full bg-[#febc2e] hover:brightness-125" title="Küçült" />
@@ -183,14 +184,13 @@ export function TitleBar({ onSettings }: { onSettings: () => void }) {
       >
         <Bot className="w-3.5 h-3.5 text-[var(--accent)]" /> Ajanlar
       </button>
-
-      <div data-tauri-drag-region className="flex-1 min-w-3 h-full" />
+      </div>
 
       <button
         type="button"
         onClick={ws.openOmniBar}
         title="Komut paleti (Ctrl+K)"
-        className="flex items-center gap-2 px-3 h-7 w-full max-w-[340px] min-w-[160px] rounded-lg border border-[var(--border)] bg-[var(--bg)]/80 hover:border-[var(--accent)]/50 text-[11px] text-[var(--txt-dim)] hover:text-[var(--txt-main)] transition-colors cursor-pointer"
+        className="justify-self-center flex items-center gap-2 px-3 h-7 w-[320px] max-w-[34vw] min-w-[160px] rounded-lg border border-[var(--border)] bg-[var(--bg)]/80 hover:border-[var(--accent)]/50 text-[11px] text-[var(--txt-dim)] hover:text-[var(--txt-main)] transition-colors cursor-pointer"
       >
         <Search className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />
         <span className="truncate">Komut çalıştır veya ara…</span>
@@ -199,19 +199,19 @@ export function TitleBar({ onSettings }: { onSettings: () => void }) {
         </kbd>
       </button>
 
-      <div data-tauri-drag-region className="flex-1 min-w-3 h-full" />
-
-      <button
-        type="button"
-        onClick={() => ws.openTerminal({ title: "Terminal", kind: "shell" })}
-        className={btn}
-        title="Yeni Terminal"
-      >
-        <Plus className="w-3.5 h-3.5" />
-      </button>
-      <button type="button" onClick={onSettings} className={btn} title="Ayarlar">
-        <Settings className="w-3.5 h-3.5" />
-      </button>
+      <div data-tauri-drag-region className="flex items-center justify-end gap-1 min-w-0 h-full">
+        <button
+          type="button"
+          onClick={() => ws.openTerminal({ title: "Terminal", kind: "shell" })}
+          className={btn}
+          title="Yeni Terminal"
+        >
+          <Plus className="w-3.5 h-3.5" />
+        </button>
+        <button type="button" onClick={onSettings} className={btn} title="Ayarlar">
+          <Settings className="w-3.5 h-3.5" />
+        </button>
+      </div>
     </header>
   );
 }
