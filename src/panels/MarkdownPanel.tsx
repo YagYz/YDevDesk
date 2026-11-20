@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { IDockviewPanelProps } from "dockview-react";
 import { Check, Code2, Copy, Eye, FileText, RefreshCw } from "lucide-react";
-import { useData } from "../context/DataContext";
+import { useSettings } from "../context/SettingsContext";
 import { api } from "../lib/tauri";
 import { MarkdownView } from "../components/MarkdownView";
 import type { MarkdownParams } from "../types";
@@ -10,14 +10,7 @@ export default function MarkdownPanel({ params }: IDockviewPanelProps<MarkdownPa
   const path = params?.path ?? "";
   const agent = params?.agent;
   const inlineContent = params?.content;
-  const { settings } = useData();
-  const projectRoots = useMemo(
-    () =>
-      settings.connections
-        .filter((c) => c.type === "projects-root" && c.path)
-        .map((c) => c.path as string),
-    [settings.connections],
-  );
+  const { projectRoots } = useSettings();
   const [content, setContent] = useState<string>(inlineContent ?? "");
   const [loading, setLoading] = useState(inlineContent === undefined);
   const [error, setError] = useState("");

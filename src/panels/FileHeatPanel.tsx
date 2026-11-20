@@ -1,9 +1,9 @@
 import { Flame } from "lucide-react";
-import { useData } from "../context/DataContext";
+import { useAgent } from "../context/AgentContext";
 import { Empty, PanelBody } from "../components/ui";
 
 export default function FileHeatPanel() {
-  const { agent } = useData();
+  const { agent } = useAgent();
   const max = Math.max(1, ...agent.file_heat.map((f) => f.count));
   return (
     <PanelBody>

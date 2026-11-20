@@ -1,12 +1,17 @@
+import { useEffect } from "react";
 import { Network } from "lucide-react";
-import { useData } from "../context/DataContext";
+import { useHomelab } from "../context/HomelabContext";
 import { formatSpeed } from "../lib/format";
 import { Dot, Empty, PanelBody, Sparkline, Stat } from "../components/ui";
 
 const LABEL = { unconfigured: "yapılandırılmadı", connecting: "bağlanıyor", live: "canlı", offline: "kopuk" } as const;
 
 export default function NetworkPanel() {
-  const { network, bandwidth } = useData();
+  const { network, bandwidth, setNetworkFastMode } = useHomelab();
+  useEffect(() => {
+    setNetworkFastMode(true);
+    return () => setNetworkFastMode(false);
+  }, [setNetworkFastMode]);
   if (network.status === "unconfigured") {
     return (
       <PanelBody>

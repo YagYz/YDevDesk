@@ -52,6 +52,12 @@ export const DEFAULT_NOTIFICATIONS: NotificationSettings = {
 
 export const newId = () => Math.random().toString(36).slice(2, 10);
 
+export function getProjectRoots(connections: Connection[]): string[] {
+  return connections
+    .filter((c) => c.type === "projects-root" && c.path)
+    .map((c) => c.path as string);
+}
+
 export function deriveConfig(connections: Connection[]): HomelabConfig {
   const hub = connections.find((c) => c.type === "ydevhub");
   const mon = connections.find((c) => c.type === "ynetmon");
@@ -80,11 +86,12 @@ export function normalizeSettings(saved: any, cfg: HomelabConfig, projectsRoot: 
       quick_actions: Array.isArray(saved.quick_actions) ? saved.quick_actions : DEFAULT_QUICK_ACTIONS,
       terminal_presets: Array.isArray(saved.terminal_presets) ? saved.terminal_presets : DEFAULT_TERMINAL_PRESETS,
       notifications: { ...DEFAULT_NOTIFICATIONS, ...(saved.notifications ?? {}) },
+      theme_id: typeof saved.theme_id === "string" && saved.theme_id ? saved.theme_id : "deep-navy",
     };
   }
   const connections: Connection[] = [];
   if (cfg.ydevhub_url) connections.push({ id: newId(), name: "YDevHub", type: "ydevhub", url: cfg.ydevhub_url, key: cfg.ydevhub_key });
   if (cfg.ynetmon_url) connections.push({ id: newId(), name: "YNetMon", type: "ynetmon", url: cfg.ynetmon_url, key: cfg.ynetmon_key });
   if (projectsRoot) connections.push({ id: newId(), name: "Projeler", type: "projects-root", path: projectsRoot });
-  return { connections, disabled_modules: [], quick_actions: DEFAULT_QUICK_ACTIONS, terminal_presets: DEFAULT_TERMINAL_PRESETS, notifications: DEFAULT_NOTIFICATIONS };
+  return { connections, disabled_modules: [], quick_actions: DEFAULT_QUICK_ACTIONS, terminal_presets: DEFAULT_TERMINAL_PRESETS, notifications: DEFAULT_NOTIFICATIONS, theme_id: "deep-navy" };
 }

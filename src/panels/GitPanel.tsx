@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ArrowDown, ArrowUp, GitBranch, GitPullRequest, RefreshCw } from "lucide-react";
 import { ErrorBanner, PanelBody } from "../components/ui";
 import { api } from "../lib/tauri";
-import { useData } from "../context/DataContext";
+import { useSettings } from "../context/SettingsContext";
 
 type GitInfo = {
   branch: string;
@@ -17,17 +17,14 @@ const STORE_KEY = "ydevdesk.git.project";
 const STATUS_COLOR: Record<string, string> = { M: "var(--warn)", A: "var(--ok)", D: "var(--err)", "??": "var(--txt-dim)" };
 
 export default function GitPanel() {
-  const { settings } = useData();
+  const { projectRoots } = useSettings();
   const [entries, setEntries] = useState<{ root: string; name: string }[]>([]);
   const [selected, setSelected] = useState(() => localStorage.getItem(STORE_KEY) ?? "");
   const [info, setInfo] = useState<GitInfo | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const rootsKey = settings.connections
-    .filter((c) => c.type === "projects-root" && c.path)
-    .map((c) => c.path as string)
-    .join("\n");
+  const rootsKey = projectRoots.join("\n");
 
   useEffect(() => {
     const roots = rootsKey ? rootsKey.split("\n") : [];

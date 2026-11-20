@@ -9,7 +9,7 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-const LAYOUT_KEY = "ydevdesk_layout_v2";
+import { LAYOUT_KEY } from "../lib/layout";
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { error: null };

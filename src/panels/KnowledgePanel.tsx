@@ -1,10 +1,10 @@
-import { useData } from "../context/DataContext";
+import { useHomelab } from "../context/HomelabContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { HubEmpty } from "../components/HubEmpty";
 import { PanelBody } from "../components/ui";
 
 export default function KnowledgePanel() {
-  const { knowledge, hubStatus } = useData();
+  const { knowledge, hubStatus } = useHomelab();
   const { openKnowledge } = useWorkspace();
   if (hubStatus !== "ok") return <HubEmpty />;
   return (

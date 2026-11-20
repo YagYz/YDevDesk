@@ -1,10 +1,10 @@
 import { Activity } from "lucide-react";
-import { useData } from "../context/DataContext";
+import { useAgent } from "../context/AgentContext";
 import { toolColor } from "../lib/format";
 import { Empty, PanelBody } from "../components/ui";
 
 export default function ToolsPanel() {
-  const { agent } = useData();
+  const { agent } = useAgent();
   return (
     <PanelBody className="space-y-3">
       {agent.ticker_squares.length > 0 && (

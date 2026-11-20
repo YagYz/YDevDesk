@@ -1,11 +1,11 @@
 import { Terminal } from "lucide-react";
 import { useWorkspace } from "../context/WorkspaceContext";
-import { useData } from "../context/DataContext";
+import { useSettings } from "../context/SettingsContext";
 import { PanelBody } from "../components/ui";
 
 export default function QuickActionsPanel() {
   const { runInTerminal } = useWorkspace();
-  const { settings } = useData();
+  const { settings } = useSettings();
   const actions = settings.quick_actions;
   return (
     <PanelBody>
