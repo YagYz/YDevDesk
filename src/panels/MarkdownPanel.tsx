@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { IDockviewPanelProps } from "dockview-react";
 import { Check, Code2, Copy, Eye, FileText, RefreshCw } from "lucide-react";
+import { useData } from "../context/DataContext";
 import { api } from "../lib/tauri";
 import { MarkdownView } from "../components/MarkdownView";
 import type { MarkdownParams } from "../types";
@@ -8,13 +9,28 @@ import type { MarkdownParams } from "../types";
 export default function MarkdownPanel({ params }: IDockviewPanelProps<MarkdownParams>) {
   const path = params?.path ?? "";
   const agent = params?.agent;
-  const [content, setContent] = useState<string>("");
-  const [loading, setLoading] = useState(true);
+  const inlineContent = params?.content;
+  const { settings } = useData();
+  const projectRoots = useMemo(
+    () =>
+      settings.connections
+        .filter((c) => c.type === "projects-root" && c.path)
+        .map((c) => c.path as string),
+    [settings.connections],
+  );
+  const [content, setContent] = useState<string>(inlineContent ?? "");
+  const [loading, setLoading] = useState(inlineContent === undefined);
   const [error, setError] = useState("");
   const [rawMode, setRawMode] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
+    if (inlineContent !== undefined) {
+      setContent(inlineContent);
+      setError("");
+      setLoading(false);
+      return;
+    }
     if (!path) {
       setError("Dosya yolu belirtilmedi");
       setLoading(false);
@@ -23,14 +39,14 @@ export default function MarkdownPanel({ params }: IDockviewPanelProps<MarkdownPa
     setLoading(true);
     setError("");
     try {
-      const text = await api.readMarkdownFile(path);
+      const text = await api.readMarkdownFile(path, projectRoots);
       setContent(text);
     } catch (e) {
       setError(String(e));
     } finally {
       setLoading(false);
     }
-  }, [path]);
+  }, [path, inlineContent, projectRoots]);
 
   useEffect(() => {
     load();

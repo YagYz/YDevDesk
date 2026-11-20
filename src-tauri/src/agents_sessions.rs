@@ -746,7 +746,12 @@ fn collect_md_in_dir(
     for entry in entries.flatten() {
         let p = entry.path();
         let fname = entry.file_name().to_string_lossy().to_string();
-        if fname.starts_with('.') || fname == "node_modules" {
+        if fname.starts_with('.')
+            || matches!(
+                fname.as_str(),
+                "node_modules" | "target" | "dist" | "build" | ".venv" | "venv" | "__pycache__"
+            )
+        {
             continue;
         }
         if p.is_dir() {
@@ -792,8 +797,18 @@ fn collect_md_in_dir(
     }
 }
 
+fn expand_home_path(raw: &str, home: &std::path::Path) -> std::path::PathBuf {
+    if let Some(rest) = raw.strip_prefix("~/") {
+        home.join(rest)
+    } else if raw == "~" {
+        home.to_path_buf()
+    } else {
+        std::path::PathBuf::from(raw)
+    }
+}
+
 #[tauri::command]
-pub fn list_agent_markdowns() -> Vec<AgentMarkdownFile> {
+pub fn list_agent_markdowns(project_roots: Option<Vec<String>>) -> Vec<AgentMarkdownFile> {
     let Some(home) = dirs::home_dir() else {
         return Vec::new();
     };
@@ -804,7 +819,7 @@ pub fn list_agent_markdowns() -> Vec<AgentMarkdownFile> {
     collect_md_in_dir(
         &home.join(".gemini").join("antigravity-cli").join("brain"),
         "agy",
-        2,
+        8,
         None,
         now,
         &mut seen,
@@ -813,7 +828,7 @@ pub fn list_agent_markdowns() -> Vec<AgentMarkdownFile> {
     collect_md_in_dir(
         &home.join(".gemini").join("antigravity").join("brain"),
         "agy",
-        2,
+        8,
         None,
         now,
         &mut seen,
@@ -822,7 +837,7 @@ pub fn list_agent_markdowns() -> Vec<AgentMarkdownFile> {
     collect_md_in_dir(
         &home.join(".claude").join("plans"),
         "claude",
-        2,
+        8,
         Some("plans"),
         now,
         &mut seen,
@@ -831,7 +846,7 @@ pub fn list_agent_markdowns() -> Vec<AgentMarkdownFile> {
     collect_md_in_dir(
         &home.join(".claude").join("projects"),
         "claude",
-        2,
+        8,
         None,
         now,
         &mut seen,
@@ -840,26 +855,51 @@ pub fn list_agent_markdowns() -> Vec<AgentMarkdownFile> {
     collect_md_in_dir(
         &home.join(".codex"),
         "codex",
-        3,
+        8,
         None,
         now,
         &mut seen,
         &mut out,
     );
 
+    if let Some(roots) = project_roots {
+        for raw_root in roots {
+            let trimmed = raw_root.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            let root_path = expand_home_path(trimmed, &home);
+            collect_md_in_dir(&root_path, "project", 5, None, now, &mut seen, &mut out);
+        }
+    }
+
     out.sort_by_key(|f| f.modified_ago_secs);
-    out.truncate(40);
+    out.truncate(100);
     out
 }
 
 #[tauri::command]
-pub fn read_markdown_file(path: String) -> Result<String, String> {
+pub fn read_markdown_file(path: String, project_roots: Option<Vec<String>>) -> Result<String, String> {
     let home = dirs::home_dir().ok_or_else(|| "Ev dizini bulunamadı".to_string())?;
     let canon_home = std::fs::canonicalize(&home).map_err(|e| e.to_string())?;
     let canon_path = std::fs::canonicalize(&path).map_err(|e| format!("Dosya okunamadı: {}", e))?;
 
-    if !canon_path.starts_with(&canon_home) {
-        return Err("Yalnızca ev dizini altındaki dosyalar açılabilir".to_string());
+    let mut allowed = canon_path.starts_with(&canon_home);
+    if !allowed {
+        if let Some(roots) = project_roots {
+            for raw_root in roots {
+                let root_path = expand_home_path(raw_root.trim(), &home);
+                if let Ok(canon_root) = std::fs::canonicalize(&root_path) {
+                    if canon_path.starts_with(&canon_root) {
+                        allowed = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    if !allowed {
+        return Err("Yalnızca ev dizini veya tanımlı proje dizinleri altındaki dosyalar açılabilir".to_string());
     }
     let is_md = canon_path
         .extension()

@@ -37,6 +37,7 @@ type Entry = {
   disposed: boolean;
   unlisten: UnlistenFn[];
   opened: boolean;
+  scrollTimer?: number;
 };
 
 /**
@@ -59,10 +60,96 @@ class TerminalManager {
     if (!entry.opened) {
       entry.term.open(container);
       entry.opened = true;
+      const showScrollbar = () => {
+        const xtermEl = entry?.term.element;
+        if (!xtermEl) return;
+        xtermEl.classList.add("is-scrolling");
+        if (entry!.scrollTimer) window.clearTimeout(entry!.scrollTimer);
+        entry!.scrollTimer = window.setTimeout(() => {
+          xtermEl.classList.remove("is-scrolling");
+        }, 1200);
+      };
+      const vp = entry.term.element?.querySelector(".xterm-viewport");
+      vp?.addEventListener("scroll", showScrollbar, { passive: true });
+      vp?.addEventListener("wheel", showScrollbar, { passive: true });
+
+      // Click-to-Cursor: normal tamponda ve fare izleme kapalıyken tıklanan sütuna ok tuşu gönderir.
+      let downPos: { x: number; y: number } | null = null;
+      const screenEl = entry.term.element?.querySelector(".xterm-screen") as HTMLElement | null;
+      screenEl?.addEventListener("mousedown", (e) => {
+        if (e.button === 0 && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+          downPos = { x: e.clientX, y: e.clientY };
+        } else {
+          downPos = null;
+        }
+      });
+      screenEl?.addEventListener("mouseup", (e) => {
+        if (!downPos || e.button !== 0 || entry?.disposed) return;
+        const dist = Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y);
+        downPos = null;
+        if (dist >= 4) return;
+        const term = entry!.term;
+        if (term.hasSelection() || term.modes.mouseTrackingMode !== "none") return;
+        if (term.buffer.active.type !== "normal") return;
+
+        const core = (term as unknown as { _core?: { _renderService?: { dimensions?: { css?: { cell?: { width: number; height: number } } } } } })._core;
+        const cell = core?._renderService?.dimensions?.css?.cell;
+        if (!cell || cell.width <= 0 || cell.height <= 0) return;
+
+        const rect = screenEl.getBoundingClientRect();
+        const targetCol = Math.max(0, Math.min(term.cols - 1, Math.floor((e.clientX - rect.left) / cell.width)));
+        const targetRow = Math.max(0, Math.min(term.rows - 1, Math.floor((e.clientY - rect.top) / cell.height)));
+        const buf = term.buffer.active;
+        const curCol = buf.cursorX;
+        const curRow = buf.cursorY;
+
+        let sameWrappedBlock = targetRow === curRow;
+        if (!sameWrappedBlock) {
+          const minR = Math.min(curRow, targetRow);
+          const maxR = Math.max(curRow, targetRow);
+          sameWrappedBlock = true;
+          for (let r = minR + 1; r <= maxR; r++) {
+            if (!buf.getLine(buf.viewportY + r)?.isWrapped) {
+              sameWrappedBlock = false;
+              break;
+            }
+          }
+        }
+        let seq = "";
+        if (sameWrappedBlock) {
+          const delta = (targetRow - curRow) * term.cols + (targetCol - curCol);
+          if (delta === 0) return;
+          const arrow = delta > 0 ? "\x1b[C" : "\x1b[D";
+          const count = Math.min(Math.abs(delta), term.cols * 4);
+          seq = arrow.repeat(count);
+        } else {
+          const rowDelta = targetRow - curRow;
+          if (Math.abs(rowDelta) > 10) return;
+          const colDelta = targetCol - curCol;
+          if (rowDelta === 0 && colDelta === 0) return;
+          const vArrow = rowDelta > 0 ? "\x1b[B" : "\x1b[A";
+          const hArrow = colDelta > 0 ? "\x1b[C" : "\x1b[D";
+          seq =
+            vArrow.repeat(Math.abs(rowDelta)) +
+            hArrow.repeat(Math.min(Math.abs(colDelta), term.cols));
+        }
+        if (seq) invoke("write_pty", { sessionId: id, data: seq }).catch(() => {});
+      });
+
+      document.fonts?.ready?.then(() => {
+        if (!entry || entry.disposed) return;
+        const core = (entry.term as unknown as { _core?: { _charSizeService?: { measure?: () => void } } })._core;
+        core?._charSizeService?.measure?.();
+        entry.term.clearTextureAtlas();
+        this.fit(id);
+      });
     } else if (entry.term.element && entry.term.element.parentElement !== container) {
       container.appendChild(entry.term.element);
     }
     this.fit(id);
+    window.setTimeout(() => {
+      if (!entry?.disposed) this.fit(id);
+    }, 80);
   }
 
   private create(id: string, initCmd?: string): Entry {

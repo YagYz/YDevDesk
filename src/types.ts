@@ -116,6 +116,7 @@ export type AgentMarkdownFile = {
 export type MarkdownParams = {
   path: string;
   agent?: string;
+  content?: string;
 };
 
 export type ConnectionType = "ydevhub" | "ynetmon" | "projects-root";
