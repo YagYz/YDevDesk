@@ -84,9 +84,10 @@ function Watermark({ containerApi }: IWatermarkPanelProps) {
 }
 
 export default function Workspace() {
-  const { markSectionDirty, syncStatus } = useData();
+  const { markSectionDirty, syncStatus, settings } = useData();
   const apiRef = useRef<DockviewApi | null>(null);
   const lastTerminalRef = useRef<string | null>(null);
+  const knownMarkdownsRef = useRef<Set<string> | null>(null);
   const saveTimer = useRef<number | undefined>(undefined);
   const restoringRef = useRef(false);
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
@@ -148,7 +149,7 @@ export default function Workspace() {
       id,
       component: MARKDOWN_COMPONENT,
       title: opts.title ?? fileName,
-      params: { path: opts.path, agent: opts.agent },
+      params: { path: opts.path, agent: opts.agent, content: opts.content },
       position: resolveCenterPosition(api, opts.groupId),
     });
     api.getPanel(id)?.api.setActive();
@@ -358,6 +359,45 @@ export default function Workspace() {
       setShowSyncSetup(true);
     }
   }, [syncStatus]);
+
+  const projectRoots = useMemo(
+    () =>
+      settings.connections
+        .filter((c) => c.type === "projects-root" && c.path)
+        .map((c) => c.path as string),
+    [settings.connections],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const files = await api.listAgentMarkdowns(projectRoots);
+        if (cancelled) return;
+        const known = knownMarkdownsRef.current;
+        if (!known) {
+          knownMarkdownsRef.current = new Set(files.map((f) => f.path));
+          return;
+        }
+        const dock = apiRef.current;
+        for (const f of files) {
+          if (known.has(f.path)) continue;
+          known.add(f.path);
+          if (f.modified_ago_secs <= 15 && dock && hasTerminal(dock)) {
+            openMarkdown({ path: f.path, title: f.name, agent: f.agent });
+          }
+        }
+      } catch {
+        // Sessizce atla
+      }
+    };
+    poll();
+    const timer = window.setInterval(poll, 3500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [projectRoots, openMarkdown]);
 
   const actions = useMemo<WorkspaceActions>(
     () => ({

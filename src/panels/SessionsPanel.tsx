@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Check, Copy, FileText, Folder, Pencil, Pin, Play, RefreshCw, Search, Users, Zap } from "lucide-react";
+import { Bot, Check, Copy, FileText, Folder, FolderOpen, Pencil, Pin, Play, RefreshCw, Search, Users, Zap } from "lucide-react";
 import { useData } from "../context/DataContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { formatAgo } from "../lib/format";
@@ -21,6 +21,10 @@ const AGENT_META: Record<string, { label: string; badgeClass: string }> = {
   codex: {
     label: "Codex",
     badgeClass: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+  },
+  project: {
+    label: "Proje",
+    badgeClass: "bg-sky-500/15 text-sky-300 border-sky-500/30",
   },
 };
 
@@ -63,8 +67,16 @@ function sessionKey(session: ActiveAgentSession): string {
 }
 
 export default function SessionsPanel() {
-  const { agent, remoteSnapshots, syncStatus, syncedSessionPrefsVersion, markSectionDirty } = useData();
+  const { agent, settings, remoteSnapshots, syncStatus, syncedSessionPrefsVersion, markSectionDirty } = useData();
   const { openTerminal, openMarkdown } = useWorkspace();
+  const projectRoots = useMemo(
+    () =>
+      settings.connections
+        .filter((c) => c.type === "projects-root" && c.path)
+        .map((c) => c.path as string),
+    [settings.connections],
+  );
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [filter, setFilter] = useState<AgentFilter>("all");
   const [query, setQuery] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -76,8 +88,8 @@ export default function SessionsPanel() {
   const [markdowns, setMarkdowns] = useState<AgentMarkdownFile[]>([]);
 
   const loadMarkdowns = useCallback(() => {
-    api.listAgentMarkdowns().then(setMarkdowns).catch(() => {});
-  }, []);
+    api.listAgentMarkdowns(projectRoots).then(setMarkdowns).catch(() => {});
+  }, [projectRoots]);
 
   useEffect(() => {
     loadMarkdowns();
@@ -283,6 +295,28 @@ export default function SessionsPanel() {
           <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-[var(--txt-dim)] mb-1.5">
             <span>Ajan Markdown Dosyaları</span>
             <div className="flex items-center gap-1.5">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".md,.markdown,text/markdown"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (!file) return;
+                  const text = await file.text();
+                  openMarkdown({ path: `external:${file.name}`, title: file.name, content: text });
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                title="Bilgisayardan .md dosyası aç"
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-[var(--border)] bg-[var(--surface-raised)] text-[10px] normal-case text-[var(--txt-muted)] hover:text-[var(--accent)] hover:border-[var(--accent)]/40 cursor-pointer"
+              >
+                <FolderOpen className="w-3 h-3" />
+                <span>Dosya Aç</span>
+              </button>
               <span className="font-mono">{filteredDocs.length}</span>
               <button
                 type="button"

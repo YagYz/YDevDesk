@@ -96,12 +96,30 @@ body,
 /* Terminal iç boşluğu: FitAddon .xterm padding'ini hesaba kattığı için boşluk burada verilir
    (kapsayıcıya padding verilirse satır sonu sağda kırpılır). */
 .xterm {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
   padding: 8px 6px 8px 10px;
+  overflow: hidden;
+  letter-spacing: 0;
+  font-kerning: none;
+  font-variant-ligatures: none;
 }
 .xterm .xterm-screen,
 .xterm .xterm-rows,
 .xterm .xterm-rows > div {
   overflow: visible !important;
+}
+.xterm .xterm-viewport::-webkit-scrollbar-thumb {
+  background: transparent;
+  transition: background 0.2s ease;
+}
+.xterm.is-scrolling .xterm-viewport::-webkit-scrollbar-thumb,
+.xterm .xterm-viewport:hover::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+}
+.xterm .xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.6);
 }
 
 [draggable="true"] {
