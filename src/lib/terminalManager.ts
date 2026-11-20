@@ -126,37 +126,18 @@ class TerminalManager {
           }
         }
         const targetLineStr = buf.getLine(buf.viewportY + targetRow)?.translateToString(true) ?? "";
-        // Boş satıra veya metin dışındaki boş alana tıklayınca ok tuşu (geçmiş çağrısı) gönderme.
         if (targetLineStr.trim().length === 0) return;
 
-        let seq = "";
-        if (sameWrappedBlock) {
-          const clampedCol = Math.min(targetCol, targetLineStr.length);
-          const delta = (targetRow - curRow) * term.cols + (clampedCol - curCol);
-          if (delta === 0) return;
-          const arrow = delta > 0 ? "\x1b[C" : "\x1b[D";
-          const count = Math.min(Math.abs(delta), term.cols * 4);
-          seq = arrow.repeat(count);
-        } else if (targetRow === curRow) {
-          const clampedCol = Math.min(targetCol, targetLineStr.length);
-          const colDelta = clampedCol - curCol;
-          if (colDelta === 0) return;
-          const hArrow = colDelta > 0 ? "\x1b[C" : "\x1b[D";
-          seq = hArrow.repeat(Math.min(Math.abs(colDelta), term.cols));
-        } else {
-          // Çok satırlı TUI girişi (ör. AGY/Claude): yalnızca her iki satır doluysa ve metin içine tıklandıysa dikey hareket et.
-          const curLineStr = buf.getLine(buf.viewportY + curRow)?.translateToString(true) ?? "";
-          if (curLineStr.trim().length === 0 || targetCol > targetLineStr.length) return;
-          const rowDelta = targetRow - curRow;
-          if (Math.abs(rowDelta) > 8) return;
-          const colDelta = targetCol - curCol;
-          const vArrow = rowDelta > 0 ? "\x1b[B" : "\x1b[A";
-          const hArrow = colDelta > 0 ? "\x1b[C" : "\x1b[D";
-          seq =
-            vArrow.repeat(Math.abs(rowDelta)) +
-            hArrow.repeat(Math.min(Math.abs(colDelta), term.cols));
-        }
-        if (seq) invoke("write_pty", { sessionId: id, data: seq }).catch(() => {});
+        // Yalnızca aynı satırda veya gerçekten sarılı (isWrapped) komut bloğunda yatay ok (\x1b[C / \x1b[D) gönder.
+        // Dikey ok (\x1b[A / \x1b[B) asla gönderilmez; böylece boş/eski satıra tıklayınca kabuk geçmişi tetiklenmez.
+        if (!sameWrappedBlock) return;
+
+        const clampedCol = Math.min(targetCol, targetLineStr.length);
+        const delta = (targetRow - curRow) * term.cols + (clampedCol - curCol);
+        if (delta === 0) return;
+        const arrow = delta > 0 ? "\x1b[C" : "\x1b[D";
+        const count = Math.min(Math.abs(delta), term.cols * 4);
+        invoke("write_pty", { sessionId: id, data: arrow.repeat(count) }).catch(() => {});
       });
 
       document.fonts?.ready?.then(() => {
