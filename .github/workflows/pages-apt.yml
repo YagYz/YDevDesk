@@ -33,7 +33,11 @@ jobs:
         run: |
           mkdir -p public/apt
           cp docs/site/*.html public/
+          cp docs/site/*.css public/
           cp docs/screenshots/workspace.png public/workspace.png
+          cp docs/screenshots/workspace-v12.png public/workspace-v12.png
+          cp docs/screenshots/settings-themes.png public/settings-themes.png
+          cp docs/screenshots/markdown-plugins.png public/markdown-plugins.png
           cp docs/screenshots/analytics.png public/analytics.png
           cp docs/screenshots/omnibar.png public/omnibar.png
           cp docs/screenshots/social-preview.png public/social-preview.png
