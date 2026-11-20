@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
-import { Bot, Command, Layers, LayoutGrid, Plus, RotateCcw, Settings, SquareTerminal, Trash2 } from "lucide-react";
+import { Bot, Layers, LayoutGrid, Plug, Plus, RotateCcw, Search, Settings, SquareTerminal, Trash2 } from "lucide-react";
 import { api } from "../lib/tauri";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { MODULES } from "../panels/registry";
-import { useData } from "../context/DataContext";
-import { CONNECTION_TYPES, hasConnection } from "../lib/settings";
+import { useSettings } from "../context/SettingsContext";
+import { hasConnection } from "../lib/settings";
 import { Menu, MenuItem } from "./Menu";
 
 const btn = "flex items-center gap-1.5 px-2.5 h-7 rounded-lg text-[11px] text-[var(--txt-muted)] hover:text-[var(--txt-main)] hover:bg-[var(--surface-raised)] transition-colors";
 
 export function TitleBar({ onSettings }: { onSettings: () => void }) {
   const ws = useWorkspace();
-  const { settings } = useData();
+  const { settings, plugins } = useSettings();
   const [version, setVersion] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
   useEffect(() => { api.appVersion().then(setVersion).catch(() => {}); }, []);
@@ -72,20 +72,32 @@ export function TitleBar({ onSettings }: { onSettings: () => void }) {
       >
         {() => (
           <>
-            {MODULES.filter((m) => !settings.disabled_modules.includes(m.id)).map((m) => {
-              const ok = hasConnection(settings, m.requires);
-              return (
-                <MenuItem
-                  key={m.id}
-                  icon={<m.icon className="w-3.5 h-3.5" />}
-                  title={m.title}
-                  description={ok ? m.description : `Bağlantı gerekli: ${CONNECTION_TYPES[m.requires!].label}`}
-                  checked={ws.isModuleOpen(m.id)}
-                  disabled={!ok}
-                  onClick={() => ws.toggleModule(m.id)}
-                />
-              );
-            })}
+            {MODULES.filter((m) => !settings.disabled_modules.includes(m.id) && hasConnection(settings, m.requires)).map((m) => (
+              <MenuItem
+                key={m.id}
+                icon={<m.icon className="w-3.5 h-3.5" />}
+                title={m.title}
+                description={m.description}
+                checked={ws.isModuleOpen(m.id)}
+                onClick={() => ws.toggleModule(m.id)}
+              />
+            ))}
+            {plugins.length > 0 && (
+              <>
+                <div className="my-1 border-t border-[var(--border)]" />
+                <div className="px-2.5 py-1 text-[10px] uppercase tracking-wider text-[var(--txt-dim)]">Eklentiler</div>
+                {plugins.map((p) => (
+                  <MenuItem
+                    key={p.id}
+                    icon={<Plug className="w-3.5 h-3.5" />}
+                    title={p.name}
+                    description={p.description || `v${p.version}`}
+                    checked={ws.isModuleOpen(`plugin-${p.id}`)}
+                    onClick={() => ws.openPlugin(p)}
+                  />
+                ))}
+              </>
+            )}
             <div className="my-1 border-t border-[var(--border)]" />
             <MenuItem icon={<RotateCcw className="w-3.5 h-3.5" />} title="Düzeni sıfırla" description="Varsayılan yerleşime dön" onClick={ws.resetLayout} />
           </>
@@ -172,12 +184,32 @@ export function TitleBar({ onSettings }: { onSettings: () => void }) {
         <Bot className="w-3.5 h-3.5 text-[var(--accent)]" /> Ajanlar
       </button>
 
-      <div data-tauri-drag-region className="flex-1 h-full" />
+      <div data-tauri-drag-region className="flex-1 min-w-3 h-full" />
 
-      <button onClick={ws.openOmniBar} className={btn} title="Komut paleti">
-        <Command className="w-3.5 h-3.5" /> Ctrl+K
+      <button
+        type="button"
+        onClick={ws.openOmniBar}
+        title="Komut paleti (Ctrl+K)"
+        className="flex items-center gap-2 px-3 h-7 w-full max-w-[340px] min-w-[160px] rounded-lg border border-[var(--border)] bg-[var(--bg)]/80 hover:border-[var(--accent)]/50 text-[11px] text-[var(--txt-dim)] hover:text-[var(--txt-main)] transition-colors cursor-pointer"
+      >
+        <Search className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />
+        <span className="truncate">Komut çalıştır veya ara…</span>
+        <kbd className="ml-auto px-1.5 py-0.5 rounded bg-[var(--surface-raised)] border border-[var(--border)] text-[10px] font-mono text-[var(--txt-muted)] shrink-0">
+          Ctrl+K
+        </kbd>
       </button>
-      <button onClick={onSettings} className={btn} title="Ayarlar">
+
+      <div data-tauri-drag-region className="flex-1 min-w-3 h-full" />
+
+      <button
+        type="button"
+        onClick={() => ws.openTerminal({ title: "Terminal", kind: "shell" })}
+        className={btn}
+        title="Yeni Terminal"
+      >
+        <Plus className="w-3.5 h-3.5" />
+      </button>
+      <button type="button" onClick={onSettings} className={btn} title="Ayarlar">
         <Settings className="w-3.5 h-3.5" />
       </button>
     </header>

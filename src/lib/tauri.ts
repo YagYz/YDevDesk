@@ -7,10 +7,12 @@ import type {
   DeviceFlowPollResult,
   DeviceFlowStart,
   HomelabConfig,
+  InstalledPlugin,
   SessionPrefs,
   SyncPullResult,
   SyncPushResult,
   SyncStatusInfo,
+  ThemeManifest,
   UpdateCheckResult,
   UsageAnalytics,
 } from "../types";
@@ -71,4 +73,15 @@ export const api = {
   syncDisconnect: () => invoke<void>("github_sync_disconnect"),
   syncPull: () => invoke<SyncPullResult>("github_sync_pull"),
   syncPush: (payloadJson: string) => invoke<SyncPushResult>("github_sync_push", { payloadJson }),
+  deleteAgentSession: (agent: string, sessionId: string) =>
+    invoke<string>("delete_agent_session", { agent, sessionId }),
+  listInstalledPlugins: () => invoke<InstalledPlugin[]>("list_installed_plugins"),
+  readPluginEntry: (pluginId: string) => invoke<string>("read_plugin_entry", { pluginId }),
+  removePlugin: (pluginId: string) => invoke<void>("remove_plugin", { pluginId }),
+  createSamplePlugin: () => invoke<InstalledPlugin>("create_sample_plugin"),
+  openPluginsDir: () => invoke<string>("open_plugins_dir"),
+  listThemes: () => invoke<ThemeManifest[]>("list_themes"),
+  removeTheme: (themeId: string) => invoke<void>("remove_theme", { themeId }),
+  createSampleTheme: () => invoke<ThemeManifest>("create_sample_theme"),
+  openThemesDir: () => invoke<string>("open_themes_dir"),
 };

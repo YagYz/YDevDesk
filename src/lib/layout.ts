@@ -1,5 +1,7 @@
 import type { DockviewApi } from "dockview-react";
 import { MODULE_MAP, TERMINAL_COMPONENT } from "../panels/registry";
+import { hasConnection } from "./settings";
+import type { AppSettings } from "../types";
 
 export const LAYOUT_KEY = "ydevdesk_layout_v2";
 export const MAIN_TERMINAL_ID = "term-main";
@@ -39,7 +41,7 @@ function addModule(api: DockviewApi, id: string, position?: Parameters<DockviewA
 }
 
 /** Varsayılan yerleşim: ortada terminal, solda oturum/eylemler, sağda telemetri ve veri modülleri. */
-export function buildDefaultLayout(api: DockviewApi) {
+export function buildDefaultLayout(api: DockviewApi, settings?: AppSettings) {
   api.addPanel({
     id: MAIN_TERMINAL_ID,
     component: TERMINAL_COMPONENT,
@@ -50,8 +52,10 @@ export function buildDefaultLayout(api: DockviewApi) {
 
   addModule(api, "agent_usage", { referencePanel: MAIN_TERMINAL_ID, direction: "right" });
   addModule(api, "recent_tools", { referencePanel: "agent_usage", direction: "below" });
-  addModule(api, "notes", { referencePanel: "recent_tools", direction: "within" });
-  addModule(api, "knowledge", { referencePanel: "recent_tools", direction: "within" });
+  if (settings && hasConnection(settings, "ydevhub")) {
+    addModule(api, "notes", { referencePanel: "recent_tools", direction: "within" });
+    addModule(api, "knowledge", { referencePanel: "recent_tools", direction: "within" });
+  }
   addModule(api, "file_heat", { referencePanel: "recent_tools", direction: "within" });
   api.getPanel("recent_tools")?.api.setActive();
 

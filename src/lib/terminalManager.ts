@@ -47,6 +47,16 @@ type Entry = {
  */
 class TerminalManager {
   private entries = new Map<string, Entry>();
+  private currentTheme: Record<string, string> = { ...THEME };
+
+  applyTheme(overrides?: Record<string, string>): void {
+    this.currentTheme = { ...THEME, ...(overrides ?? {}) };
+    for (const entry of this.entries.values()) {
+      if (!entry.disposed) {
+        entry.term.options.theme = this.currentTheme;
+      }
+    }
+  }
 
   has(id: string): boolean {
     return this.entries.has(id);
@@ -115,18 +125,31 @@ class TerminalManager {
             }
           }
         }
+        const targetLineStr = buf.getLine(buf.viewportY + targetRow)?.translateToString(true) ?? "";
+        // Boş satıra veya metin dışındaki boş alana tıklayınca ok tuşu (geçmiş çağrısı) gönderme.
+        if (targetLineStr.trim().length === 0) return;
+
         let seq = "";
         if (sameWrappedBlock) {
-          const delta = (targetRow - curRow) * term.cols + (targetCol - curCol);
+          const clampedCol = Math.min(targetCol, targetLineStr.length);
+          const delta = (targetRow - curRow) * term.cols + (clampedCol - curCol);
           if (delta === 0) return;
           const arrow = delta > 0 ? "\x1b[C" : "\x1b[D";
           const count = Math.min(Math.abs(delta), term.cols * 4);
           seq = arrow.repeat(count);
+        } else if (targetRow === curRow) {
+          const clampedCol = Math.min(targetCol, targetLineStr.length);
+          const colDelta = clampedCol - curCol;
+          if (colDelta === 0) return;
+          const hArrow = colDelta > 0 ? "\x1b[C" : "\x1b[D";
+          seq = hArrow.repeat(Math.min(Math.abs(colDelta), term.cols));
         } else {
+          // Çok satırlı TUI girişi (ör. AGY/Claude): yalnızca her iki satır doluysa ve metin içine tıklandıysa dikey hareket et.
+          const curLineStr = buf.getLine(buf.viewportY + curRow)?.translateToString(true) ?? "";
+          if (curLineStr.trim().length === 0 || targetCol > targetLineStr.length) return;
           const rowDelta = targetRow - curRow;
-          if (Math.abs(rowDelta) > 10) return;
+          if (Math.abs(rowDelta) > 8) return;
           const colDelta = targetCol - curCol;
-          if (rowDelta === 0 && colDelta === 0) return;
           const vArrow = rowDelta > 0 ? "\x1b[B" : "\x1b[A";
           const hArrow = colDelta > 0 ? "\x1b[C" : "\x1b[D";
           seq =
@@ -159,8 +182,8 @@ class TerminalManager {
       fontSize: 13,
       lineHeight: 1.25,
       allowProposedApi: true,
-      scrollback: 5000,
-      theme: THEME,
+      scrollback: 2000,
+      theme: this.currentTheme,
     });
     const fit = new FitAddon();
     term.loadAddon(fit);

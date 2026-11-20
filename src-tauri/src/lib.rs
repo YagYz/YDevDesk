@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
 
+mod agents;
 mod agents_installer;
 mod agents_sessions;
 mod agents_usage;
@@ -10,8 +11,10 @@ mod env_helpers;
 mod git;
 mod homelab;
 mod platform;
+mod plugins;
 mod pty;
 mod sync;
+mod themes;
 mod updater;
 mod window_notify;
 
@@ -53,8 +56,8 @@ pub fn run() {
             config::load_homelab_config,
             config::save_homelab_config,
             agents_sessions::get_agent_status,
-            agents_sessions::list_agent_markdowns,
-            agents_sessions::read_markdown_file,
+            agents::markdown::list_agent_markdowns,
+            agents::markdown::read_markdown_file,
             agents_usage::get_usage_analytics,
             agents_usage::enable_agy_quota_hook,
             homelab::fetch_homelab_notes,
@@ -86,7 +89,17 @@ pub fn run() {
             sync::github_set_sync_key,
             sync::github_sync_disconnect,
             sync::github_sync_pull,
-            sync::github_sync_push
+            sync::github_sync_push,
+            agents::sessions_delete::delete_agent_session,
+            plugins::list_installed_plugins,
+            plugins::read_plugin_entry,
+            plugins::remove_plugin,
+            plugins::create_sample_plugin,
+            plugins::open_plugins_dir,
+            themes::list_themes,
+            themes::remove_theme,
+            themes::create_sample_theme,
+            themes::open_themes_dir
         ])
         .run(context)
         .expect("error while running tauri application");
