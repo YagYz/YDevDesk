@@ -1,32 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Check, Copy, FileText, Folder, FolderOpen, Pencil, Pin, Play, RefreshCw, Search, Users, Zap } from "lucide-react";
+import { Bot, Check, Copy, FileText, Folder, Pencil, Pin, Play, Search, Trash2, Users, Zap } from "lucide-react";
 import { useData } from "../context/DataContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { formatAgo } from "../lib/format";
 import { api } from "../lib/tauri";
 import { Dot, Empty, PanelBody } from "../components/ui";
+import { AGENT_META } from "./sessions/meta";
+import { DocsSection } from "./sessions/DocsSection";
+import { RemoteSessionsSection } from "./sessions/RemoteSessionsSection";
 import type { ActiveAgentSession, AgentMarkdownFile, SessionPrefs } from "../types";
 
 type AgentFilter = "all" | "agy" | "claude" | "codex" | "docs";
-
-const AGENT_META: Record<string, { label: string; badgeClass: string }> = {
-  agy: {
-    label: "AGY",
-    badgeClass: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30",
-  },
-  claude: {
-    label: "Claude",
-    badgeClass: "bg-amber-500/15 text-amber-300 border-amber-500/30",
-  },
-  codex: {
-    label: "Codex",
-    badgeClass: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-  },
-  project: {
-    label: "Proje",
-    badgeClass: "bg-sky-500/15 text-sky-300 border-sky-500/30",
-  },
-};
 
 const isWindows = typeof navigator !== "undefined" && navigator.userAgent.includes("Windows");
 
@@ -67,16 +51,8 @@ function sessionKey(session: ActiveAgentSession): string {
 }
 
 export default function SessionsPanel() {
-  const { agent, settings, remoteSnapshots, syncStatus, syncedSessionPrefsVersion, markSectionDirty } = useData();
+  const { agent, markdowns, refreshMarkdowns, remoteSnapshots, syncStatus, syncedSessionPrefsVersion, markSectionDirty } = useData();
   const { openTerminal, openMarkdown } = useWorkspace();
-  const projectRoots = useMemo(
-    () =>
-      settings.connections
-        .filter((c) => c.type === "projects-root" && c.path)
-        .map((c) => c.path as string),
-    [settings.connections],
-  );
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [filter, setFilter] = useState<AgentFilter>("all");
   const [query, setQuery] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -85,17 +61,20 @@ export default function SessionsPanel() {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
   const cancelEditRef = useRef(false);
-  const [markdowns, setMarkdowns] = useState<AgentMarkdownFile[]>([]);
-
-  const loadMarkdowns = useCallback(() => {
-    api.listAgentMarkdowns(projectRoots).then(setMarkdowns).catch(() => {});
-  }, [projectRoots]);
+  const [confirmDeleteKey, setConfirmDeleteKey] = useState<string | null>(null);
+  const [deletingKey, setDeletingKey] = useState<string | null>(null);
+  const [deletedKeys, setDeletedKeys] = useState<Set<string>>(() => new Set());
+  const confirmTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    loadMarkdowns();
-    const timer = window.setInterval(loadMarkdowns, 15000);
-    return () => window.clearInterval(timer);
-  }, [loadMarkdowns]);
+    return () => {
+      if (confirmTimerRef.current) window.clearTimeout(confirmTimerRef.current);
+    };
+  }, []);
+
+  const loadMarkdowns = useCallback(() => {
+    void refreshMarkdowns();
+  }, [refreshMarkdowns]);
 
   const mdBySession = useMemo(() => {
     const map = new Map<string, AgentMarkdownFile[]>();
@@ -175,19 +154,63 @@ export default function SessionsPanel() {
     });
   };
 
+  const requestDelete = (e: React.MouseEvent, key: string) => {
+    e.stopPropagation();
+    if (confirmTimerRef.current) window.clearTimeout(confirmTimerRef.current);
+    setConfirmDeleteKey(key);
+    confirmTimerRef.current = window.setTimeout(() => {
+      setConfirmDeleteKey((prev) => (prev === key ? null : prev));
+    }, 3500);
+  };
+
+  const confirmDelete = async (e: React.MouseEvent, session: ActiveAgentSession, key: string) => {
+    e.stopPropagation();
+    if (deletingKey === key) return;
+    if (confirmTimerRef.current) window.clearTimeout(confirmTimerRef.current);
+    setDeletingKey(key);
+    try {
+      await api.deleteAgentSession(session.agent, session.full_session_id || session.session_id);
+      setDeletedKeys((prev) => {
+        const next = new Set(prev);
+        next.add(key);
+        return next;
+      });
+      setConfirmDeleteKey(null);
+      updatePrefs((prev) => {
+        const pinned = { ...prev.pinned };
+        const aliases = { ...prev.aliases };
+        delete pinned[key];
+        delete aliases[key];
+        return { ...prev, pinned, aliases };
+      });
+      setRemoteNotice("");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setRemoteNotice(msg || "Oturum silinemedi.");
+      setConfirmDeleteKey(null);
+    } finally {
+      setDeletingKey((prev) => (prev === key ? null : prev));
+    }
+  };
+
+  const visibleSessions = useMemo(
+    () => (deletedKeys.size === 0 ? agent.sessions : agent.sessions.filter((s) => !deletedKeys.has(sessionKey(s)))),
+    [agent.sessions, deletedKeys],
+  );
+
   const counts = useMemo(() => {
-    const c = { all: agent.sessions.length, agy: 0, claude: 0, codex: 0 };
-    for (const s of agent.sessions) {
+    const c = { all: visibleSessions.length, agy: 0, claude: 0, codex: 0 };
+    for (const s of visibleSessions) {
       if (s.agent === "agy") c.agy++;
       else if (s.agent === "claude") c.claude++;
       else if (s.agent === "codex") c.codex++;
     }
     return c;
-  }, [agent.sessions]);
+  }, [visibleSessions]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = agent.sessions.filter((s) => {
+    const list = visibleSessions.filter((s) => {
       if (filter !== "all" && s.agent !== filter) return false;
       if (!q) return true;
       const alias = prefs.aliases[sessionKey(s)] ?? "";
@@ -205,7 +228,7 @@ export default function SessionsPanel() {
       return bp - ap;
     });
     return list;
-  }, [agent.sessions, filter, query, prefs]);
+  }, [visibleSessions, filter, query, prefs]);
 
   const remoteSessions = useMemo(() => {
     const localIds = new Set(agent.sessions.map((s) => `${s.agent}:${s.session_id}`));
@@ -291,85 +314,7 @@ export default function SessionsPanel() {
       </div>
 
       {filter === "docs" ? (
-        <section>
-          <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-[var(--txt-dim)] mb-1.5">
-            <span>Ajan Markdown Dosyaları</span>
-            <div className="flex items-center gap-1.5">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".md,.markdown,text/markdown"
-                className="hidden"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  e.target.value = "";
-                  if (!file) return;
-                  const text = await file.text();
-                  openMarkdown({ path: `external:${file.name}`, title: file.name, content: text });
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                title="Bilgisayardan .md dosyası aç"
-                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-[var(--border)] bg-[var(--surface-raised)] text-[10px] normal-case text-[var(--txt-muted)] hover:text-[var(--accent)] hover:border-[var(--accent)]/40 cursor-pointer"
-              >
-                <FolderOpen className="w-3 h-3" />
-                <span>Dosya Aç</span>
-              </button>
-              <span className="font-mono">{filteredDocs.length}</span>
-              <button
-                type="button"
-                onClick={loadMarkdowns}
-                title="Listeyi yenile"
-                className="p-0.5 rounded hover:text-[var(--accent)] cursor-pointer"
-              >
-                <RefreshCw className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
-
-          {filteredDocs.length === 0 ? (
-            <Empty
-              icon={<FileText className="w-5 h-5" />}
-              title="Markdown dosyası bulunamadı"
-              hint="AGY, Claude veya Codex tarafından üretilen .md dosyaları burada listelenir."
-            />
-          ) : (
-            <ul className="space-y-1.5">
-              {filteredDocs.map((m) => {
-                const meta = AGENT_META[m.agent] ?? {
-                  label: m.agent.toUpperCase(),
-                  badgeClass: "bg-zinc-500/15 text-zinc-300 border-zinc-500/30",
-                };
-                return (
-                  <li key={m.path}>
-                    <button
-                      type="button"
-                      onClick={() => openMarkdown({ path: m.path, title: m.name, agent: m.agent })}
-                      title={`Yeni sekmede aç: ${m.path}`}
-                      className="w-full text-left rounded-md px-2.5 py-2 bg-[var(--surface-raised)] border border-[var(--border)] hover:border-[var(--accent)]/50 transition-colors cursor-pointer"
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <FileText className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border ${meta.badgeClass}`}>
-                          {meta.label}
-                        </span>
-                        {m.session_id && (
-                          <span className="font-mono text-[10px] text-[var(--txt-dim)]">{m.session_id}</span>
-                        )}
-                        <span className="ml-auto text-[10px] text-[var(--txt-dim)] font-mono shrink-0">
-                          {formatAgo(m.modified_ago_secs)}
-                        </span>
-                      </div>
-                      <div className="mt-1 text-xs text-[var(--txt-main)] font-medium truncate">{m.name}</div>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
+        <DocsSection docs={filteredDocs} onRefresh={loadMarkdowns} onOpenMarkdown={openMarkdown} />
       ) : (
       <section>
         <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-[var(--txt-dim)] mb-1.5">
@@ -549,6 +494,26 @@ export default function SessionsPanel() {
                         >
                           <Zap className="w-3 h-3" />
                         </button>
+                        {confirmDeleteKey === key ? (
+                          <button
+                            type="button"
+                            disabled={deletingKey === key}
+                            onClick={(e) => void confirmDelete(e, s, key)}
+                            title="Silmeyi onayla"
+                            className="px-1.5 py-0.5 rounded bg-red-500/20 border border-red-500/40 text-red-300 hover:bg-red-500/30 text-[10px] font-semibold cursor-pointer disabled:opacity-50"
+                          >
+                            {deletingKey === key ? "..." : "Sil?"}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => requestDelete(e, key)}
+                            title="Oturumu sil"
+                            className="p-1 rounded hover:bg-red-500/15 text-[var(--txt-dim)] hover:text-red-400 cursor-pointer"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
                         <span
                           title="Oturumu başlat"
                           className="p-1 rounded text-[var(--accent)]"
@@ -572,63 +537,7 @@ export default function SessionsPanel() {
       </section>
       )}
 
-      {remoteSessions.length > 0 && (
-        <section>
-          <div className="text-[10px] uppercase tracking-wider text-[var(--txt-dim)] mb-1.5">
-            Diğer Cihazlardaki Oturumlar
-          </div>
-          <ul className="space-y-1.5">
-            {remoteSessions.map((rs) => {
-              const meta = AGENT_META[rs.agent] ?? {
-                label: rs.agent.toUpperCase(),
-                badgeClass: "bg-zinc-500/15 text-zinc-300 border-zinc-500/30",
-              };
-              const key = `${rs.agent}:${rs.session_id}`;
-              const displayTitle = prefs.aliases[key] || rs.title || `${meta.label} Oturumu`;
-              const agoSecs = Math.max(0, Math.floor((Date.now() - rs.updated_at) / 1000));
-              return (
-                <li key={`${rs.device_id}:${key}`}>
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() =>
-                      setRemoteNotice(
-                        `Bu oturum yalnızca '${rs.device_name}' cihazında yerel olarak başlatılabilir.`,
-                      )
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setRemoteNotice(
-                          `Bu oturum yalnızca '${rs.device_name}' cihazında yerel olarak başlatılabilir.`,
-                        );
-                      }
-                    }}
-                    className="rounded-md px-2.5 py-2 bg-[var(--surface-raised)]/60 border border-[var(--border)] opacity-85 hover:opacity-100 transition-opacity cursor-not-allowed"
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border ${meta.badgeClass}`}>
-                        {meta.label}
-                      </span>
-                      <span className="font-mono text-[10px] text-[var(--txt-dim)]">{rs.masked_id}</span>
-                      <span className="px-1.5 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] text-[9px] text-[var(--txt-muted)]">
-                        {rs.device_name}
-                      </span>
-                      <span className="ml-auto text-[10px] text-[var(--txt-dim)] font-mono shrink-0">
-                        {formatAgo(agoSecs)}
-                      </span>
-                    </div>
-                    <div className="mt-1 text-xs text-[var(--txt-main)] font-medium truncate">{displayTitle}</div>
-                    <div className="mt-1 text-[10px] text-[var(--txt-dim)]">
-                      Başka cihazda ({rs.device_name}) · Bu cihazda başlatılamaz
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
+      <RemoteSessionsSection sessions={remoteSessions} prefs={prefs} onNotice={setRemoteNotice} />
 
       {agent.subagents.length > 0 && (
         <section>

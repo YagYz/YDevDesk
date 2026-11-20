@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dokümantasyon — YDevDesk</title>
+  <meta name="description" content="YDevDesk kurulum, kısayollar, çoklu ajan yönetimi, eklenti (plugin) geliştirme SDK, özel tema oluşturma, çekirdek modül SDK ve veri dizinleri dokümantasyonu." />
+  <link rel="icon" type="image/png" href="logo.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Üst Menü -->
+  <header class="site-header" id="site-header">
+    <div class="container nav-inner">
+      <a class="brand" href="index.html">
+        <img src="logo.png" alt="YDevDesk" class="brand-logo" width="26" height="26" />
+        <span>YDevDesk</span>
+      </a>
+
+      <nav class="nav-links" aria-label="Ana gezinme">
+        <a href="index.html#ozellikler">Özellikler</a>
+        <a href="index.html#ekran-goruntuleri">Ekran Görüntüleri</a>
+        <a href="docs.html" class="active">Dokümantasyon</a>
+        <a href="sync.html">Senkronizasyon</a>
+        <a href="privacy.html">Gizlilik &amp; Çerezler</a>
+      </nav>
+
+      <div class="nav-actions">
+        <a class="btn btn-ghost btn-sm" href="https://github.com/YagYz/YDevDesk" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a class="btn btn-primary btn-sm" href="index.html#indir">İndir</a>
+        <button class="nav-toggle" id="nav-toggle" aria-label="Menüyü aç/kapat" aria-expanded="false">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="docs-shell">
+      <!-- Mobil İçindekiler Butonu -->
+      <div class="docs-mobile-toc">
+        <button class="btn btn-secondary btn-sm" id="toc-toggle" style="width:100%;" aria-expanded="false">
+          İçindekiler Menüsünü Göster / Gizle
+        </button>
+      </div>
+
+      <!-- Yapışkan Sol Menü -->
+      <aside class="docs-sidebar" id="docs-sidebar" aria-label="Dokümantasyon bölümleri">
+        <div class="docs-nav-group">
+          <div class="docs-nav-title">Başlangıç</div>
+          <ul class="docs-nav-list">
+            <li><a href="#kurulum" class="active">Kurulum (Linux / macOS / Windows)</a></li>
+            <li><a href="#ilk-acilis">İlk Açılış &amp; Bağlantılar</a></li>
+          </ul>
+        </div>
+
+        <div class="docs-nav-group">
+          <div class="docs-nav-title">Çalışma Alanı</div>
+          <ul class="docs-nav-list">
+            <li><a href="#kisayollar">Klavye Kısayolları</a></li>
+            <li><a href="#terminal">Terminal &amp; Click-to-Cursor</a></li>
+            <li><a href="#markdown">Markdown Otomatik Açma</a></li>
+          </ul>
+        </div>
+
+        <div class="docs-nav-group">
+          <div class="docs-nav-title">Ajanlar &amp; Oturumlar</div>
+          <ul class="docs-nav-list">
+            <li><a href="#ajanlar">AGY / Claude Code / Codex</a></li>
+            <li><a href="#oturum-silme">Güvenli Oturum Silme</a></li>
+            <li><a href="#kota-maliyet">Kota &amp; Maliyet Takibi</a></li>
+          </ul>
+        </div>
+
+        <div class="docs-nav-group">
+          <div class="docs-nav-title">Eklenti (Plugin) Geliştirme</div>
+          <ul class="docs-nav-list">
+            <li><a href="#plugin-yapi">Klasör Yapısı &amp; plugin.json</a></li>
+            <li><a href="#plugin-ornek">Tam Çalışan index.html Örneği</a></li>
+            <li><a href="#plugin-sdk">İzin Modeli &amp; YDevDesk SDK</a></li>
+          </ul>
+        </div>
+
+        <div class="docs-nav-group">
+          <div class="docs-nav-title">Tema Geliştirme</div>
+          <ul class="docs-nav-list">
+            <li><a href="#tema-yapi">Klasör Yapısı &amp; JSON Şablonu</a></li>
+            <li><a href="#tema-degiskenler">CSS Değişkenleri &amp; Terminal</a></li>
+          </ul>
+        </div>
+
+        <div class="docs-nav-group">
+          <div class="docs-nav-title">Geliştiriciler &amp; Sistem</div>
+          <ul class="docs-nav-list">
+            <li><a href="#cekirdek-modul">Çekirdek Modül SDK</a></li>
+            <li><a href="#veri-yollari">Veri &amp; Önbellek Yolları</a></li>
+          </ul>
+        </div>
+      </aside>
+
+      <!-- Ana Dokümantasyon İçeriği -->
+      <article class="docs-content">
+        <div class="docs-hero">
+          <span class="badge"><span class="badge-dot" aria-hidden="true"></span>YDevDesk Dokümantasyon Portalı</span>
+          <h1>Kullanım, Eklenti ve Tema Rehberi</h1>
+          <p>
+            YDevDesk'i dakikalar içinde kurun, klavye kısayolları ile çalışma alanınızı hızlandırın ve kendi eklentilerinizi,
+            temalarınızı veya çekirdek modüllerinizi geliştirin.
+          </p>
+        </div>
+
+        <!-- 1. BAŞLANGIÇ: KURULUM -->
+        <section class="doc-section" id="kurulum">
+          <h2>Kurulum (Linux / macOS / Windows)</h2>
+          <p>
+            YDevDesk, <strong>Tauri v2</strong> ve <strong>Rust</strong> çekirdeği üzerine kurulu yerel bir masaüstü uygulamasıdır.
+            Harici bir çalışma zamanı (Node.js veya Electron) kurmanıza gerek kalmadan çalışır.
+          </p>
+
+          <h3>Linux (Önerilen Tek Komut)</h3>
+          <p>Arch, CachyOS, Ubuntu, Debian, Fedora ve diğer modern Linux dağıtımlarında en son sürümü otomatik kurar:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span>bash — Tek Komut Kurulum</span>
+              <button class="copy-btn" data-copy>Kopyala</button>
+            </div>
+            <pre><code>curl -fsSL https://raw.githubusercontent.com/YagYz/YDevDesk/main/install.sh | bash</code></pre>
+          </div>
+
+          <h3>Ubuntu / Debian (APT Deposu)</h3>
+          <p>APT deposunu ekleyerek güncellemeleri standart <code>apt upgrade</code> akışıyla alabilirsiniz:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span>bash — APT Kurulumu</span>
+              <button class="copy-btn" data-copy>Kopyala</button>
+            </div>
+            <pre><code>echo 'deb [trusted=yes] https://yagyz.github.io/YDevDesk/apt ./' | sudo tee /etc/apt/sources.list.d/ydevdesk.list
+sudo apt update && sudo apt install -y ydevdesk</code></pre>
+          </div>
+
+          <div class="callout">
+            <div class="callout-title">Linux Wayland &amp; NVIDIA Notu</div>
+            <p>
+              <code>install.sh</code> betiği, Wayland + NVIDIA ekran kartlarında WebKitGTK beyaz ekran sorununu önlemek için
+              <code>WEBKIT_DISABLE_DMABUF_RENDERER=1</code> ortam değişkenini içeren bir sarmalayıcıyı otomatik olarak kurar.
+              AppImage dosyasını elle çalıştırıyorsanız bu değişkeni komutun başına ekleyebilirsiniz.
+            </p>
+          </div>
+
+          <h3>macOS (Apple Silicon &amp; Intel)</h3>
+          <p>
+            <a href="https://github.com/YagYz/YDevDesk/releases/latest" target="_blank" rel="noopener noreferrer">GitHub Releases</a>
+            sayfasından işlemcinize uygun <code>.dmg</code> paketini (<code>aarch64.dmg</code> veya <code>x64.dmg</code>) indirin,
+            uygulamayı <code>/Applications</code> klasörüne sürükleyin ve ilk çalıştırma öncesinde karantina niteliğini kaldırın:
+          </p>
+          <div class="code-block">
+            <div class="code-header">
+              <span>zsh — macOS İlk Çalıştırma İzni</span>
+              <button class="copy-btn" data-copy>Kopyala</button>
+            </div>
+            <pre><code>xattr -cr /Applications/ydevdesk.app</code></pre>
+          </div>
+
+          <h3>Windows (64-bit)</h3>
+          <p>
+            En son sürümden <code>*-setup.exe</code> (NSIS) kurulum dosyasını indirip çalıştırın. Kurulum tamamlandığında
+            Başlat menüsünde <strong>YDevDesk</strong> kısayolu hazır olacaktır.
+          </p>
+        </section>
+
+        <!-- 2. İLK AÇILIŞ & BAĞLANTILAR -->
+        <section class="doc-section" id="ilk-acilis">
+          <h2>İlk Açılış &amp; Bağlantılar</h2>
+          <p>
+            YDevDesk ilk açıldığında bilgisayarınızda kurulu AI kodlama ajanlarını (<code>agy</code>, <code>claude</code>, <code>codex</code>)
+            otomatik olarak algılar. Aşağıdaki adımlarla çalışma ortamınızı kişiselleştirebilirsiniz:
+          </p>
+          <ul>
+            <li><strong>Proje Kök Dizinleri:</strong> <em>Ayarlar &rarr; Bağlantılar</em> bölümünden sık çalıştığınız proje klasörlerini (ör. <code>/mnt/Depo/Projeler</code> veya <code>~/Projects</code>) ekleyin. Git durumu, dosya haritası ve hızlı terminal açma bu dizinleri kullanır.</li>
+            <li><strong>Homelab Servisleri (İsteğe Bağlı):</strong> YDevHub veya YNetMon kullanıyorsanız URL ve API anahtarını ekleyerek notlar, görevler, Bilgi Ağı ve canlı ağ trafiği panellerini etkinleştirebilirsiniz.</li>
+            <li><strong>İsteğe Bağlı Senkronizasyon:</strong> Birden fazla bilgisayarda çalışıyorsanız <em>Ayarlar &rarr; Senkronizasyon</em> sekmesinden <a href="sync.html">şifreli GitHub Secret Gist</a> eşitlemesini açabilirsiniz.</li>
+          </ul>
+        </section>
+
+        <!-- 3. KISAYOLLAR -->
+        <section class="doc-section" id="kisayollar">
+          <h2>Klavye Kısayolları</h2>
+          <p>Dockview çalışma alanı ve hızlı komut paleti tamamen klavye odaklı kullanım için tasarlanmıştır:</p>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Kısayol</th>
+                  <th>İşlev</th>
+                  <th>Açıklama</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><kbd>Ctrl</kbd> + <kbd>K</kbd></td>
+                  <td>Komut Paleti (Omnibar)</td>
+                  <td>Terminale komut gönderin, panel açın, hızlı not alın veya Bilgi Ağına kayıt ekleyin.</td>
+                </tr>
+                <tr>
+                  <td><kbd>Ctrl</kbd> + <kbd>Tab</kbd></td>
+                  <td>Panel / Sekme Geçişi</td>
+                  <td>Açık Dockview sekmeleri ve terminaller arasında anında geçiş yapar.</td>
+                </tr>
+                <tr>
+                  <td><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>T</kbd></td>
+                  <td>Kapatılan Paneli Geri Aç</td>
+                  <td>Yanlışlıkla kapattığınız son terminal veya araç panelini düzeniyle birlikte geri yükler.</td>
+                </tr>
+                <tr>
+                  <td><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>C</kbd> / <kbd>V</kbd></td>
+                  <td>Terminal Kopyala / Yapıştır</td>
+                  <td>Yerleşik PTY terminalde metin kopyalama ve yapıştırma.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 4. TERMİNAL & CLICK-TO-CURSOR -->
+        <section class="doc-section" id="terminal">
+          <h2>Terminal &amp; Click-to-Cursor</h2>
+          <p>
+            YDevDesk, Rust tabanlı yerel PTY (<code>portable-pty</code>) ve yüksek performanslı terminal işleyici kullanır.
+            Klasik masaüstü terminallerine göre çok daha düşük bellek tüketimiyle birden fazla kabuk oturumunu yan yana çalıştırabilirsiniz.
+          </p>
+          <ul>
+            <li><strong>Click-to-Cursor:</strong> Uzun bir bash/zsh komutunu düzenlerken ok tuşlarına basılı tutmak yerine komut satırında istediğiniz karaktere tıklayarak imleci doğrudan oraya taşıyabilirsiniz.</li>
+            <li><strong>Terminal Şablonları (Presets):</strong> Sık çalıştırdığınız SSH bağlantıları, ajan başlatıcıları veya proje betiklerini şablon olarak kaydedip tek tıkla yeni sekmede açabilirsiniz.</li>
+            <li><strong>Tema Eşleşmesi:</strong> Uygulama temasını değiştirdiğinizde tüm açık terminallerin arka plan, ön plan, imleç ve seçim renkleri anında güncellenir.</li>
+          </ul>
+        </section>
+
+        <!-- 5. MARKDOWN OTOMATİK AÇMA -->
+        <section class="doc-section" id="markdown">
+          <h2>Markdown Otomatik Açma &amp; Dosya Aç</h2>
+          <p>
+            Yapay zeka ajanları sık sık plan dosyaları, teknik raporlar veya dokümanlar üretir. YDevDesk'in yerleşik
+            <strong>Markdown Görüntüleyici</strong> paneli bu dosyaları doğrudan çalışma alanınızın merkezinde okunaklı biçimde sunar:
+          </p>
+          <ul>
+            <li><strong>Otomatik Açma:</strong> Ajan çıktılarında veya dosya ısısı (File Heat) panelinde oluşturulan/güncellenen <code>.md</code> dosyalarını tek tıkla veya otomatik izleme ile yeni sekmede görüntüleyin.</li>
+            <li><strong>Dosya Aç:</strong> Üst araç çubuğundan veya eklenti/modül SDK'sından (<code>openMarkdown</code>) bilgisayarınızdaki herhangi bir Markdown dosyasını anında açabilirsiniz.</li>
+            <li><strong>Canlı Yenileme:</strong> Dosya diskte değiştiğinde içerik otomatik olarak tazelenir.</li>
+          </ul>
+        </section>
+
+        <!-- 6. AJANLAR & OTURUMLAR -->
+        <section class="doc-section" id="ajanlar">
+          <h2>AGY, Claude Code &amp; Codex Ajanları</h2>
+          <p>
+            YDevDesk, yerel makinenizde çalışan üç büyük kodlama ajanını tek arayüzde birleştirir:
+          </p>
+          <ul>
+            <li><strong>Antigravity (AGY):</strong> <code>~/.gemini/antigravity-cli/</code> altındaki konuşmaları, oturum kimliklerini ve token kullanımını okur.</li>
+            <li><strong>Claude Code:</strong> <code>~/.claude/</code> oturum geçmişini ve proje bazlı sohbetleri listeler.</li>
+            <li><strong>OpenAI Codex:</strong> <code>~/.codex/</code> oturum kayıtlarını algılar ve tek tıkla devam etmenizi sağlar.</li>
+          </ul>
+          <p>
+            Oturumlar panelinde herhangi bir konuşmayı <strong>sabitleyebilir</strong>, özel bir takma ad (alias) verebilir ve
+            tek tıkla ilgili ajanın <code>--resume</code> komutuyla yerleşik terminalde kaldığınız yerden sürdürebilirsiniz.
+          </p>
+        </section>
+
+        <!-- 7. GÜVENLİ OTURUM SİLME -->
+        <section class="doc-section" id="oturum-silme">
+          <h2>Güvenli Oturum Silme</h2>
+          <p>
+            Artık ihtiyacınız olmayan eski ajan oturumlarını YDevDesk içinden doğrudan temizleyebilirsiniz. Güvenli oturum silme mekanizması:
+          </p>
+          <ul>
+            <li>Silme işlemi öncesinde açık onay ister; kazara veri kaybını önler.</li>
+            <li>Yalnızca ilgili ajanın doğrulanmış oturum dizini içindeki (yol doğrulamalı / canonicalized) dosyaları kaldırır; sistem veya proje dosyalarına dokunmaz.</li>
+            <li>Sabitleme ve özel isim kayıtlarını da otomatik olarak temizler.</li>
+          </ul>
+        </section>
+
+        <!-- 8. KOTA & MALİYET TAKİBİ -->
+        <section class="doc-section" id="kota-maliyet">
+          <h2>Kota &amp; Maliyet Takibi</h2>
+          <p>
+            Analitik paneli herhangi bir harici eklenti veya bulut aracı gerektirmeden yerel oturum günlüklerinden
+            <strong>1 günlük, 7 günlük ve 30 günlük</strong> pencerelerde detaylı kullanım çıkarır:
+          </p>
+          <ul>
+            <li><strong>Token &amp; USD Maliyet:</strong> Girdi, çıktı ve önbellek (cache) token sayılarını model bazlı tahmini USD maliyetiyle birlikte gösterir.</li>
+            <li><strong>Kota Eşikleri:</strong> 5 saatlik ve haftalık kullanım kotalarını canlı ilerleme çubuklarıyla takip eder; belirlediğiniz eşiğe ulaşıldığında yerel masaüstü bildirimi ve sesli uyarı verir.</li>
+            <li><strong>Çoklu Cihaz Toplamı:</strong> Şifreli Gist senkronizasyonu açıksa tüm cihazlarınızdaki kullanım özetleri tek grafikte birleştirilir.</li>
+          </ul>
+        </section>
+
+        <!-- 9. EKLENTİ (PLUGIN) GELİŞTİRME -->
+        <section class="doc-section" id="plugin-yapi">
+          <h2>Eklenti (Plugin) Geliştirme</h2>
+          <p>
+            YDevDesk'i kaynak kodunu derlemeden genişletebilirsiniz. Çalışma zamanı eklentileri standart HTML, CSS ve JavaScript ile yazılır
+            ve güvenli bir <code>sandbox="allow-scripts"</code> iframe içinde çalışır.
+          </p>
+
+          <h3>Klasör Yapısı</h3>
+          <p>Her eklenti kendi klasöründe yaşar. Klasör adı yalnızca harf, rakam, <code>-</code> ve <code>_</code> içermelidir:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span>Klasör Düzeni</span>
+              <button class="copy-btn" data-copy>Kopyala</button>
+            </div>
+            <pre><code>~/.config/ydevdesk/plugins/
+└── hello-helper/
+    ├── plugin.json     # Eklenti manifesti ve istenen izinler
+    └── index.html      # Giriş noktası (en fazla 2 MiB)</code></pre>
+          </div>
+
+          <h3>Tam <code>plugin.json</code> Şeması</h3>
+          <div class="code-block">
+            <div class="code-header">
+              <span>~/.config/ydevdesk/plugins/hello-helper/plugin.json</span>
+              <button class="copy-btn" data-copy>Kopyala</button>
+            </div>
+            <pre><code>{
+  "id": "hello-helper",
+  "name": "Hızlı Yardımcı",
+  "version": "1.0.0",
+  "description": "Örnek çalışma zamanı eklentisi: terminal komutu, bildirim ve yerel depolama.",
+  "author": "Adınız",
+  "width": 320,
+  "entry": "index.html",
+  "permissions": ["terminal", "markdown", "notify", "storage"]
+}</code></pre>
+          </div>
+          <p>
+            <em>Ayarlar &rarr; Eklentiler</em> sekmesindeki <strong>Yenile</strong> butonuna bastığınızda yeni eklentiniz anında panel listesinde görünür.
+          </p>
+        </section>
+
+        <section class="doc-section" id="plugin-ornek">
+          <h2>Tam Çalışan <code>index.html</code> Örneği</h2>
+          <p>
+            YDevDesk aktif temanın tüm CSS değişkenlerini (<code>--bg</code>, <code>--surface</code>, <code>--accent</code> vb.) ve
+            <code>window.YDevDesk</code> köprüsünü eklentinizin <code>&lt;head&gt;</code> bölümüne otomatik olarak enjekte eder.
+          </p>
+          <div class="code-block">
+            <div class="code-header">
+              <span>~/.config/ydevdesk/plugins/hello-helper/index.html</span>
+              <button class="copy-btn" data-copy>Kopyala</button>
+            </div>
+            <pre><code>&lt;!doctype html&gt;
+&lt;html lang="tr"&gt;
+&lt;head&gt;
+  &lt;meta charset="utf-8" /&gt;
+  &lt;style&gt;
+    body {
+      padding: 14px;
+      font-size: 13px;
+      background: var(--surface);
+      color: var(--txt-main);
+    }
+    h3 { margin: 0 0 10px; font-size: 15px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    button {
+      background: var(--surface-raised);
+      color: var(--txt-main);
+      border: 1px solid var(--border-glow);
+      border-radius: 7px;
+      padding: 7px 11px;
+      cursor: pointer;
+    }
+    button:hover { border-color: var(--accent); color: var(--accent); }
+    .muted { color: var(--txt-muted); font-size: 12px; }
+  &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;h3&gt;Hızlı Yardımcı Eklentisi&lt;/h3&gt;
+  &lt;div class="row"&gt;
+    &lt;button id="btn-git"&gt;git status çalıştır&lt;/button&gt;
+    &lt;button id="btn-notify"&gt;Bildirim Gönder&lt;/button&gt;
+    &lt;button id="btn-count"&gt;Sayaç Artır&lt;/button&gt;
+  &lt;/div&gt;
+  &lt;p class="muted" id="status"&gt;Hazır.&lt;/p&gt;
+
+  &lt;script&gt;
+    const statusEl = document.getElementById("status");
+
+    async function init() {
+      const count = await window.YDevDesk.storage.get("clicks", 0);
+      statusEl.textContent = "Kayıtlı tıklama sayısı: " + count;
+    }
+
+    document.getElementById("btn-git").addEventListener("click", async () =&gt; {
+      await window.YDevDesk.runInTerminal("git status -sb");
+      statusEl.textContent = "Komut aktif terminale gönderildi.";
+    });
+
+    document.getElementById("btn-notify").addEventListener("click", async () =&gt; {
+      await window.YDevDesk.notify("Hızlı Yardımcı", "Eklenti bildirimi başarıyla çalıştı!");
+    });
+
+    document.getElementById("btn-count").addEventListener("click", async () =&gt; {
+      const prev = Number(await window.YDevDesk.storage.get("clicks", 0)) || 0;
+      const next = prev + 1;
+      await window.YDevDesk.storage.set("clicks", next);
+      statusEl.textContent = "Kayıtlı tıklama sayısı: " + next;
+    });
+
+    init();
+  &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+          </div>
+        </section>
+
+        <section class="doc-section" id="plugin-sdk">
+          <h2>İzin Modeli &amp; <code>window.YDevDesk</code> SDK Referansı</h2>
+          <p>
+            Her eklenti yalnızca <code>plugin.json</code> içindeki <code>permissions</code> dizisinde beyan ettiği yetenekleri çağırabilir.
+            İzin verilmemiş bir çağrı yapıldığında köprü isteği reddeder.
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>İzin</th>
+                  <th>SDK Metodu</th>
+                  <th>Açıklama</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>terminal</code></td>
+                  <td><code>window.YDevDesk.runInTerminal(cmd)</code></td>
+                  <td>Aktif PTY terminal sekmesinde belirtilen komutu çalıştırır.</td>
+                </tr>
+                <tr>
+                  <td><code>markdown</code></td>
+                  <td><code>window.YDevDesk.openMarkdown(path, title?)</code></td>
+                  <td>Belirtilen yerel <code>.md</code> dosyasını merkez Markdown sekmesinde açar.</td>
+                </tr>
+                <tr>
+                  <td><code>notify</code></td>
+                  <td><code>window.YDevDesk.notify(title, body)</code></td>
+                  <td>İşletim sistemi masaüstü bildirimi gönderir.</td>
+                </tr>
+                <tr>
+                  <td><code>storage</code></td>
+                  <td>
+                    <code>window.YDevDesk.storage.get(key, fallback?)</code><br />
+                    <code>window.YDevDesk.storage.set(key, value)</code><br />
+                    <code>window.YDevDesk.storage.remove(key)</code>
+                  </td>
+                  <td>Eklentiye özel izole anahtar-değer depolama alanı okuma, yazma ve silme.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 10. TEMA GELİŞTİRME -->
+        <section class="doc-section" id="tema-yapi">
+          <h2>Tema Geliştirme</h2>
+          <p>
+            YDevDesk, yerleşik temalara (<em>Deep Navy &amp; Petrol</em>, <em>Midnight Violet</em>, <em>Emerald Terminal</em>, <em>Amber Forge</em>)
+            ek olarak kendi özel renk paletinizi tek bir JSON dosyasıyla eklemenize olanak tanır.
+          </p>
+
+          <h3>Klasör Yapısı</h3>
+          <div class="code-block">
+            <div class="code-header">
+              <span>Tema Dosya Yolu</span>
+              <button class="copy-btn" data-copy>Kopyala</button>
+            </div>
+            <pre><code>~/.config/ydevdesk/themes/&lt;tema-id&gt;.json</code></pre>
+          </div>
+
+          <h3>Tam Tema JSON Şablonu</h3>
+          <div class="code-block">
+            <div class="code-header">
+              <span>~/.config/ydevdesk/themes/ocean-cyan.json</span>
+              <button class="copy-btn" data-copy>Kopyala</button>
+            </div>
+            <pre><code>{
+  "id": "ocean-cyan",
+  "name": "Ocean Cyan",
+  "description": "Derin okyanus laciverti ve parlak camgöbeği vurgular.",
+  "author": "Adınız",
+  "vars": {
+    "--bg": "#06090e",
+    "--surface": "#0a111a",
+    "--surface-raised": "#0f1926",
+    "--border": "#162638",
+    "--border-glow": "#1f3a56",
+    "--accent": "#00d2ff",
+    "--petrol": "#00838f",
+    "--txt-main": "#f0f6fc",
+    "--txt-muted": "#7d8b99",
+    "--txt-dim": "#475569",
+    "--ok": "#2ed573",
+    "--warn": "#ffa502",
+    "--err": "#ff6b81"
+  },
+  "terminal": {
+    "background": "#06090e",
+    "foreground": "#f0f6fc",
+    "cursor": "#00d2ff",
+    "selectionBackground": "#1f3a56"
+  }
+}</code></pre>
+          </div>
+        </section>
+
+        <section class="doc-section" id="tema-degiskenler">
+          <h2>CSS Değişkenleri &amp; Terminal Renk Haritası</h2>
+          <p>
+            Temanızdaki <code>vars</code> nesnesi uygulamanın tüm panellerine ve sandboxed eklentilere otomatik uygulanır.
+            <code>terminal</code> nesnesi ise açık tüm xterm.js terminallerine aktarılır.
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Değişken</th>
+                  <th>Varsayılan (Deep Navy)</th>
+                  <th>Kullanım Alanı</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td><code>--bg</code></td><td><span class="swatch" style="background:#06090e"></span><code>#06090e</code></td><td>Ana uygulama arka planı</td></tr>
+                <tr><td><code>--surface</code></td><td><span class="swatch" style="background:#0a111a"></span><code>#0a111a</code></td><td>Panel ve kart yüzeyleri</td></tr>
+                <tr><td><code>--surface-raised</code></td><td><span class="swatch" style="background:#0f1926"></span><code>#0f1926</code></td><td>Yükseltilmiş alanlar, butonlar ve başlık çubukları</td></tr>
+                <tr><td><code>--border</code></td><td><span class="swatch" style="background:#162638"></span><code>#162638</code></td><td>Standart panel ve kart kenarlıkları</td></tr>
+                <tr><td><code>--border-glow</code></td><td><span class="swatch" style="background:#1f3a56"></span><code>#1f3a56</code></td><td>Vurgulu kenarlıklar ve odak çerçeveleri</td></tr>
+                <tr><td><code>--accent</code></td><td><span class="swatch" style="background:#00d2ff"></span><code>#00d2ff</code></td><td>Ana vurgu rengi, aktif sekmeler ve bağlantılar</td></tr>
+                <tr><td><code>--petrol</code></td><td><span class="swatch" style="background:#00838f"></span><code>#00838f</code></td><td>İkincil vurgu ve gradyan tonu</td></tr>
+                <tr><td><code>--txt-main</code></td><td><span class="swatch" style="background:#f0f6fc"></span><code>#f0f6fc</code></td><td>Birincil metin rengi</td></tr>
+                <tr><td><code>--txt-muted</code></td><td><span class="swatch" style="background:#7d8b99"></span><code>#7d8b99</code></td><td>İkincil açıklamalar ve etiketler</td></tr>
+                <tr><td><code>--txt-dim</code></td><td><span class="swatch" style="background:#475569"></span><code>#475569</code></td><td>Pasif metin ve ipuçları</td></tr>
+                <tr><td><code>--ok</code></td><td><span class="swatch" style="background:#2ed573"></span><code>#2ed573</code></td><td>Başarı ve çevrimiçi durum rozetleri</td></tr>
+                <tr><td><code>--warn</code></td><td><span class="swatch" style="background:#ffa502"></span><code>#ffa502</code></td><td>Uyarılar ve kota eşiği göstergeleri</td></tr>
+                <tr><td><code>--err</code></td><td><span class="swatch" style="background:#ff6b81"></span><code>#ff6b81</code></td><td>Hata mesajları ve kritik durumlar</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Terminal Renk Haritası (<code>terminal</code>)</h3>
+          <p>
+            <code>background</code>, <code>foreground</code>, <code>cursor</code> ve <code>selectionBackground</code> anahtarlarına ek olarak
+            standart xterm.js ANSI renklerini (<code>black</code>, <code>red</code>, <code>green</code>, <code>yellow</code>, <code>blue</code>,
+            <code>magenta</code>, <code>cyan</code>, <code>white</code> ve <code>bright*</code> türevleri) tanımlayabilirsiniz.
+          </p>
+        </section>
+
+        <!-- 11. ÇEKİRDEK MODÜL SDK -->
+        <section class="doc-section" id="cekirdek-modul">
+          <h2>Çekirdek Modül SDK (Kaynak Kod Katkısı)</h2>
+          <p>
+            YDevDesk deposuna doğrudan yeni bir yerleşik panel katkısında bulunmak isterseniz <code>registry.ts</code>,
+            <code>Workspace.tsx</code> veya <code>TitleBar.tsx</code> dosyalarını düzenlemenize gerek yoktur.
+            <code>src/modules/&lt;id&gt;/manifest.ts</code> dosyası Vite tarafından otomatik keşfedilir.
+          </p>
+
+          <div class="code-block">
+            <div class="code-header">
+              <span>src/modules/my_module/manifest.ts</span>
+              <button class="copy-btn" data-copy>Kopyala</button>
+            </div>
+            <pre><code>import { Box } from "lucide-react";
+import type { ModuleManifest } from "../../sdk/moduleSdk";
+import MyPanel from "./MyPanel";
+
+const manifest: ModuleManifest = {
+  id: "my_module",
+  title: "Modül Başlığı",
+  description: "Kısa panel açıklaması",
+  icon: Box,
+  component: MyPanel,
+  width: 320,
+  order: 100,
+};
+
+export default manifest;</code></pre>
+          </div>
+
+          <p>Panel bileşeninizin içinde <code>useModuleSDK("my_module")</code> hook'u ile tüm çekirdek servislere erişebilirsiniz:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span>src/modules/my_module/MyPanel.tsx</span>
+              <button class="copy-btn" data-copy>Kopyala</button>
+            </div>
+            <pre><code>import { useModuleSDK, useVisibilityPoll } from "../../sdk/moduleSdk";
+
+export default function MyPanel() {
+  const sdk = useModuleSDK("my_module");
+
+  // Pencere gizliyken otomatik duran polling
+  useVisibilityPoll(() =&gt; {
+    // Periyodik veri güncellemesi
+  }, 15000);
+
+  return (
+    &lt;div className="p-3"&gt;
+      &lt;button onClick={() =&gt; sdk.terminal.run("git status")}&gt;
+        Durumu Kontrol Et
+      &lt;/button&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+          </div>
+          <ul>
+            <li><code>sdk.terminal.run(cmd)</code> &mdash; Aktif terminalde komut çalıştırır.</li>
+            <li><code>sdk.markdown.open({ path, title })</code> &mdash; Merkez sekmede Markdown dosyası açar.</li>
+            <li><code>sdk.notify(title, body)</code> &mdash; Masaüstü bildirimi gönderir.</li>
+            <li><code>sdk.storage.get / set</code> &mdash; Modüle özel izole yerel depolama.</li>
+            <li><code>sdk.connections.projectRoots</code> &mdash; Ayarlardaki proje kök dizinleri listesi.</li>
+          </ul>
+        </section>
+
+        <!-- 12. VERİ & ÖNBELLEK YOLLARI -->
+        <section class="doc-section" id="veri-yollari">
+          <h2>Veri &amp; Önbellek Yolları</h2>
+          <p>
+            YDevDesk tüm ayarları, eklentileri, özel temaları ve şifreleme anahtarlarını yalnızca yerel diskinizde saklar.
+            Hassas yapılandırma dosyaları Unix sistemlerde <code>0600</code> (yalnızca kullanıcı okur/yazar) izniyle oluşturulur.
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Platform</th>
+                  <th>Yapılandırma, Eklentiler &amp; Temalar</th>
+                  <th>WebView Önbellek / Yerel Depolama</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Linux</strong></td>
+                  <td>
+                    <code>~/.config/ydevdesk/</code><br />
+                    <span style="color:var(--txt-muted);font-size:12px;"><code>plugins/</code>, <code>themes/</code>, <code>sync_auth.json</code></span>
+                  </td>
+                  <td><code>~/.local/share/com.yagyz.ydevdesk/</code><br /><code>~/.cache/com.yagyz.ydevdesk/</code></td>
+                </tr>
+                <tr>
+                  <td><strong>macOS</strong></td>
+                  <td>
+                    <code>~/Library/Application Support/ydevdesk/</code><br />
+                    <span style="color:var(--txt-muted);font-size:12px;">(veya <code>~/.config/ydevdesk/</code>)</span>
+                  </td>
+                  <td><code>~/Library/WebKit/com.yagyz.ydevdesk/</code><br /><code>~/Library/Caches/com.yagyz.ydevdesk/</code></td>
+                </tr>
+                <tr>
+                  <td><strong>Windows</strong></td>
+                  <td>
+                    <code>%APPDATA%\ydevdesk\</code><br />
+                    <span style="color:var(--txt-muted);font-size:12px;"><code>plugins\</code>, <code>themes\</code>, <code>sync_auth.json</code></span>
+                  </td>
+                  <td><code>%LOCALAPPDATA%\com.yagyz.ydevdesk\EBWebView\</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </article>
+    </div>
+  </div>
+
+  <!-- Altbilgi -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-bottom" style="border-top:0;padding-top:0;">
+        <span>YDevDesk Dokümantasyon &mdash; MIT Lisansı</span>
+        <span>
+          <a href="index.html">Ana Sayfa</a> &middot;
+          <a href="sync.html">Senkronizasyon</a> &middot;
+          <a href="privacy.html">Gizlilik &amp; Çerezler</a> &middot;
+          <a href="https://github.com/YagYz/YDevDesk" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Mobil üst menü
+    (function () {
+      const header = document.getElementById("site-header");
+      const toggle = document.getElementById("nav-toggle");
+      if (toggle && header) {
+        toggle.addEventListener("click", function () {
+          const open = header.classList.toggle("nav-open");
+          toggle.setAttribute("aria-expanded", String(open));
+        });
+      }
+
+      // Mobil içindekiler menüsü
+      const tocToggle = document.getElementById("toc-toggle");
+      const sidebar = document.getElementById("docs-sidebar");
+      if (tocToggle && sidebar) {
+        tocToggle.addEventListener("click", function () {
+          const open = sidebar.classList.toggle("open");
+          tocToggle.setAttribute("aria-expanded", String(open));
+        });
+        sidebar.querySelectorAll("a").forEach(function (link) {
+          link.addEventListener("click", function () {
+            sidebar.classList.remove("open");
+            tocToggle.setAttribute("aria-expanded", "false");
+          });
+        });
+      }
+
+      // Tüm kod blokları için kopyalama
+      document.querySelectorAll("[data-copy]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          const block = btn.closest(".code-block");
+          const code = block ? block.querySelector("pre code") : null;
+          if (!code) return;
+          navigator.clipboard.writeText(code.textContent).then(function () {
+            const orig = btn.textContent;
+            btn.textContent = "Kopyalandı!";
+            btn.classList.add("copied");
+            setTimeout(function () {
+              btn.textContent = orig;
+              btn.classList.remove("copied");
+            }, 1500);
+          });
+        });
+      });
+
+      // Scroll takip (aktif sol menü vurgusu)
+      const sections = Array.from(document.querySelectorAll(".doc-section[id]"));
+      const navLinks = Array.from(document.querySelectorAll(".docs-nav-list a"));
+      if ("IntersectionObserver" in window && sections.length) {
+        const observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              const id = entry.target.getAttribute("id");
+              navLinks.forEach(function (a) {
+                a.classList.toggle("active", a.getAttribute("href") === "#" + id);
+              });
+            }
+          });
+        }, { rootMargin: "-18% 0px -70% 0px", threshold: 0 });
+        sections.forEach(function (sec) { observer.observe(sec); });
+      }
+    })();
+  </script>
+</body>
+</html>

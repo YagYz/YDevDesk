@@ -3,312 +3,507 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>YDevDesk — Homelab &amp; Multi-Agent Desktop Command Center</title>
-  <meta name="description" content="Antigravity (AGY), Claude Code, OpenAI Codex, yerleşik PTY terminal ve Homelab servislerini tek masaüstü komuta merkezinde birleştirin." />
+  <title>YDevDesk — Çoklu Ajan, Terminal ve Homelab Masaüstü Komuta Merkezi</title>
+  <meta name="description" content="Antigravity (AGY), Claude Code ve OpenAI Codex yapay zeka ajanlarını, yerleşik terminali, canlı maliyet takibini, Markdown görüntüleyiciyi, eklentileri ve özel temaları tek hızlı Tauri v2 masaüstü uygulamasında birleştirin." />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="YDevDesk — Homelab & Multi-Agent Desktop Command Center" />
-  <meta property="og:description" content="Çoklu ajan oturumları, 30 günlük token/maliyet analitiği, Dockview çalışma alanları ve Homelab izleme tek masaüstü merkezinde." />
-  <meta property="og:image" content="https://yagyz.github.io/YDevDesk/social-preview.png" />
+  <meta property="og:title" content="YDevDesk — Çoklu Ajan &amp; Homelab Masaüstü Komuta Merkezi" />
+  <meta property="og:description" content="Terminal, AI kodlama ajanları, 30 günlük token/maliyet analitiği, Dockview çalışma alanı, eklenti ve tema sistemi tek yerel uygulamada." />
+  <meta property="og:image" content="../screenshots/social-preview.png" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="YDevDesk — Homelab & Multi-Agent Command Center" />
-  <meta name="twitter:image" content="https://yagyz.github.io/YDevDesk/social-preview.png" />
+  <meta name="twitter:title" content="YDevDesk — Çoklu Ajan &amp; Homelab Masaüstü Komuta Merkezi" />
+  <meta name="twitter:image" content="../screenshots/social-preview.png" />
   <link rel="icon" type="image/png" href="logo.png" />
-  <style>
-    :root {
-      --bg: #080c14;
-      --surface: #101724;
-      --surface-2: #162033;
-      --border: #22304a;
-      --text: #e6edf7;
-      --muted: #94a3b8;
-      --accent: #38bdf8;
-      --accent-2: #3b82f6;
-      --green: #22c55e;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: radial-gradient(circle at 50% 0%, #111c33 0%, var(--bg) 55%);
-      color: var(--text);
-      line-height: 1.6;
-    }
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    .container { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
-    nav {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 20px 0; border-bottom: 1px solid rgba(34,48,74,.6);
-    }
-    .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 18px; color: var(--text); }
-    .brand img { width: 34px; height: 34px; border-radius: 9px; }
-    .nav-links { display: flex; gap: 20px; font-size: 14px; color: var(--muted); }
-    .nav-links a { color: var(--muted); }
-    .nav-links a:hover { color: var(--text); text-decoration: none; }
-
-    .hero { text-align: center; padding: 56px 0 36px; }
-    .badge {
-      display: inline-flex; align-items: center; gap: 8px;
-      font-size: 12px; font-weight: 600; color: var(--accent);
-      background: rgba(56,189,248,.1); border: 1px solid rgba(56,189,248,.28);
-      padding: 5px 12px; border-radius: 999px; margin-bottom: 18px;
-    }
-    h1 {
-      margin: 0 auto 16px; max-width: 780px;
-      font-size: clamp(32px, 5vw, 50px); line-height: 1.15; letter-spacing: -.02em;
-    }
-    .subtitle {
-      margin: 0 auto 28px; max-width: 680px; color: var(--muted); font-size: 17px;
-    }
-    .install-box {
-      max-width: 780px; margin: 0 auto 24px;
-      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-      padding: 16px 18px; text-align: left; box-shadow: 0 18px 50px rgba(0,0,0,.45);
-    }
-    .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-    .tab-btn {
-      background: transparent; border: 1px solid var(--border); color: var(--muted);
-      padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;
-    }
-    .tab-btn.active {
-      background: rgba(56,189,248,.14); border-color: var(--accent); color: var(--text);
-    }
-    .cmd-row {
-      display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      background: #070a11; border: 1px solid #1d283d; border-radius: 10px;
-      padding: 12px 14px; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 13px;
-      overflow-x: auto;
-    }
-    .cmd-row code { white-space: pre; color: #dbeafe; }
-    .copy-btn {
-      background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
-      padding: 6px 12px; border-radius: 7px; font-size: 12px; cursor: pointer; flex-shrink: 0;
-    }
-    .copy-btn:hover { border-color: var(--accent); }
-
-    .dl-bar {
-      display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;
-      margin: 0 auto 36px; max-width: 780px;
-    }
-    .dl-btn {
-      display: inline-flex; align-items: center; gap: 8px;
-      background: var(--surface); border: 1px solid var(--border); color: var(--text);
-      padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 600;
-    }
-    .dl-btn:hover { border-color: var(--accent); text-decoration: none; background: var(--surface-2); }
-    .dl-btn span { color: var(--muted); font-weight: 400; font-size: 12px; }
-
-    .gallery-tabs { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-    .screenshot-wrap {
-      margin: 0 auto 64px;
-      border-radius: 16px; overflow: hidden;
-      border: 1px solid var(--border);
-      box-shadow: 0 28px 80px rgba(0,0,0,.65);
-    }
-    .screenshot-wrap img { display: block; width: 100%; height: auto; }
-
-    .section-title { text-align: center; font-size: 28px; margin: 0 0 10px; }
-    .section-sub { text-align: center; color: var(--muted); margin: 0 0 36px; font-size: 15px; }
-    .features, .faq-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 18px; margin-bottom: 64px;
-    }
-    .card {
-      background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px;
-    }
-    .card h3 { margin: 0 0 8px; font-size: 16px; }
-    .card p { margin: 0; color: var(--muted); font-size: 14px; }
-    .card code {
-      font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px;
-      background: #070a11; padding: 2px 6px; border-radius: 5px; color: #cbd5e1;
-    }
-
-    footer {
-      border-top: 1px solid var(--border); padding: 28px 0 44px;
-      display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px;
-      color: var(--muted); font-size: 13px;
-    }
-  </style>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="container">
-    <nav>
-      <a class="brand" href="./">
-        <img src="logo.png" alt="YDevDesk Logo" />
+  <!-- Üst Menü -->
+  <header class="site-header" id="site-header">
+    <div class="container nav-inner">
+      <a class="brand" href="index.html">
+        <img src="logo.png" alt="YDevDesk" class="brand-logo" width="26" height="26" />
         <span>YDevDesk</span>
       </a>
-      <div class="nav-links">
-        <a href="#features">Özellikler</a>
+
+      <nav class="nav-links" aria-label="Ana gezinme">
+        <a href="#ozellikler">Özellikler</a>
+        <a href="#ekran-goruntuleri">Ekran Görüntüleri</a>
+        <a href="docs.html">Dokümantasyon</a>
         <a href="sync.html">Senkronizasyon</a>
-        <a href="#faq">SSS</a>
-        <a href="https://github.com/YagYz/YDevDesk/releases">Sürümler</a>
-        <a href="https://github.com/YagYz/YDevDesk">GitHub</a>
-      </div>
-    </nav>
+        <a href="privacy.html">Gizlilik &amp; Çerezler</a>
+      </nav>
 
+      <div class="nav-actions">
+        <a class="btn btn-ghost btn-sm" href="https://github.com/YagYz/YDevDesk" target="_blank" rel="noopener noreferrer">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5A12 12 0 0 0 8.2 23.9c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.4 11.4 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"/></svg>
+          GitHub
+        </a>
+        <a class="btn btn-primary btn-sm" href="#indir">İndir</a>
+        <button class="nav-toggle" id="nav-toggle" aria-label="Menüyü aç/kapat" aria-expanded="false">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero -->
     <section class="hero">
-      <div class="badge" id="ver-badge">v1.0.1 &bull; Tauri v2 &bull; Linux, macOS &amp; Windows</div>
-      <h1>Homelab &amp; Çoklu Ajan Masaüstü Komuta Merkezi</h1>
-      <p class="subtitle">
-        <strong>Antigravity (AGY)</strong>, <strong>Claude Code</strong> ve <strong>OpenAI Codex</strong> ajanlarını,
-        yerleşik PTY terminallerini ve Homelab servislerinizi tek bir modüler çalışma alanında yönetin.
-      </p>
+      <div class="container">
+        <div class="badge" id="ver-badge">
+          <span class="badge-dot" aria-hidden="true"></span>
+          <span>Açık Kaynak &bull; Tauri v2 &bull; Linux, macOS &amp; Windows</span>
+        </div>
 
-      <div class="install-box">
-        <div class="tabs">
-          <button class="tab-btn active" onclick="setTab('quick', this)">Tek Komut (Önerilen)</button>
-          <button class="tab-btn" onclick="setTab('aur', this)">Arch / CachyOS</button>
-          <button class="tab-btn" onclick="setTab('apt', this)">Ubuntu / Debian (APT)</button>
-          <button class="tab-btn" onclick="setTab('mac', this)">macOS</button>
-          <button class="tab-btn" onclick="setTab('win', this)">Windows</button>
-        </div>
-        <div class="cmd-row">
-          <code id="install-cmd">curl -fsSL https://raw.githubusercontent.com/YagYz/YDevDesk/main/install.sh | bash</code>
-          <button class="copy-btn" onclick="copyCmd()">Kopyala</button>
-        </div>
-        <div style="margin-top:10px;font-size:12px;color:var(--muted);">
-          Not: AUR yeni hesap kayıtları geçici olarak kapalı olduğu için Arch / CachyOS kullanıcıları şimdilik tek komut <code>install.sh</code> ile kurabilir.
-        </div>
-      </div>
+        <h1>
+          Tüm Kodlama Ajanlarınız ve Terminaliniz
+          <span class="text-gradient">Tek Hızlı Masaüstü Merkezinde</span>
+        </h1>
 
-      <div class="dl-bar" id="dl-bar">
-        <a class="dl-btn" id="dl-appimage" href="https://github.com/YagYz/YDevDesk/releases/latest">Linux AppImage <span>x86_64</span></a>
-        <a class="dl-btn" id="dl-deb" href="https://github.com/YagYz/YDevDesk/releases/latest">Debian / Ubuntu <span>.deb</span></a>
-        <a class="dl-btn" id="dl-rpm" href="https://github.com/YagYz/YDevDesk/releases/latest">Fedora / RHEL <span>.rpm</span></a>
-        <a class="dl-btn" id="dl-dmg-arm" href="https://github.com/YagYz/YDevDesk/releases/latest">macOS <span>Apple Silicon</span></a>
-        <a class="dl-btn" id="dl-dmg-x64" href="https://github.com/YagYz/YDevDesk/releases/latest">macOS <span>Intel</span></a>
-        <a class="dl-btn" id="dl-win-exe" href="https://github.com/YagYz/YDevDesk/releases/latest">Windows <span>.exe (NSIS)</span></a>
-      </div>
+        <p class="hero-subtitle">
+          <strong>YDevDesk</strong>; yerel PTY terminalinizi, <strong>Antigravity (AGY)</strong>, <strong>Claude Code</strong> ve
+          <strong>OpenAI Codex</strong> oturumlarınızı, canlı token/maliyet telemetrisini, otomatik Markdown görüntüleyiciyi,
+          eklentileri ve özel temaları tek bir hafif <strong>Tauri v2</strong> uygulamasında birleştirir.
+        </p>
 
-      <div class="gallery-tabs">
-        <button class="tab-btn active" onclick="setShot('workspace.png', 'YDevDesk Çalışma Alanı', this)">Çalışma Alanı</button>
-        <button class="tab-btn" onclick="setShot('analytics.png', '30 Günlük Token & Maliyet Analizi', this)">30 Günlük Analiz</button>
-        <button class="tab-btn" onclick="setShot('omnibar.png', 'Komut Paleti (Ctrl+K)', this)">Komut Paleti (Ctrl+K)</button>
-      </div>
-      <div class="screenshot-wrap" style="margin-bottom:24px;">
-        <img id="gallery-img" src="workspace.png" alt="YDevDesk Masaüstü Arayüzü" />
-      </div>
-      <div class="features" style="margin-bottom:56px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));text-align:left;">
-        <div class="card" style="padding:14px;">
-          <img src="analytics.png" alt="30 Günlük Token & Maliyet Analizi" style="width:100%;border-radius:8px;border:1px solid var(--border);margin-bottom:10px;" />
-          <h3>30 Günlük Token &amp; Maliyet Analizi</h3>
-          <p>AGY, Claude Code ve Codex kullanımını 1g/7g/30g pencerelerde grafik ve maliyet bazlı takip edin.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="#indir">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Ücretsiz İndir
+          </a>
+          <a class="btn btn-secondary" href="docs.html">
+            Dokümantasyonu Oku
+          </a>
         </div>
-        <div class="card" style="padding:14px;">
-          <img src="omnibar.png" alt="Komut Paleti (Ctrl+K)" style="width:100%;border-radius:8px;border:1px solid var(--border);margin-bottom:10px;" />
-          <h3>Hızlı Komut Paleti (Ctrl+K)</h3>
-          <p>Terminale komut gönderin, hızlı not alın veya Bilgi Ağına tek kısayolla kayıt ekleyin.</p>
+
+        <!-- Tek Satır Kurulum Kutusu -->
+        <div class="install-box">
+          <div class="install-tabs" role="tablist" aria-label="Kurulum yöntemleri">
+            <button class="tab-btn active" role="tab" aria-selected="true" onclick="setInstallTab('quick', this)">Linux / macOS (Tek Komut)</button>
+            <button class="tab-btn" role="tab" aria-selected="false" onclick="setInstallTab('apt', this)">Ubuntu / Debian (APT)</button>
+            <button class="tab-btn" role="tab" aria-selected="false" onclick="setInstallTab('mac', this)">macOS İzin Komutu</button>
+            <button class="tab-btn" role="tab" aria-selected="false" onclick="setInstallTab('win', this)">Windows</button>
+          </div>
+          <div class="cmd-row">
+            <div><span class="cmd-prompt">$</span><code id="install-cmd">curl -fsSL https://raw.githubusercontent.com/YagYz/YDevDesk/main/install.sh | bash</code></div>
+            <button class="copy-btn" id="hero-copy-btn" onclick="copyHeroCmd()">Kopyala</button>
+          </div>
+          <div class="install-note" id="install-note">
+            En son sürümü indirir, masaüstü kısayolunu kurar ve Linux Wayland/NVIDIA ortamları için gerekli sarmalayıcıyı otomatik ekler.
+          </div>
+        </div>
+
+        <!-- Hero Ekran Görüntüsü -->
+        <div class="window-frame">
+          <div class="window-bar">
+            <div class="window-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+            <div class="window-title">YDevDesk — Modüler Çalışma Alanı</div>
+            <span class="pill pill-ok">Local-First</span>
+          </div>
+          <img
+            src="../screenshots/workspace-v12.png"
+            onerror="if(!this.dataset.fb){this.dataset.fb='1';this.src='workspace-v12.png';}"
+            alt="YDevDesk ana çalışma alanı: merkezi Ctrl+K komut çubuğu, çoklu ajan oturumları, terminal ve Markdown sekmesi"
+          />
         </div>
       </div>
     </section>
 
-    <section id="features">
-      <h2 class="section-title">Öne Çıkan Özellikler</h2>
-      <p class="section-sub">Geliştiriciler ve Homelab yöneticileri için sıfır sürtünmeli çalışma ortamı</p>
-      <div class="features">
-        <div class="card">
-          <h3>Çoklu Ajan Oturumları</h3>
-          <p>AGY, Claude Code ve Codex oturumlarını tek listede arayın, sabitleyin, yeniden adlandırın ve tek tıkla <code>--resume</code> ile açın.</p>
+    <!-- Temel Özellikler -->
+    <section class="section" id="ozellikler">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-eyebrow">Özellikler</span>
+          <h2 class="section-title">Geliştiriciler İçin Sade, Hızlı ve Genişletilebilir</h2>
+          <p class="section-sub">
+            Dağınık terminal pencereleri, kaybolan ajan oturumları ve ağır Electron uygulamalarına veda edin.
+          </p>
         </div>
-        <div class="card">
-          <h3>Canlı &amp; 30 Günlük Analitik</h3>
-          <p>Eklentisiz olarak 1g / 7g / 30g girdi-çıktı token, tahmini USD maliyet ve 5 saatlik / haftalık kota durumunu izleyin.</p>
-        </div>
-        <div class="card">
-          <h3>Dockview Çalışma Alanları</h3>
-          <p>Panelleri sürükleyip bölün, proje bazlı adlandırılmış düzenler kaydedin, <code>Ctrl+Shift+T</code> ve çökme kurtarma ile işinizi kaybetmeyin.</p>
-        </div>
-        <div class="card">
-          <h3>Homelab &amp; Git Entegrasyonu</h3>
-          <p>YDevHub notları, görevleri, Bilgi Ağı, YNetMon canlı ağ trafiği ve yerel Git / PR durumu her an elinizin altında.</p>
-        </div>
-        <div class="card">
-          <h3>Doğal Ses &amp; Bildirimler</h3>
-          <p>Ajan görevi tamamladığında veya kota eşiğine düştüğünde Linux (<code>notify-send</code>) ve macOS masaüstü bildirimi + DSP ses uyarısı alın.</p>
-        </div>
-        <div class="card">
-          <h3>Sertleştirilmiş Güvenlik</h3>
-          <p>Strict CSP, <code>0o600</code> yapılandırma izinleri, doğrulanmış GitHub Release güncelleyici ve <code>unsafe</code> bloksuz Rust çekirdeği.</p>
+
+        <div class="grid-4">
+          <article class="card card-interactive">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><line x1="2" y1="20" x2="22" y2="20"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg>
+            </div>
+            <h3>Çoklu Ajan Yönetimi</h3>
+            <p><strong>AGY</strong>, <strong>Claude Code</strong> ve <strong>Codex</strong> oturumlarını tek listede arayın, sabitleyin, yeniden adlandırın ve tek tıkla <code>--resume</code> ile devam ettirin.</p>
+          </article>
+
+          <article class="card card-interactive">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="9" y1="12" x2="21" y2="12"/></svg>
+            </div>
+            <h3>Modüler Dockview Alanı</h3>
+            <p>Panelleri sürükleyip bölün, proje bazlı çalışma alanları kaydedin, <code>Ctrl+Shift+T</code> ve otomatik çökme kurtarma ile düzeninizi hiç kaybetmeyin.</p>
+          </article>
+
+          <article class="card card-interactive">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
+            </div>
+            <h3>Otomatik Markdown Görüntüleyici</h3>
+            <p>Ajanların ürettiği plan, rapor veya README dosyalarını tek tıkla ya da otomatik olarak temiz bir sekmede açıp okuyun.</p>
+          </article>
+
+          <article class="card card-interactive">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></svg>
+            </div>
+            <h3>Çalışma Zamanı Eklenti Sistemi</h3>
+            <p>Derleme yapmadan <code>~/.config/ydevdesk/plugins/</code> klasörüne HTML/JS eklentileri ekleyin; izole iframe ve izin kontrollü <code>window.YDevDesk</code> SDK ile güvenle çalışın.</p>
+            <a class="card-link" href="docs.html#plugin-yapi">Eklenti Rehberi &rarr;</a>
+          </article>
+
+          <article class="card card-interactive">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.6-.7 1.6-1.6 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.7-1.6 1.6-1.6H16c3.3 0 6-2.7 6-6 0-4.9-4.5-8.6-10-8.6Z"/></svg>
+            </div>
+            <h3>Özel Tema Mimarisi</h3>
+            <p>Yerleşik koyu temalar arasında anında geçiş yapın veya tek bir JSON dosyasıyla hem arayüz CSS değişkenlerini hem de terminal renk paletini özelleştirin.</p>
+            <a class="card-link" href="docs.html#tema-yapi">Tema Şablonu &rarr;</a>
+          </article>
+
+          <article class="card card-interactive">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <h3>Şifreli Gist Senkronizasyonu</h3>
+            <p>İsteğe bağlı olarak çalışma alanlarınızı ve kısayollarınızı istemci tarafında <code>AES-256-GCM</code> ile şifreleyip kendi gizli GitHub Gist'inizde eşitleyin.</p>
+            <a class="card-link" href="sync.html">Nasıl Çalışır? &rarr;</a>
+          </article>
+
+          <article class="card card-interactive">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            </div>
+            <h3>Akıllı PTY Terminal</h3>
+            <p><strong>Click-to-Cursor</strong> desteğiyle komut satırında istediğiniz konuma tıklayarak atlayın; Tauri v2 + Rust çekirdeğiyle çok düşük RAM tüketiminde akıcı çalışın.</p>
+          </article>
+
+          <article class="card card-interactive">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+            </div>
+            <h3>Local-First Güvenlik</h3>
+            <p>Merkezi sunucu yok, telemetri yok, izleyici yok. Yapılandırmalar <code>0600</code> izinli yerel dosyalarda tutulur ve tüm kaynak kod tamamen açıktır.</p>
+            <a class="card-link" href="privacy.html">Gizlilik Politikası &rarr;</a>
+          </article>
         </div>
       </div>
     </section>
 
-    <section id="faq">
-      <h2 class="section-title">Kurulum Notları &amp; SSS</h2>
-      <p class="section-sub">Sık sorulan platform ayarları</p>
-      <div class="faq-grid">
-        <div class="card">
-          <h3>Linux Wayland / NVIDIA beyaz ekran</h3>
-          <p><code>install.sh</code> otomatik olarak <code>WEBKIT_DISABLE_DMABUF_RENDERER=1</code> sarmalayıcısı kurar. Elle çalıştırırken bu değişkeni ekleyin.</p>
+    <!-- Görsel Vitrin -->
+    <section class="section section-tight" id="ekran-goruntuleri">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-eyebrow">Görsel Vitrin</span>
+          <h2 class="section-title">Temalar, Eklentiler, Analitik ve Komut Paleti</h2>
+          <p class="section-sub">
+            Çalışma alanınızı özel temalar ve izole eklentilerle şekillendirin, ajan harcamalarınızı anlık izleyin.
+          </p>
         </div>
-        <div class="card">
-          <h3>macOS "Hasarlı" veya imzasız uyarısı</h3>
-          <p>Uygulamayı <code>/Applications</code> içine taşıdıktan sonra terminalde <code>xattr -cr /Applications/ydevdesk.app</code> komutunu çalıştırın.</p>
-        </div>
-        <div class="card">
-          <h3>Ubuntu / Debian güncelleme</h3>
-          <p>APT deposunu bir kez ekledikten sonra yeni sürümleri doğrudan <code>sudo apt update &amp;&amp; sudo apt upgrade</code> ile alabilirsiniz.</p>
-        </div>
-        <div class="card">
-          <h3>GitHub girişi neden isteniyor?</h3>
-          <p>YDevDesk hiçbir sunucu işletmez ve verilerinizi toplamaz. GitHub girişi yalnızca kendi hesabınızdaki <code>AES-256-GCM</code> ile şifrelenmiş gizli bir Gist üzerinden cihazlarınızı eşitlemek içindir. <a href="sync.html#aydinlatma">Aydınlatma metni &rarr;</a></p>
+
+        <div class="grid-2">
+          <article class="showcase-card">
+            <div class="showcase-media">
+              <img
+                src="../screenshots/settings-themes.png"
+                onerror="if(!this.dataset.fb){this.dataset.fb='1';this.src='settings-themes.png';}"
+                alt="YDevDesk yeni ayarlar penceresi ve özel tema mimarisi"
+                loading="lazy"
+              />
+            </div>
+            <div class="showcase-body">
+              <h3>Yeni Ayarlar &amp; Tema Mimarisi</h3>
+              <p>9 kategorili düzenli ayarlar penceresi, 5 yerleşik koyu tema önizlemesi ve tek JSON dosyasıyla hem arayüz hem terminal renk paleti özelleştirme.</p>
+            </div>
+          </article>
+
+          <article class="showcase-card">
+            <div class="showcase-media">
+              <img
+                src="../screenshots/markdown-plugins.png"
+                onerror="if(!this.dataset.fb){this.dataset.fb='1';this.src='markdown-plugins.png';}"
+                alt="YDevDesk otomatik Markdown görüntüleyici ve sandboxed eklenti paneli"
+                loading="lazy"
+              />
+            </div>
+            <div class="showcase-body">
+              <h3>Otomatik Markdown Görüntüleyici &amp; Sandboxed Eklentiler</h3>
+              <p>Ajanların oluşturduğu <code>.md</code> plan ve mimari dokümanlarını canlı sekmede açın; izole iframe içinde çalışan çalışma zamanı eklentilerini Dockview'a sabitleyin.</p>
+            </div>
+          </article>
+
+          <article class="showcase-card">
+            <div class="showcase-media">
+              <img
+                src="../screenshots/analytics.png"
+                onerror="if(!this.dataset.fb){this.dataset.fb='1';this.src='analytics.png';}"
+                alt="YDevDesk 1g / 7g / 30g token, maliyet ve kota analitik ekranı"
+                loading="lazy"
+              />
+            </div>
+            <div class="showcase-body">
+              <h3>1g / 7g / 30g Token &amp; Maliyet Analitiği</h3>
+              <p>AGY, Claude Code ve Codex kullanımınızı 1g / 7g / 30g pencerelerde girdi-çıktı token, tahmini USD maliyet ve 5 saatlik / haftalık kota eşikleriyle takip edin.</p>
+            </div>
+          </article>
+
+          <article class="showcase-card">
+            <div class="showcase-media">
+              <img
+                src="../screenshots/omnibar.png"
+                onerror="if(!this.dataset.fb){this.dataset.fb='1';this.src='omnibar.png';}"
+                alt="YDevDesk Ctrl+K merkezi komut paleti (Omnibar)"
+                loading="lazy"
+              />
+            </div>
+            <div class="showcase-body">
+              <h3>Merkezi Komut Paleti (<kbd>Ctrl+K</kbd>)</h3>
+              <p>Tek kısayolla aktif terminale komut gönderin, paneller arasında geçiş yapın, hızlı not alın veya YDevHub Bilgi Ağına kayıt ekleyin.</p>
+            </div>
+          </article>
         </div>
       </div>
     </section>
 
-    <footer>
-      <span>YDevDesk &mdash; MIT Lisansı</span>
-      <span><a href="sync.html#aydinlatma">Gizlilik &amp; Senkronizasyon</a> &middot; <a href="https://github.com/YagYz/YDevDesk">github.com/YagYz/YDevDesk</a></span>
-    </footer>
-  </div>
+    <!-- Nasıl Çalışır? -->
+    <section class="section" id="nasil-calisir">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-eyebrow">3 Adımda Başlayın</span>
+          <h2 class="section-title">Nasıl Çalışır?</h2>
+          <p class="section-sub">
+            Dakikalar içinde kurun, mevcut ajanlarınızı otomatik tanısın ve çalışmaya başlayın.
+          </p>
+        </div>
+
+        <div class="grid-3">
+          <div class="card">
+            <div class="step-num">1</div>
+            <h3>Kurun ve Çalıştırın</h3>
+            <p>Linux/macOS için tek satır <code>install.sh</code> komutunu çalıştırın ya da aşağıdan işletim sisteminize uygun paketi (<code>.AppImage</code>, <code>.deb</code>, <code>.dmg</code>, <code>.exe</code>) indirin.</p>
+          </div>
+          <div class="card">
+            <div class="step-num">2</div>
+            <h3>Ajanlar &amp; Proje Klasörleri Hazır</h3>
+            <p>YDevDesk cihazınızdaki AGY, Claude Code ve Codex CLI araçlarını algılar; oturum geçmişinizi ve token kullanımınızı yerel dosyalardan otomatik okur.</p>
+          </div>
+          <div class="card">
+            <div class="step-num">3</div>
+            <h3>Alanınızı Özelleştirin</h3>
+            <p>Dockview ile terminal, Markdown ve analitik panellerini dilediğiniz gibi dizin; isterseniz eklenti ve özel tema ekleyin veya şifreli Gist eşitlemesini açın.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Platform İndirmeleri -->
+    <section class="section section-tight" id="indir">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-eyebrow">İndirme Merkezi</span>
+          <h2 class="section-title">Platformunuz İçin YDevDesk</h2>
+          <p class="section-sub">
+            Tüm paketler GitHub Releases üzerinden otomatik derlenir ve açık kaynak olarak dağıtılır.
+          </p>
+        </div>
+
+        <div class="dl-grid">
+          <div class="dl-card">
+            <h3>Linux <span class="pill pill-accent">x86_64</span></h3>
+            <p>AppImage, Debian/Ubuntu <code>.deb</code>, Fedora/RHEL <code>.rpm</code> veya APT deposu ile kolay kurulum.</p>
+            <div class="dl-actions">
+              <a class="dl-btn" id="dl-appimage" href="https://github.com/YagYz/YDevDesk/releases/latest">AppImage <span>Taşınabilir</span></a>
+              <a class="dl-btn" id="dl-deb" href="https://github.com/YagYz/YDevDesk/releases/latest">.deb <span>Ubuntu / Debian</span></a>
+              <a class="dl-btn" id="dl-rpm" href="https://github.com/YagYz/YDevDesk/releases/latest">.rpm <span>Fedora</span></a>
+            </div>
+          </div>
+
+          <div class="dl-card">
+            <h3>macOS <span class="pill pill-accent">Universal / DMG</span></h3>
+            <p>Apple Silicon (M1–M4) ve Intel Mac'ler için yerel <code>.dmg</code> kurulum paketleri.</p>
+            <div class="dl-actions">
+              <a class="dl-btn" id="dl-dmg-arm" href="https://github.com/YagYz/YDevDesk/releases/latest">Apple Silicon <span>.dmg</span></a>
+              <a class="dl-btn" id="dl-dmg-x64" href="https://github.com/YagYz/YDevDesk/releases/latest">Intel x64 <span>.dmg</span></a>
+            </div>
+          </div>
+
+          <div class="dl-card">
+            <h3>Windows <span class="pill pill-accent">64-bit</span></h3>
+            <p>Windows 10 ve 11 için hızlı NSIS kurulum sihirbazı (<code>-setup.exe</code>).</p>
+            <div class="dl-actions">
+              <a class="dl-btn" id="dl-win-exe" href="https://github.com/YagYz/YDevDesk/releases/latest">Windows İndir <span>.exe</span></a>
+              <a class="dl-btn" href="https://github.com/YagYz/YDevDesk/releases">Tüm Sürümler &rarr;</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Şeffaf Gizlilik Çağrısı -->
+    <section class="section section-tight">
+      <div class="container">
+        <div class="privacy-banner">
+          <div>
+            <span class="pill pill-ok" style="margin-bottom: 10px;">Sıfır İzleyici &bull; %100 Yerel Öncelikli</span>
+            <h2>Verileriniz Sizin Cihazınızda Kalır</h2>
+            <p>
+              Ne bu web sitesi ne de YDevDesk masaüstü uygulaması reklam çerezi, Google Analytics veya gizli telemetri kullanır.
+              Senkronizasyon tamamen isteğe bağlıdır ve verileriniz cihazınızdan çıkmadan <code>AES-256-GCM</code> ile şifrelenir.
+            </p>
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <a class="btn btn-secondary" href="privacy.html">Gizlilik &amp; Çerez Aydınlatması</a>
+            <a class="btn btn-ghost" href="sync.html">Senkronizasyon Güvenliği</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Altbilgi -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <a class="brand" href="index.html">
+            <img src="logo.png" alt="YDevDesk" class="brand-logo" width="26" height="26" />
+            <span>YDevDesk</span>
+          </a>
+          <p class="footer-desc">
+            Çoklu AI kodlama ajanları, yerel PTY terminal ve Homelab servisleri için açık kaynaklı, hızlı Tauri v2 masaüstü komuta merkezi.
+          </p>
+        </div>
+
+        <div class="footer-col">
+          <h4>Ürün</h4>
+          <ul>
+            <li><a href="#ozellikler">Özellikler</a></li>
+            <li><a href="#ekran-goruntuleri">Ekran Görüntüleri</a></li>
+            <li><a href="#indir">İndirme Merkezi</a></li>
+            <li><a href="sync.html">Gist Senkronizasyonu</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Dokümantasyon</h4>
+          <ul>
+            <li><a href="docs.html#kurulum">Kurulum Rehberi</a></li>
+            <li><a href="docs.html#kisayollar">Klavye Kısayolları</a></li>
+            <li><a href="docs.html#plugin-yapi">Eklenti (Plugin) Geliştirme</a></li>
+            <li><a href="docs.html#tema-yapi">Tema Geliştirme</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Şeffaflık &amp; Kod</h4>
+          <ul>
+            <li><a href="privacy.html">Gizlilik &amp; Çerez Politikası</a></li>
+            <li><a href="https://github.com/YagYz/YDevDesk" target="_blank" rel="noopener noreferrer">GitHub Deposu</a></li>
+            <li><a href="https://github.com/YagYz/YDevDesk/releases" target="_blank" rel="noopener noreferrer">Sürüm Notları</a></li>
+            <li><a href="https://github.com/YagYz/YDevDesk/issues" target="_blank" rel="noopener noreferrer">Hata Bildirimi</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <span>YDevDesk &mdash; MIT Lisansı ile açık kaynak olarak geliştirilmektedir.</span>
+        <span>
+          <a href="docs.html">Dokümantasyon</a> &middot;
+          <a href="sync.html">Senkronizasyon</a> &middot;
+          <a href="privacy.html">Gizlilik &amp; Çerezler</a> &middot;
+          <a href="https://github.com/YagYz/YDevDesk" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </span>
+      </div>
+    </div>
+  </footer>
 
   <script>
-    const CMDS = {
-      quick: "curl -fsSL https://raw.githubusercontent.com/YagYz/YDevDesk/main/install.sh | bash",
-      aur: "curl -fsSL https://raw.githubusercontent.com/YagYz/YDevDesk/main/install.sh | bash",
-      apt: "echo 'deb [trusted=yes] https://yagyz.github.io/YDevDesk/apt ./' | sudo tee /etc/apt/sources.list.d/ydevdesk.list && sudo apt update && sudo apt install -y ydevdesk",
-      mac: "xattr -cr /Applications/ydevdesk.app",
-      win: "https://github.com/YagYz/YDevDesk/releases/latest  # *-setup.exe kurup Başlat menüsüne YDevDesk yazın"
+    // Mobil menü aç/kapat
+    (function () {
+      const header = document.getElementById("site-header");
+      const toggle = document.getElementById("nav-toggle");
+      if (toggle && header) {
+        toggle.addEventListener("click", function () {
+          const open = header.classList.toggle("nav-open");
+          toggle.setAttribute("aria-expanded", String(open));
+        });
+      }
+    })();
+
+    // Kurulum sekmeleri
+    const INSTALL_CMDS = {
+      quick: {
+        cmd: "curl -fsSL https://raw.githubusercontent.com/YagYz/YDevDesk/main/install.sh | bash",
+        note: "En son sürümü indirir, masaüstü kısayolunu kurar ve Linux Wayland/NVIDIA ortamları için gerekli sarmalayıcıyı otomatik ekler."
+      },
+      apt: {
+        cmd: "echo 'deb [trusted=yes] https://yagyz.github.io/YDevDesk/apt ./' | sudo tee /etc/apt/sources.list.d/ydevdesk.list && sudo apt update && sudo apt install -y ydevdesk",
+        note: "Ubuntu / Debian sistemlerde yeni sürümleri doğrudan sudo apt upgrade ile almanızı sağlar."
+      },
+      mac: {
+        cmd: "xattr -cr /Applications/ydevdesk.app",
+        note: "DMG içinden Uygulamalar klasörüne taşıdıktan sonra imzasız uygulama uyarısını kaldırmak için bir kez çalıştırın."
+      },
+      win: {
+        cmd: "https://github.com/YagYz/YDevDesk/releases/latest",
+        note: "En son *-setup.exe kurulum dosyasını indirip çalıştırın; ardından Başlat menüsünden YDevDesk'i açın."
+      }
     };
-    function setTab(key, btn) {
-      document.getElementById("install-cmd").textContent = CMDS[key];
-      btn.parentElement.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+
+    function setInstallTab(key, btn) {
+      const item = INSTALL_CMDS[key];
+      if (!item) return;
+      document.getElementById("install-cmd").textContent = item.cmd;
+      document.getElementById("install-note").textContent = item.note;
+      btn.parentElement.querySelectorAll(".tab-btn").forEach(function (b) {
+        b.classList.remove("active");
+        b.setAttribute("aria-selected", "false");
+      });
       btn.classList.add("active");
+      btn.setAttribute("aria-selected", "true");
     }
-    function setShot(src, alt, btn) {
-      const img = document.getElementById("gallery-img");
-      img.src = src;
-      img.alt = alt;
-      btn.parentElement.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-    }
-    function copyCmd() {
-      const txt = document.getElementById("install-cmd").textContent;
-      navigator.clipboard.writeText(txt).then(() => {
-        const btn = document.querySelector(".copy-btn");
+
+    function copyHeroCmd() {
+      const text = document.getElementById("install-cmd").textContent;
+      const btn = document.getElementById("hero-copy-btn");
+      navigator.clipboard.writeText(text).then(function () {
         btn.textContent = "Kopyalandı!";
-        setTimeout(() => btn.textContent = "Kopyala", 1500);
+        btn.classList.add("copied");
+        setTimeout(function () {
+          btn.textContent = "Kopyala";
+          btn.classList.remove("copied");
+        }, 1600);
       });
     }
+
+    // En son GitHub Release bağlantılarını otomatik bağla
     fetch("https://api.github.com/repos/YagYz/YDevDesk/releases/latest")
-      .then(r => r.ok ? r.json() : null)
-      .then(rel => {
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (rel) {
         if (!rel || !rel.assets) return;
-        document.getElementById("ver-badge").textContent = `${rel.tag_name} • Tauri v2 • Linux, macOS & Windows`;
-        const find = (re) => rel.assets.find(a => re.test(a.name))?.browser_download_url;
+        const badge = document.getElementById("ver-badge");
+        if (badge && rel.tag_name) {
+          badge.innerHTML = '<span class="badge-dot" aria-hidden="true"></span><span>' + rel.tag_name + ' &bull; Tauri v2 &bull; Linux, macOS &amp; Windows</span>';
+        }
+        const find = function (re) {
+          const hit = rel.assets.find(function (a) { return re.test(a.name); });
+          return hit ? hit.browser_download_url : null;
+        };
         const map = {
           "dl-appimage": find(/\.AppImage$/),
           "dl-deb": find(/_amd64\.deb$/),
           "dl-rpm": find(/\.x86_64\.rpm$/),
           "dl-dmg-arm": find(/aarch64\.dmg$/),
           "dl-dmg-x64": find(/x64\.dmg$/),
-          "dl-win-exe": find(/-setup\.exe$/),
+          "dl-win-exe": find(/-setup\.exe$/)
         };
-        for (const [id, url] of Object.entries(map)) {
-          if (url) document.getElementById(id).href = url;
-        }
+        Object.keys(map).forEach(function (id) {
+          const el = document.getElementById(id);
+          if (el && map[id]) el.href = map[id];
+        });
       })
-      .catch(() => {});
+      .catch(function () {});
   </script>
 </body>
 </html>

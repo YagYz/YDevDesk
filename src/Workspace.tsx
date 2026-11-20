@@ -4,7 +4,7 @@ import { Maximize2, Minimize2, Plus } from "lucide-react";
 import { WorkspaceContext, type WorkspaceActions } from "./context/WorkspaceContext";
 import { useData } from "./context/DataContext";
 import { terminalManager } from "./lib/terminalManager";
-import { DOCK_COMPONENTS, MARKDOWN_COMPONENT, TERMINAL_COMPONENT } from "./panels/registry";
+import { DOCK_COMPONENTS, MARKDOWN_COMPONENT, PLUGIN_COMPONENT, TERMINAL_COMPONENT } from "./panels/registry";
 import { addModuleDefault, buildDefaultLayout, clearSavedLayout, hasTerminal, LAYOUT_KEY, MAIN_TERMINAL_ID, markdownPanelId, newTerminalId, saveLayout } from "./lib/layout";
 import { deleteWorkspacePreset, loadWorkspaces, saveWorkspacePreset, type SavedWorkspace } from "./lib/workspaces";
 import { TitleBar } from "./components/TitleBar";
@@ -84,7 +84,7 @@ function Watermark({ containerApi }: IWatermarkPanelProps) {
 }
 
 export default function Workspace() {
-  const { markSectionDirty, syncStatus, settings } = useData();
+  const { markSectionDirty, syncStatus, markdowns, settings } = useData();
   const apiRef = useRef<DockviewApi | null>(null);
   const lastTerminalRef = useRef<string | null>(null);
   const knownMarkdownsRef = useRef<Set<string> | null>(null);
@@ -155,6 +155,27 @@ export default function Workspace() {
     api.getPanel(id)?.api.setActive();
   }, [resolveCenterPosition]);
 
+  const openPlugin = useCallback<WorkspaceActions["openPlugin"]>((plugin) => {
+    const api = apiRef.current;
+    if (!api) return;
+    const id = `plugin-${plugin.id}`;
+    const existing = api.getPanel(id);
+    if (existing) {
+      existing.api.setActive();
+      return;
+    }
+    const anchor = api.panels.find((p) => p.api.component === TERMINAL_COMPONENT) ?? api.panels[0];
+    api.addPanel({
+      id,
+      component: PLUGIN_COMPONENT,
+      title: plugin.name,
+      params: { pluginId: plugin.id, name: plugin.name, permissions: plugin.permissions },
+      initialWidth: plugin.width || 320,
+      position: anchor ? { referencePanel: anchor.id, direction: "right" } : undefined,
+    });
+    api.getPanel(id)?.api.setActive();
+  }, []);
+
   const runInTerminal = useCallback((cmd: string) => {
     const api = apiRef.current;
     if (!api) return;
@@ -186,9 +207,9 @@ export default function Workspace() {
     if (!api) return;
     clearSavedLayout();
     api.clear();
-    buildDefaultLayout(api);
+    buildDefaultLayout(api, settings);
     syncOpen();
-  }, [syncOpen]);
+  }, [syncOpen, settings]);
 
   const saveCurrentWorkspace = useCallback((name: string) => {
     const api = apiRef.current;
@@ -240,7 +261,7 @@ export default function Workspace() {
           api.clear();
         }
       }
-      if (!restored) buildDefaultLayout(api);
+      if (!restored) buildDefaultLayout(api, settings);
       else if (!hasTerminal(api)) {
         api.addPanel({ id: MAIN_TERMINAL_ID, component: TERMINAL_COMPONENT, title: "Terminal", params: { kind: "shell" }, renderer: "always" });
       }
@@ -360,49 +381,28 @@ export default function Workspace() {
     }
   }, [syncStatus]);
 
-  const projectRoots = useMemo(
-    () =>
-      settings.connections
-        .filter((c) => c.type === "projects-root" && c.path)
-        .map((c) => c.path as string),
-    [settings.connections],
-  );
-
   useEffect(() => {
-    let cancelled = false;
-    const poll = async () => {
-      try {
-        const files = await api.listAgentMarkdowns(projectRoots);
-        if (cancelled) return;
-        const known = knownMarkdownsRef.current;
-        if (!known) {
-          knownMarkdownsRef.current = new Set(files.map((f) => f.path));
-          return;
-        }
-        const dock = apiRef.current;
-        for (const f of files) {
-          if (known.has(f.path)) continue;
-          known.add(f.path);
-          if (f.modified_ago_secs <= 15 && dock && hasTerminal(dock)) {
-            openMarkdown({ path: f.path, title: f.name, agent: f.agent });
-          }
-        }
-      } catch {
-        // Sessizce atla
+    if (markdowns.length === 0 && !knownMarkdownsRef.current) return;
+    const known = knownMarkdownsRef.current;
+    if (!known) {
+      knownMarkdownsRef.current = new Set(markdowns.map((f) => f.path));
+      return;
+    }
+    const dock = apiRef.current;
+    for (const f of markdowns) {
+      if (known.has(f.path)) continue;
+      known.add(f.path);
+      if (f.modified_ago_secs <= 15 && dock && hasTerminal(dock)) {
+        openMarkdown({ path: f.path, title: f.name, agent: f.agent });
       }
-    };
-    poll();
-    const timer = window.setInterval(poll, 3500);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [projectRoots, openMarkdown]);
+    }
+  }, [markdowns, openMarkdown]);
 
   const actions = useMemo<WorkspaceActions>(
     () => ({
       openTerminal,
       openMarkdown,
+      openPlugin,
       runInTerminal,
       toggleModule,
       isModuleOpen: (id) => openIds.has(id),
@@ -415,7 +415,7 @@ export default function Workspace() {
       openOmniBar: () => setShowOmni(true),
       openAgentSetup: () => setShowAgentSetup(true),
     }),
-    [openTerminal, openMarkdown, runInTerminal, toggleModule, openIds, resetLayout, workspaces, saveCurrentWorkspace, loadSavedWorkspace, deleteSavedWorkspace],
+    [openTerminal, openMarkdown, openPlugin, runInTerminal, toggleModule, openIds, resetLayout, workspaces, saveCurrentWorkspace, loadSavedWorkspace, deleteSavedWorkspace],
   );
 
 

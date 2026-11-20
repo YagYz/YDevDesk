@@ -151,12 +151,40 @@ export type NotificationSettings = {
   quota_threshold: number;
 };
 
+export type InstalledPlugin = {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  author: string;
+  width: number;
+  entry: string;
+  permissions: string[];
+};
+
+export type PluginParams = {
+  pluginId: string;
+  name: string;
+  permissions: string[];
+};
+
+export type ThemeManifest = {
+  id: string;
+  name: string;
+  description: string;
+  author: string;
+  builtin: boolean;
+  vars: Record<string, string>;
+  terminal?: Record<string, string> | null;
+};
+
 export type AppSettings = {
   notifications: NotificationSettings;
   connections: Connection[];
   disabled_modules: string[];
   quick_actions: CommandItem[];
   terminal_presets: TerminalPreset[];
+  theme_id?: string;
 };
 
 export type UpdateCheckResult = {

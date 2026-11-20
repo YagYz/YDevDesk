@@ -1,12 +1,14 @@
 import { createContext, useContext } from "react";
 import type { SavedWorkspace } from "../lib/workspaces";
-import type { Knowledge } from "../types";
+import type { InstalledPlugin, Knowledge } from "../types";
 
 export type WorkspaceActions = {
   /** Yeni terminal paneli açar; hedef grup verilirse o grupta sekme olarak ekler. */
   openTerminal: (opts?: { title?: string; initCmd?: string; kind?: "shell" | "agent" | "server"; groupId?: string }) => void;
   /** Markdown dosyasını merkez çalışma grubunda yeni sekme olarak açar. */
   openMarkdown: (opts: { path: string; title?: string; agent?: string; groupId?: string; content?: string }) => void;
+  /** Kurulu bir harici eklentiyi (plugin) Dockview paneli olarak açar/odaklar. */
+  openPlugin: (plugin: InstalledPlugin) => void;
   /** Etkin terminale komut yazar; terminal yoksa yeni terminal açıp komutu orada çalıştırır. */
   runInTerminal: (cmd: string) => void;
   toggleModule: (id: string) => void;

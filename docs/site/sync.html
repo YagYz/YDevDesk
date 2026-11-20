@@ -1,132 +1,72 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>YDevDesk — Çoklu Cihaz Canlı Senkronizasyon</title>
-  <meta name="description" content="YDevDesk GitHub OAuth Device Flow + Secret Gist ile sunucusuz, güvenli çoklu cihaz senkronizasyonu." />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Çoklu Cihaz Canlı Senkronizasyon — YDevDesk</title>
+  <meta name="description" content="YDevDesk GitHub OAuth Device Flow + Secret Gist + AES-256-GCM ile sunucusuz, güvenli çoklu cihaz senkronizasyonu." />
   <link rel="icon" type="image/png" href="logo.png" />
-  <style>
-    :root {
-      --bg: #080c14;
-      --surface: #101724;
-      --surface-2: #162033;
-      --border: #22304a;
-      --text: #e6edf7;
-      --muted: #94a3b8;
-      --accent: #38bdf8;
-      --green: #22c55e;
-      --warn: #f59e0b;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: radial-gradient(circle at 50% 0%, #111c33 0%, var(--bg) 55%);
-      color: var(--text);
-      line-height: 1.65;
-    }
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    .container { max-width: 920px; margin: 0 auto; padding: 0 24px 64px; }
-    nav {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 20px 0; border-bottom: 1px solid rgba(34,48,74,.6);
-    }
-    .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 18px; color: var(--text); }
-    .brand img { width: 34px; height: 34px; border-radius: 9px; }
-    .nav-links { display: flex; gap: 20px; font-size: 14px; }
-    .nav-links a { color: var(--muted); }
-    .nav-links a:hover, .nav-links a.active { color: var(--text); text-decoration: none; }
-    .hero { padding: 48px 0 28px; }
-    .badge {
-      display: inline-flex; align-items: center; gap: 8px;
-      font-size: 12px; font-weight: 600; color: var(--accent);
-      background: rgba(56,189,248,.1); border: 1px solid rgba(56,189,248,.28);
-      padding: 5px 12px; border-radius: 999px; margin-bottom: 14px;
-    }
-    h1 { margin: 0 0 12px; font-size: clamp(28px, 4vw, 42px); line-height: 1.2; }
-    .subtitle { color: var(--muted); font-size: 16px; max-width: 680px; margin: 0; }
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 22px 24px;
-      margin-top: 20px;
-    }
-    .card h2 { margin: 0 0 10px; font-size: 18px; color: var(--text); }
-    .card p, .card li { color: var(--muted); font-size: 14px; }
-    .card ul { margin: 8px 0 0; padding-left: 20px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 20px; }
-    .pill-ok { color: var(--green); font-weight: 600; }
-    .pill-warn { color: var(--warn); font-weight: 600; }
-    pre {
-      background: #06090e;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 16px;
-      overflow-x: auto;
-      font-size: 12px;
-      line-height: 1.5;
-      color: #cbd5e1;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    }
-    code {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 12px;
-      background: var(--surface-2);
-      padding: 2px 6px;
-      border-radius: 5px;
-      color: var(--accent);
-    }
-  </style>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="container">
-    <nav>
-      <a class="brand" href="./">
-        <img src="logo.png" alt="YDevDesk" />
+  <!-- Üst Menü -->
+  <header class="site-header" id="site-header">
+    <div class="container nav-inner">
+      <a class="brand" href="index.html">
+        <img src="logo.png" alt="YDevDesk" class="brand-logo" width="26" height="26" />
         <span>YDevDesk</span>
       </a>
-      <div class="nav-links">
-        <a href="./">Ana Sayfa</a>
-        <a href="sync.html" class="active">Senkronizasyon</a>
-        <a href="https://github.com/YagYz/YDevDesk/releases">Sürümler</a>
-        <a href="https://github.com/YagYz/YDevDesk">GitHub</a>
-      </div>
-    </nav>
 
-    <section class="hero">
-      <div class="badge">Uçtan Uca Şifreli &amp; Sunucusuz Senkronizasyon</div>
+      <nav class="nav-links" aria-label="Ana gezinme">
+        <a href="index.html#ozellikler">Özellikler</a>
+        <a href="index.html#ekran-goruntuleri">Ekran Görüntüleri</a>
+        <a href="docs.html">Dokümantasyon</a>
+        <a href="sync.html" class="active">Senkronizasyon</a>
+        <a href="privacy.html">Gizlilik &amp; Çerezler</a>
+      </nav>
+
+      <div class="nav-actions">
+        <a class="btn btn-ghost btn-sm" href="https://github.com/YagYz/YDevDesk" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a class="btn btn-primary btn-sm" href="index.html#indir">İndir</a>
+        <button class="nav-toggle" id="nav-toggle" aria-label="Menüyü aç/kapat" aria-expanded="false">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container-narrow">
+    <section class="page-hero">
+      <span class="badge"><span class="badge-dot" aria-hidden="true"></span>Uçtan Uca Şifreli &amp; Sunucusuz Senkronizasyon</span>
       <h1>Cihazlarınız Arasında Güvenli Eşitleme</h1>
-      <p class="subtitle">
+      <p>
         YDevDesk hiçbir merkezi sunucu işletmez ve kişisel verilerinizi toplamaz. Çalışma alanlarınız, ayarlarınız ve
-        token analitiğiniz cihazınızdan çıkmadan şifrelenir ve yalnızca sizin kendi GitHub hesabınız üzerinden eşitlenir.
+        token analitiğiniz cihazınızdan çıkmadan <code>AES-256-GCM</code> ile şifrelenir ve yalnızca sizin kendi GitHub hesabınız üzerinden eşitlenir.
       </p>
     </section>
 
-    <div class="card">
+    <section class="legal-card">
       <h2>Nasıl Çalışır?</h2>
       <ul>
-        <li><strong>Yalnızca Gist İzni (OAuth Device Flow):</strong> Ayarlar &rarr; Senkronizasyon sekmesinden <em>GitHub ile Bağlan</em> dediğinizde tarayıcıda tek kullanımlık bir kod onaylarsınız. Uygulama yalnızca size özel bir Gist oluşturmak için <code>gist</code> izni ister; kod repolarınıza, e-posta adresinize veya özel projelerinize erişmez.</li>
+        <li><strong>Yalnızca Gist İzni (OAuth Device Flow):</strong> <em>Ayarlar &rarr; Senkronizasyon</em> sekmesinden <em>GitHub ile Bağlan</em> dediğinizde tarayıcıda tek kullanımlık bir kod onaylarsınız. Uygulama yalnızca size özel bir Gist oluşturmak için <code>gist</code> izni ister; kod repolarınıza, e-posta adresinize veya özel projelerinize erişmez.</li>
         <li><strong>Uçtan Uca Şifreleme (AES-256-GCM):</strong> İlk cihazda otomatik olarak <code>YDEV-...</code> biçiminde bir Sync Anahtarı oluşturulur. Tüm veriler cihazınızdan çıkmadan önce yerel olarak şifrelenir. İkinci cihazda bu anahtar girilmeden veriler okunamaz.</li>
         <li><strong>Otomatik ve Hafif Eşitleme:</strong> Uygulama arka planda yalnızca değişiklik olup olmadığını kontrol eder (ETag). Değişiklik yoksa veri indirilmez ve API kotanız tüketilmez.</li>
       </ul>
-    </div>
+    </section>
 
-    <div class="card" id="aydinlatma">
+    <section class="legal-card" id="aydinlatma">
       <h2>Gizlilik ve Veri Güvenliği Aydınlatması</h2>
       <ul>
         <li><strong>Veri Toplama ve Üçüncü Taraf Paylaşımı Yoktur:</strong> YDevDesk geliştiricisi tarafından işletilen herhangi bir bulut veritabanı, analitik sunucusu veya takip aracı bulunmaz. Hiçbir veriniz geliştiriciye veya üçüncü taraflara iletilmez.</li>
         <li><strong>GitHub Hesabı Neden Kullanılır?</strong> Ayrı bir YDevDesk hesabı açmanıza ve şifre yönetmenize gerek kalmaması için yalnızca sizin kontrolünüzdeki GitHub hesabınız kişisel depolama alanı (<em>Secret Gist</em>) olarak kullanılır.</li>
         <li><strong>Yerel Anahtar Sahipliği:</strong> GitHub erişim belirteciniz ve şifreleme anahtarınız yalnızca kendi cihazınızda, işletim sistemi tarafından korunan özel izinli (<code>0600</code>) yerel dosyada saklanır; başka hiçbir yere gönderilmez.</li>
-        <li><strong>İstediğiniz An Silme ve İptal:</strong> Uygulama içinden <em>Bağlantıyı Kes</em> diyerek yerel yetkiyi kaldırabilir, GitHub hesabınızdaki <em>Gist</em> kaydını silerek tüm eşitleme verilerinizi kalıcı olarak yok edebilirsiniz.</li>
+        <li><strong>İstediğiniz An Silme ve İptal:</strong> Uygulama içinden <em>Bağlantıyı Kes</em> diyerek yerel yetkiyi kaldırabilir, GitHub hesabınızdaki <em>Gist</em> kaydını silerek tüm eşitleme verilerinizi kalıcı olarak yok edebilirsiniz. Tam aydınlatma metni için <a href="privacy.html">Gizlilik &amp; Çerez Politikası</a> sayfasını inceleyin.</li>
       </ul>
-    </div>
+    </section>
 
-    <div class="grid">
-      <div class="card">
-        <h2><span class="pill-ok">✓</span> Senkronize Edilenler</h2>
+    <div class="grid-2" style="margin-bottom:20px;">
+      <section class="legal-card" style="margin-bottom:0;">
+        <h2><span class="pill pill-ok">&#10003;</span> Senkronize Edilenler</h2>
         <ul>
           <li>Hızlı komutlar (<code>quick_actions</code>)</li>
           <li>Terminal şablonları (<code>terminal_presets</code>)</li>
@@ -137,23 +77,28 @@
           <li>Diğer cihazlardaki son oturumların özeti (cihaz rozeti ile)</li>
           <li>İsteğe bağlı: Panel düzeni (<code>layout</code>)</li>
         </ul>
-      </div>
+      </section>
 
-      <div class="card">
-        <h2><span class="pill-warn">✕</span> Senkronize Edilmeyenler (Gizlilik)</h2>
+      <section class="legal-card" style="margin-bottom:0;">
+        <h2><span class="pill pill-warn">&#10005;</span> Senkronize Edilmeyenler</h2>
         <ul>
           <li><code>projects-root</code> (OS'e özel klasör yolları)</li>
           <li><code>ydevhub_key</code> / <code>ynetmon_key</code> API anahtarları</li>
           <li>GitHub OAuth erişim anahtarı (yalnızca yerel <code>sync_auth.json</code> içinde <code>0600</code> izniyle tutulur)</li>
           <li>Ham ajan konuşma dosyaları (<code>.jsonl</code> / transcript)</li>
         </ul>
-      </div>
+      </section>
     </div>
 
-    <div class="card">
+    <section class="legal-card">
       <h2>Örnek Gist Veri Yapısı (<code>ydevdesk-sync.json</code>)</h2>
-      <p>GitHub hesabında <code>YDevDesk Sync Profile (v1)</code> açıklamasıyla oluşturulan gizli Gist dosyası şu biçimdedir:</p>
-      <pre>{
+      <p>GitHub hesabında <code>YDevDesk Sync Profile (v1)</code> açıklamasıyla oluşturulan gizli Gist içeriği şifrelenmeden önce şu yapıdadır:</p>
+      <div class="code-block">
+        <div class="code-header">
+          <span>ydevdesk-sync.json (Şifreleme Öncesi Şema)</span>
+          <button class="copy-btn" data-copy>Kopyala</button>
+        </div>
+        <pre><code>{
   "version": 1,
   "quick_actions": {
     "updatedAt": 1794860400000,
@@ -190,8 +135,53 @@
       ]
     }
   }
-}</pre>
+}</code></pre>
+      </div>
+    </section>
+  </main>
+
+  <!-- Altbilgi -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-bottom" style="border-top:0;padding-top:0;">
+        <span>YDevDesk Senkronizasyon &mdash; MIT Lisansı</span>
+        <span>
+          <a href="index.html">Ana Sayfa</a> &middot;
+          <a href="docs.html">Dokümantasyon</a> &middot;
+          <a href="privacy.html">Gizlilik &amp; Çerezler</a> &middot;
+          <a href="https://github.com/YagYz/YDevDesk" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </span>
+      </div>
     </div>
-  </div>
+  </footer>
+
+  <script>
+    (function () {
+      const header = document.getElementById("site-header");
+      const toggle = document.getElementById("nav-toggle");
+      if (toggle && header) {
+        toggle.addEventListener("click", function () {
+          const open = header.classList.toggle("nav-open");
+          toggle.setAttribute("aria-expanded", String(open));
+        });
+      }
+      document.querySelectorAll("[data-copy]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          const block = btn.closest(".code-block");
+          const code = block ? block.querySelector("pre code") : null;
+          if (!code) return;
+          navigator.clipboard.writeText(code.textContent).then(function () {
+            const orig = btn.textContent;
+            btn.textContent = "Kopyalandı!";
+            btn.classList.add("copied");
+            setTimeout(function () {
+              btn.textContent = orig;
+              btn.classList.remove("copied");
+            }, 1500);
+          });
+        });
+      });
+    })();
+  </script>
 </body>
 </html>

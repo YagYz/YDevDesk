@@ -1,28 +1,46 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, Download, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
+import {
+  Bell,
+  Bot,
+  CheckCircle2,
+  Download,
+  LayoutGrid,
+  Link2,
+  Loader2,
+  Palette,
+  Plug,
+  Plus,
+  RefreshCw,
+  Terminal,
+  Trash2,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { api } from "../lib/tauri";
 import { useData } from "../context/DataContext";
 import { useWorkspace } from "../context/WorkspaceContext";
-import { Modal } from "./Modal";
 import { ErrorBanner } from "./ui";
 import { AgentSetupContent } from "./AgentSetupModal";
 import { SyncSettingsContent } from "./SyncSettingsContent";
+import { PluginsSettingsTab, ThemesSettingsTab } from "./ThemesPluginsTabs";
 import { MODULES } from "../panels/registry";
 import { CONNECTION_TYPES, hasConnection, newId } from "../lib/settings";
 import { playChime } from "../lib/sound";
 import { notify } from "../lib/notify";
 import type { AppSettings, Connection, ConnectionType, UpdateCheckResult } from "../types";
 
-export type SettingsTab = "connections" | "modules" | "commands" | "notifications" | "agents" | "sync" | "update";
+export type SettingsTab = "connections" | "modules" | "themes" | "plugins" | "commands" | "notifications" | "agents" | "sync" | "update";
 
-const TABS: { id: SettingsTab; label: string }[] = [
-  { id: "connections", label: "Bağlantılar" },
-  { id: "modules", label: "Modüller" },
-  { id: "commands", label: "Komutlar" },
-  { id: "notifications", label: "Bildirimler" },
-  { id: "agents", label: "Ajanlar" },
-  { id: "sync", label: "Senkronizasyon" },
-  { id: "update", label: "Sürüm" },
+const TABS: { id: SettingsTab; label: string; icon: LucideIcon }[] = [
+  { id: "connections", label: "Bağlantılar", icon: Link2 },
+  { id: "modules", label: "Modüller", icon: LayoutGrid },
+  { id: "themes", label: "Temalar", icon: Palette },
+  { id: "plugins", label: "Eklentiler", icon: Plug },
+  { id: "commands", label: "Komutlar", icon: Terminal },
+  { id: "notifications", label: "Bildirimler", icon: Bell },
+  { id: "agents", label: "Ajanlar", icon: Bot },
+  { id: "sync", label: "Senkronizasyon", icon: RefreshCw },
+  { id: "update", label: "Sürüm", icon: Download },
 ];
 
 const input =
@@ -45,6 +63,14 @@ export function SettingsModal({ onClose, initialTab = "connections" }: { onClose
   useEffect(() => {
     api.appVersion().then(setVersion).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
 
   const handleCheckUpdate = async () => {
     setCheckingUpdate(true);
@@ -107,29 +133,54 @@ export function SettingsModal({ onClose, initialTab = "connections" }: { onClose
   };
 
   return (
-    <Modal
-      title={
-        <div className="flex items-center gap-2">
-          <img src="/logo.png" alt="YDevDesk" className="w-5 h-5 rounded-md object-contain shadow-sm" />
-          <span>Ayarlar</span>
-        </div>
-      }
-      onClose={onClose}
-      width={580}
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/65 backdrop-blur-sm"
     >
-      <form onSubmit={submit} className="space-y-3">
-        <div className="flex gap-1 border-b border-[var(--border)]">
-          {TABS.map((t) => (
-            <button
-              type="button"
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`px-3 py-1.5 text-xs -mb-px border-b-2 ${tab === t.id ? "border-[var(--accent)] text-[var(--txt-main)]" : "border-transparent text-[var(--txt-muted)]"}`}
-            >
-              {t.label}
-            </button>
-          ))}
+      <form
+        onSubmit={submit}
+        onClick={(e) => e.stopPropagation()}
+        className="w-[920px] max-w-[94vw] h-[640px] max-h-[88vh] rounded-lg border border-[var(--border-glow)] bg-[var(--surface)] shadow-2xl flex flex-col overflow-hidden"
+      >
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-[var(--border)] bg-[var(--surface-raised)] shrink-0">
+          <div className="flex items-center gap-2 text-sm font-medium text-[var(--txt-main)]">
+            <img src="/logo.png" alt="YDevDesk" className="w-5 h-5 rounded-md object-contain shadow-sm" />
+            <span>Ayarlar</span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Kapat"
+            className="p-1 rounded-md text-[var(--txt-muted)] hover:text-[var(--txt-main)] hover:bg-[var(--bg)]/60 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
+
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          <nav className="w-48 shrink-0 border-r border-[var(--border)] bg-[var(--bg)]/60 p-2 overflow-y-auto flex flex-col gap-0.5">
+            {TABS.map((t) => {
+              const Icon = t.icon;
+              const active = tab === t.id;
+              return (
+                <button
+                  type="button"
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-md text-xs text-left transition-colors cursor-pointer ${
+                    active
+                      ? "bg-[var(--accent)]/15 text-[var(--accent)] border border-[var(--accent)]/30 font-medium"
+                      : "border border-transparent text-[var(--txt-muted)] hover:text-[var(--txt-main)] hover:bg-[var(--surface-raised)]"
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{t.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+
+          <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-5">
 
         {tab === "connections" && (
           <div className="space-y-2.5">
@@ -420,16 +471,26 @@ export function SettingsModal({ onClose, initialTab = "connections" }: { onClose
           </div>
         )}
 
-        <ErrorBanner error={error} context={tab === "update" ? "update" : "settings"} />
-        <div className="flex justify-end gap-2 pt-1">
-          <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-lg text-xs text-[var(--txt-muted)] hover:bg-[var(--surface-raised)]">
-            Vazgeç
-          </button>
-          <button disabled={saving} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--accent)] text-black disabled:opacity-60">
-            {saving ? "Kaydediliyor…" : "Kaydet"}
-          </button>
+            {tab === "themes" && <ThemesSettingsTab draft={draft} onChange={setDraft} />}
+
+            {tab === "plugins" && <PluginsSettingsTab onCloseModal={onClose} />}
+          </div>
+        </div>
+
+        <div className="border-t border-[var(--border)] bg-[var(--surface-raised)]/60 px-5 py-2.5 flex items-center justify-between gap-2 shrink-0">
+          <div className="min-w-0 flex-1">
+            <ErrorBanner error={error} context={tab === "update" ? "update" : "settings"} />
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-lg text-xs text-[var(--txt-muted)] hover:bg-[var(--surface-raised)] cursor-pointer">
+              Vazgeç
+            </button>
+            <button disabled={saving} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--accent)] text-black disabled:opacity-60 cursor-pointer">
+              {saving ? "Kaydediliyor…" : "Kaydet"}
+            </button>
+          </div>
         </div>
       </form>
-    </Modal>
+    </div>
   );
 }

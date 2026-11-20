@@ -1,12 +1,12 @@
 import { CheckCircle2, Circle, StickyNote } from "lucide-react";
-import { useData } from "../context/DataContext";
+import { useHomelab } from "../context/HomelabContext";
 import { HubEmpty } from "../components/HubEmpty";
 import { PanelBody } from "../components/ui";
 
 const PRIORITY: Record<string, string> = { high: "var(--err)", med: "var(--warn)", medium: "var(--warn)", low: "var(--txt-dim)" };
 
 export default function NotesPanel() {
-  const { notes, hubStatus } = useData();
+  const { notes, hubStatus } = useHomelab();
   if (hubStatus !== "ok") return <HubEmpty />;
   if (notes.length === 0) {
     return (
