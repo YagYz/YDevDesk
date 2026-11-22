@@ -112,7 +112,17 @@ fn is_uuid_like(s: &str) -> bool {
         })
 }
 
+// Tüm transcript'i satır satır taradığı için (mtime, boyut) değişmedikçe önbellekten döner.
 fn extract_agy_subagent_ids(t_path: &std::path::Path) -> std::collections::HashSet<String> {
+    static CACHE: std::sync::OnceLock<crate::agents::cache::MtimeCache<std::collections::HashSet<String>>> =
+        std::sync::OnceLock::new();
+    CACHE
+        .get_or_init(crate::agents::cache::MtimeCache::new)
+        .get_or_load(t_path, |p| Some(scan_agy_subagent_ids(p)))
+        .unwrap_or_default()
+}
+
+fn scan_agy_subagent_ids(t_path: &std::path::Path) -> std::collections::HashSet<String> {
     let mut ids = std::collections::HashSet::new();
     let Ok(file) = std::fs::File::open(t_path) else {
         return ids;

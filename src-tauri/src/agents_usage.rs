@@ -132,7 +132,16 @@ fn agy_step_token_counts(v: &serde_json::Value) -> (u64, u64) {
     }
 }
 
+// Transcript tahmini tüm dosyayı okur; (mtime, boyut) değişmedikçe önbellekten döner.
 pub(crate) fn estimate_agy_transcript_tokens(path: &std::path::Path) -> (u64, u64) {
+    static CACHE: OnceLock<crate::agents::cache::MtimeCache<(u64, u64)>> = OnceLock::new();
+    CACHE
+        .get_or_init(crate::agents::cache::MtimeCache::new)
+        .get_or_load(path, |p| Some(estimate_agy_transcript_tokens_uncached(p)))
+        .unwrap_or((8_000, 0))
+}
+
+fn estimate_agy_transcript_tokens_uncached(path: &std::path::Path) -> (u64, u64) {
     // Sistem promptu ve araç şemaları oturum başına ~8k token başlangıç girdisi
     let mut total_inp = 8_000u64;
     let mut total_out = 0u64;
