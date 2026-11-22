@@ -368,7 +368,9 @@ export default function SessionsPanel() {
                     } hover:bg-[var(--surface-hover,var(--surface-raised))]`}
                   >
                     <div className="flex items-center gap-1.5">
-                      <Dot tone={s.is_active ? "ok" : "idle"} />
+                      <span title={s.is_working ? "çalışıyor" : s.is_active ? "aktif (boşta)" : "pasif"} className="inline-flex">
+                        <Dot tone={s.is_working ? "ok" : s.is_active ? "warn" : "idle"} />
+                      </span>
                       <span
                         className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border ${meta.badgeClass}`}
                       >

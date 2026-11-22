@@ -22,6 +22,7 @@ export const INITIAL_AGENT: AgentStatus = {
   sessions: [],
   subagents: [],
   recent_tools: [],
+  agents: [],
 };
 
 export type AgentContextValue = {
