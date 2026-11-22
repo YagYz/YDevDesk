@@ -10,12 +10,40 @@ pub struct ActiveAgentSession {
     pub title: String,
     pub cwd: Option<String>,
     pub is_active: bool,
+    pub is_working: bool,
     pub model: String,
     pub last_tool: String,
     pub updated_ago_secs: u64,
     pub subagent_count: u32,
 }
 
+
+/// Oturum son bu kadar sn içinde yazıldıysa ajan "çalışıyor" sayılır (Claude düşünürken
+/// birkaç sn dosyaya yazmayabilir; 2 sn'lik polling ile titremeyi önlemek için 15 sn).
+pub const WORKING_SECS: u64 = 15;
+/// Oturum son bu kadar sn içinde yazıldıysa "aktif" (boşta ama sıcak) sayılır.
+pub const ACTIVE_SECS: u64 = 300;
+/// AGY status hook'u bu süreden uzun güncellenmediyse içindeki "working" durumuna güvenilmez.
+const AGY_STATUS_STALE_SECS: u64 = 120;
+
+/// Tek bir ajanın canlı telemetri görünümü (ajan durumu sekmesinde sırayla döndürülür).
+#[derive(Serialize, Deserialize, Clone)]
+pub struct AgentLiveView {
+    pub agent: String,
+    pub title: String,
+    pub model: String,
+    pub state: String,
+    pub used_percentage: f64,
+    pub session_cost: f64,
+    pub total_input_tokens: u64,
+    pub total_output_tokens: u64,
+    pub tools_per_minute: u32,
+    pub marquee_text: String,
+    pub ticker_squares: Vec<String>,
+    pub file_heat: Vec<FileHeatItem>,
+    pub subagents: Vec<SubagentInfo>,
+    pub recent_tools: Vec<RecentToolCall>,
+}
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SubagentInfo {
@@ -56,6 +84,8 @@ pub struct AgentStatus {
     pub sessions: Vec<ActiveAgentSession>,
     pub subagents: Vec<SubagentInfo>,
     pub recent_tools: Vec<RecentToolCall>,
+    /// Aynı anda çalışan ajanların görünümleri (UI 3-5 sn'de bir sırayla gösterir).
+    pub agents: Vec<AgentLiveView>,
 }
 
 
@@ -232,7 +262,8 @@ fn collect_agy_sessions(
             agent: "agy".to_string(),
             title,
             cwd: None,
-            is_active: diff_secs < 300,
+            is_active: diff_secs < ACTIVE_SECS,
+            is_working: diff_secs < WORKING_SECS,
             model: "AGY".to_string(),
             last_tool: "working".to_string(),
             updated_ago_secs: diff_secs,
@@ -384,7 +415,8 @@ fn collect_claude_sessions(home: &std::path::Path, now: std::time::SystemTime) -
             agent: "claude".to_string(),
             title,
             cwd,
-            is_active: diff_secs < 300,
+            is_active: diff_secs < ACTIVE_SECS,
+            is_working: diff_secs < WORKING_SECS,
             model,
             last_tool: "working".to_string(),
             updated_ago_secs: diff_secs,
@@ -508,7 +540,8 @@ fn collect_codex_sessions(home: &std::path::Path, now: std::time::SystemTime) ->
             agent: "codex".to_string(),
             title,
             cwd,
-            is_active: diff_secs < 300,
+            is_active: diff_secs < ACTIVE_SECS,
+            is_working: diff_secs < WORKING_SECS,
             model,
             last_tool: "working".to_string(),
             updated_ago_secs: diff_secs,
@@ -874,288 +907,351 @@ fn read_caveman_mode(home: &std::path::Path) -> String {
         .unwrap_or_else(|| "NORMAL".to_string())
 }
 
-#[tauri::command]
-pub fn get_agent_status() -> AgentStatus {
-    let home = dirs::home_dir().unwrap_or_default();
-    let agy_dir = home.join(".gemini").join("antigravity-cli");
+struct AgyStatusFile {
+    model: String,
+    used_percentage: f64,
+    input: u64,
+    output: u64,
+    agent_state: String,
+    subagents: Vec<SubagentInfo>,
+    quota_5h: f64,
+    quota_weekly: f64,
+    conv_id: Option<String>,
+    age_secs: u64,
+}
+
+fn read_agy_status_file(agy_dir: &std::path::Path, now: std::time::SystemTime) -> Option<AgyStatusFile> {
     let status_path = agy_dir.join("status.json");
     let cache_path = agy_dir.join("cache").join("last_statusline.json");
-
-    let mut model = "AGY".to_string();
-    let mut used_percentage = 0.0;
-    let mut inp: u64 = 0;
-    let mut out: u64 = 0;
-    let mut agent_state = "idle".to_string();
-    let mut subagents_list = Vec::new();
-    let mut quota_5h = 100.0;
-    let mut quota_weekly = 100.0;
-    let mut has_live_status = false;
-    let mut status_conv_id: Option<String> = None;
-
-    let status_mtime = std::fs::metadata(&status_path).and_then(|m| m.modified()).ok();
-    let cache_mtime = std::fs::metadata(&cache_path).and_then(|m| m.modified()).ok();
-    let chosen_status_path = match (status_mtime, cache_mtime) {
+    let mtime_of = |p: &std::path::Path| std::fs::metadata(p).and_then(|m| m.modified()).ok();
+    let (path, mtime) = match (mtime_of(&status_path), mtime_of(&cache_path)) {
         (Some(sm), Some(cm)) => {
-            if sm >= cm { Some(&status_path) } else { Some(&cache_path) }
+            if sm >= cm { (status_path, sm) } else { (cache_path, cm) }
         }
-        (Some(_), None) => Some(&status_path),
-        (None, Some(_)) => Some(&cache_path),
-        (None, None) => None,
+        (Some(sm), None) => (status_path, sm),
+        (None, Some(cm)) => (cache_path, cm),
+        (None, None) => return None,
     };
+    let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()?;
+    let cw = v.get("context_window");
+    let quota_of = |k: &str| {
+        v.get("quota")
+            .and_then(|q| q.get(k))
+            .and_then(|q| q.get("remaining_fraction"))
+            .and_then(|f| f.as_f64())
+            .map(|f| (f * 100.0).round())
+            .unwrap_or(100.0)
+    };
+    let subagents = v
+        .get("subagents")
+        .and_then(|arr| arr.as_array())
+        .map(|subs| {
+            subs.iter()
+                .map(|s| SubagentInfo {
+                    name: s.get("name").and_then(|n| n.as_str()).unwrap_or("agent").to_string(),
+                    role: s.get("role").and_then(|r| r.as_str()).unwrap_or("").to_string(),
+                    status: s.get("status").and_then(|st| st.as_str()).unwrap_or("idle").to_string(),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    Some(AgyStatusFile {
+        model: v
+            .get("model")
+            .and_then(|m| m.get("display_name").or_else(|| m.get("id")))
+            .and_then(|s| s.as_str())
+            .unwrap_or("AGY")
+            .to_string(),
+        used_percentage: cw.and_then(|c| c.get("used_percentage")).and_then(|p| p.as_f64()).unwrap_or(0.0),
+        input: cw.and_then(|c| c.get("total_input_tokens")).and_then(|t| t.as_u64()).unwrap_or(0),
+        output: cw.and_then(|c| c.get("total_output_tokens")).and_then(|t| t.as_u64()).unwrap_or(0),
+        agent_state: v.get("agent_state").and_then(|s| s.as_str()).unwrap_or("idle").to_string(),
+        subagents,
+        quota_5h: quota_of("gemini-5h"),
+        quota_weekly: quota_of("gemini-weekly"),
+        conv_id: v
+            .get("conversation_id")
+            .or_else(|| v.get("session_id"))
+            .and_then(|s| s.as_str())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string()),
+        age_secs: now.duration_since(mtime).map(|d| d.as_secs()).unwrap_or(u64::MAX),
+    })
+}
 
-    if let Some(p) = chosen_status_path {
-        if let Ok(content) = std::fs::read_to_string(p) {
-            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) {
-                has_live_status = true;
-                status_conv_id = v
-                    .get("conversation_id")
-                    .or_else(|| v.get("session_id"))
-                    .and_then(|s| s.as_str())
-                    .filter(|s| !s.is_empty())
-                    .map(|s| s.to_string());
-                model = v.get("model")
-                    .and_then(|m| m.get("display_name").or_else(|| m.get("id")))
-                    .and_then(|s| s.as_str())
-                    .unwrap_or("AGY")
-                    .to_string();
-
-                used_percentage = v.get("context_window")
-                    .and_then(|cw| cw.get("used_percentage"))
-                    .and_then(|p| p.as_f64())
-                    .unwrap_or(0.0);
-
-                inp = v.get("context_window")
-                    .and_then(|cw| cw.get("total_input_tokens"))
-                    .and_then(|t| t.as_u64())
-                    .unwrap_or(0);
-
-                out = v.get("context_window")
-                    .and_then(|cw| cw.get("total_output_tokens"))
-                    .and_then(|t| t.as_u64())
-                    .unwrap_or(0);
-
-                agent_state = v.get("agent_state")
-                    .and_then(|s| s.as_str())
-                    .unwrap_or("idle")
-                    .to_string();
-
-                if let Some(quota) = v.get("quota") {
-                    if let Some(g5h) = quota.get("gemini-5h").and_then(|q| q.get("remaining_fraction")).and_then(|f| f.as_f64()) {
-                        quota_5h = (g5h * 100.0).round();
+// AGY transcript'inden son araç çağrıları, ticker, dosya ısısı ve zaman damgaları.
+fn agy_tools_telemetry(t_path: &std::path::Path) -> FocusTelemetry {
+    let mut t = FocusTelemetry {
+        model: String::new(),
+        input: 0,
+        output: 0,
+        cost: 0.0,
+        used_percentage: 0.0,
+        recent_tools: Vec::new(),
+        ticker: Vec::new(),
+        files: HashMap::new(),
+        tool_times: Vec::new(),
+    };
+    let Some(content) = read_tail(t_path, 512 * 1024) else { return t };
+    for line in content.lines().rev().take(100) {
+        if let Ok(entry) = serde_json::from_str::<serde_json::Value>(line) {
+            if let Some(calls) = entry.get("tool_calls").and_then(|c| c.as_array()) {
+                let created_at = entry.get("created_at").and_then(|t| t.as_str()).unwrap_or("").to_string();
+                for call in calls {
+                    let name = call.get("name").and_then(|n| n.as_str()).unwrap_or("tool").to_string();
+                    if let Some(ts) = parse_iso_epoch(&created_at) {
+                        t.tool_times.push(ts);
                     }
-                    if let Some(gwk) = quota.get("gemini-weekly").and_then(|q| q.get("remaining_fraction")).and_then(|f| f.as_f64()) {
-                        quota_weekly = (gwk * 100.0).round();
-                    }
-                }
+                    t.ticker.push(name.clone());
 
-                if let Some(subs) = v.get("subagents").and_then(|arr| arr.as_array()) {
-                    for s in subs {
-                        let name = s.get("name").and_then(|n| n.as_str()).unwrap_or("agent").to_string();
-                        let role = s.get("role").and_then(|r| r.as_str()).unwrap_or("").to_string();
-                        let status = s.get("status").and_then(|st| st.as_str()).unwrap_or("idle").to_string();
-                        subagents_list.push(SubagentInfo { name, role, status });
+                    let args_obj = call.get("args");
+                    let parsed_args = call
+                        .get("argumentsJson")
+                        .and_then(|a| a.as_str())
+                        .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok());
+                    let get_field = |k: &str| -> Option<String> {
+                        if let Some(v) = args_obj.and_then(|o| o.get(k)).and_then(|val| val.as_str()) {
+                            return Some(v.trim_matches('"').to_string());
+                        }
+                        if let Some(v) = parsed_args.as_ref().and_then(|o| o.get(k)).and_then(|val| val.as_str()) {
+                            return Some(v.trim_matches('"').to_string());
+                        }
+                        None
+                    };
+                    let detail = match name.as_str() {
+                        "run_command" => get_field("toolSummary")
+                            .or_else(|| get_field("CommandLine"))
+                            .unwrap_or_else(|| "Komut yürütüldü".to_string()),
+                        "read_file" | "edit_file" | "write_file" => {
+                            let raw_path = get_field("Path").unwrap_or_else(|| "dosya".to_string());
+                            let filename = raw_path.split('/').last().unwrap_or(&raw_path).to_string();
+                            *t.files.entry(filename.clone()).or_insert(0) += 1;
+                            filename
+                        }
+                        "search_web" => get_field("query").unwrap_or_else(|| "Web araması".to_string()),
+                        _ => "İşlem yapıldı".to_string(),
+                    };
+                    if t.recent_tools.len() < 8 {
+                        t.recent_tools.push(RecentToolCall { name, timestamp: created_at.clone(), detail });
                     }
                 }
             }
         }
+        if t.ticker.len() >= 60 {
+            break;
+        }
     }
+    t
+}
+
+fn make_view(
+    agent: &str,
+    session: &ActiveAgentSession,
+    model: String,
+    tel: FocusTelemetry,
+    state: &str,
+    subagents: Vec<SubagentInfo>,
+    now_epoch: i64,
+) -> AgentLiveView {
+    let marquee_text = tel
+        .recent_tools
+        .first()
+        .map(|t| format!("Ajan Aktif: {} → {}", t.name, t.detail))
+        .unwrap_or_else(|| "YDevDesk hazır.".to_string());
+    let mut file_heat: Vec<FileHeatItem> = tel
+        .files
+        .into_iter()
+        .map(|(name, count)| FileHeatItem { name, count })
+        .collect();
+    file_heat.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.name.cmp(&b.name)));
+    file_heat.truncate(5);
+    AgentLiveView {
+        agent: agent.to_string(),
+        title: session.title.clone(),
+        model,
+        state: state.to_string(),
+        used_percentage: tel.used_percentage,
+        session_cost: (tel.cost * 1000.0).round() / 1000.0,
+        total_input_tokens: tel.input,
+        total_output_tokens: tel.output,
+        tools_per_minute: tel
+            .tool_times
+            .iter()
+            .filter(|t| (-5..=60).contains(&(now_epoch - **t)))
+            .count() as u32,
+        marquee_text,
+        ticker_squares: tel.ticker,
+        file_heat,
+        subagents,
+        recent_tools: tel.recent_tools,
+    }
+}
+
+fn build_agy_view(
+    session: &ActiveAgentSession,
+    transcript: &std::path::Path,
+    status: Option<&AgyStatusFile>,
+    now_epoch: i64,
+) -> AgentLiveView {
+    // Status/cache dosyası başka bir konuşmaya ait olabilir: o zaman karıştırma, transcript'ten tahmin et.
+    let matched = status.is_some_and(|st| st.conv_id.as_deref().is_none_or(|id| id == session.full_session_id));
+    let mut tel = agy_tools_telemetry(transcript);
+    let model = status.map(|s| s.model.clone()).unwrap_or_else(|| "AGY".to_string());
+    let mut subagents = Vec::new();
+    let mut hook_working = false;
+    match status.filter(|_| matched) {
+        Some(st) => {
+            tel.used_percentage = st.used_percentage;
+            tel.input = st.input;
+            tel.output = st.output;
+            subagents = st.subagents.clone();
+            // Hook güncellemeyi bıraktıysa "working" sonsuza kadar takılı kalmasın.
+            hook_working = st.agent_state == "working" && st.age_secs <= AGY_STATUS_STALE_SECS;
+        }
+        None => {
+            let (i, o) = estimate_agy_transcript_tokens(transcript);
+            tel.input = i;
+            tel.output = o;
+        }
+    }
+    // Gemini Flash/Pro karışık tahmini fiyat ($0.15 girdi / $0.60 çıktı per 1M)
+    tel.cost = (tel.input as f64 / 1_000_000.0) * 0.15 + (tel.output as f64 / 1_000_000.0) * 0.60;
+    let state = if hook_working || session.is_working { "working" } else { "idle" };
+    make_view("agy", session, model, tel, state, subagents, now_epoch)
+}
+
+fn build_file_view(
+    session: &ActiveAgentSession,
+    tel: Option<FocusTelemetry>,
+    now_epoch: i64,
+) -> AgentLiveView {
+    let tel = tel.unwrap_or(FocusTelemetry {
+        model: String::new(),
+        input: 0,
+        output: 0,
+        cost: 0.0,
+        used_percentage: 0.0,
+        recent_tools: Vec::new(),
+        ticker: Vec::new(),
+        files: HashMap::new(),
+        tool_times: Vec::new(),
+    });
+    let model = if tel.model.is_empty() { session.model.clone() } else { tel.model.clone() };
+    let state = if session.is_working { "working" } else { "idle" };
+    make_view(&session.agent, session, model, tel, state, Vec::new(), now_epoch)
+}
+
+#[tauri::command]
+pub fn get_agent_status() -> AgentStatus {
+    let home = dirs::home_dir().unwrap_or_default();
+    let agy_dir = home.join(".gemini").join("antigravity-cli");
+    let now = std::time::SystemTime::now();
+    let now_epoch = now
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+
+    let status = read_agy_status_file(&agy_dir, now);
 
     // Disk üzerindeki AGY, Claude Code ve Codex oturumlarını tara (en güncel 50 oturum)
-    let now = std::time::SystemTime::now();
-    let (mut session_list, mut primary_transcript_path) = collect_agy_sessions(&agy_dir, now);
+    let (mut agy_sessions, agy_transcript) = collect_agy_sessions(&agy_dir, now);
+    // Eşleşen AGY oturumunun modelini listede de göster ("AGY" sabiti yerine).
+    if let Some(st) = status.as_ref().filter(|st| st.model != "AGY") {
+        let newest = agy_sessions.first().map(|s| s.full_session_id.clone());
+        for s in agy_sessions.iter_mut() {
+            let hit = match st.conv_id.as_deref() {
+                Some(id) => id == s.full_session_id,
+                None => newest.as_deref() == Some(s.full_session_id.as_str()),
+            };
+            if hit {
+                s.model = st.model.clone();
+            }
+        }
+    }
+    let mut session_list = agy_sessions;
     session_list.extend(collect_claude_sessions(&home, now));
     session_list.extend(collect_codex_sessions(&home, now));
     session_list.sort_by_key(|s| s.updated_ago_secs);
     session_list.truncate(50);
 
-    let mut recent_tools = Vec::new();
-    let mut ticker_squares = Vec::new();
-    let mut file_map: HashMap<String, u32> = HashMap::new();
-    let mut marquee_text = "YDevDesk hazır.".to_string();
-    let mut focus_cost: Option<f64> = None;
-
-    let now_epoch = now
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0);
-    let mut tool_times: Vec<i64> = Vec::new();
-    let agy_status_age_secs = [status_mtime, cache_mtime]
-        .into_iter()
-        .flatten()
-        .max()
-        .and_then(|t| now.duration_since(t).ok())
-        .map(|d| d.as_secs())
-        .unwrap_or(u64::MAX);
-
-    if let Some(focus) = session_list.first().cloned() {
-        if focus.agent == "agy" {
-            // Status/cache dosyası başka bir konuşmaya ait olabilir: karıştırma, transcript'ten tahmin et.
-            if has_live_status && status_conv_id.as_deref().is_some_and(|id| id != focus.full_session_id) {
-                has_live_status = false;
-                used_percentage = 0.0;
-                subagents_list.clear();
-                agent_state = "idle".to_string();
-            } else if agent_state == "working" && agy_status_age_secs > 120 {
-                // Hook güncellemeyi bıraktıysa "working" sonsuza kadar takılı kalmasın.
-                agent_state = "idle".to_string();
+    // Her ajan türünün en yeni oturumu için görünüm üret: odak oturum (idle olsa da) ve
+    // o anda çalışanlar. Çalışanlar `agents` listesine girer; UI birden fazlaysa sırayla gösterir.
+    let focus_kind = session_list.first().map(|s| s.agent.clone());
+    let mut seen_kinds: Vec<&str> = Vec::new();
+    let mut live_views: Vec<AgentLiveView> = Vec::new();
+    let mut focus_view: Option<AgentLiveView> = None;
+    for s in &session_list {
+        if seen_kinds.contains(&s.agent.as_str()) {
+            continue;
+        }
+        seen_kinds.push(s.agent.as_str());
+        let is_focus = focus_kind.as_deref() == Some(s.agent.as_str());
+        if !(is_focus || s.is_working || (s.agent == "agy" && s.is_active)) {
+            continue;
+        }
+        let view = match s.agent.as_str() {
+            "agy" => agy_transcript
+                .as_deref()
+                .map(|p| build_agy_view(s, p, status.as_ref(), now_epoch)),
+            "claude" => Some(build_file_view(
+                s,
+                find_claude_session_file(&home, &s.full_session_id).and_then(|p| claude_focus_telemetry(&p)),
+                now_epoch,
+            )),
+            "codex" => Some(build_file_view(
+                s,
+                find_codex_session_file(&home, &s.full_session_id).and_then(|p| codex_focus_telemetry(&p)),
+                now_epoch,
+            )),
+            _ => None,
+        };
+        if let Some(v) = view {
+            if is_focus {
+                focus_view = Some(v.clone());
             }
-            // Eşleşen AGY oturumunun modelini listede de göster ("AGY" sabiti yerine).
-            if has_live_status && model != "AGY" {
-                for s in session_list.iter_mut().filter(|s| s.agent == "agy") {
-                    if status_conv_id.as_deref().is_none_or(|id| id == s.full_session_id) {
-                        s.model = model.clone();
-                    }
-                }
-            }
-        } else {
-            model = focus.model.clone();
-            used_percentage = 0.0;
-            inp = 0;
-            out = 0;
-            agent_state = "idle".to_string();
-            subagents_list.clear();
-            primary_transcript_path = None;
-            has_live_status = true; // AGY transcript tahmini devre dışı
-            let telemetry = match focus.agent.as_str() {
-                "claude" => find_claude_session_file(&home, &focus.full_session_id)
-                    .and_then(|p| claude_focus_telemetry(&p)),
-                "codex" => find_codex_session_file(&home, &focus.full_session_id)
-                    .and_then(|p| codex_focus_telemetry(&p)),
-                _ => None,
-            };
-            if let Some(cf) = telemetry {
-                if !cf.model.is_empty() {
-                    model = cf.model;
-                }
-                used_percentage = cf.used_percentage;
-                inp = cf.input;
-                out = cf.output;
-                focus_cost = Some(cf.cost);
-                recent_tools = cf.recent_tools;
-                ticker_squares = cf.ticker;
-                file_map = cf.files;
-                tool_times = cf.tool_times;
+            if v.state == "working" {
+                live_views.push(v);
             }
         }
     }
 
-    if !has_live_status {
-        if let Some(ref t_path) = primary_transcript_path {
-            let (est_inp, est_out) = estimate_agy_transcript_tokens(t_path);
-            inp = est_inp;
-            out = est_out;
-        }
-    }
-
-    if let Some(t_path) = primary_transcript_path {
-        if let Some(t_content) = read_tail(&t_path, 512 * 1024) {
-            let lines: Vec<&str> = t_content.lines().rev().take(100).collect();
-            for line in lines {
-                if let Ok(entry) = serde_json::from_str::<serde_json::Value>(line) {
-                    if let Some(calls) = entry.get("tool_calls").and_then(|c| c.as_array()) {
-                        let created_at = entry.get("created_at").and_then(|t| t.as_str()).unwrap_or("").to_string();
-                        for call in calls {
-                            let name = call.get("name").and_then(|n| n.as_str()).unwrap_or("tool").to_string();
-                            if let Some(t) = parse_iso_epoch(&created_at) {
-                                tool_times.push(t);
-                            }
-                            ticker_squares.push(name.clone());
-
-                            let args_obj = call.get("args");
-                            let parsed_args = call.get("argumentsJson")
-                                .and_then(|a| a.as_str())
-                                .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok());
-
-                            let get_field = |k: &str| -> Option<String> {
-                                if let Some(v) = args_obj.and_then(|o| o.get(k)).and_then(|val| val.as_str()) {
-                                    return Some(v.trim_matches('"').to_string());
-                                }
-                                if let Some(v) = parsed_args.as_ref().and_then(|o| o.get(k)).and_then(|val| val.as_str()) {
-                                    return Some(v.trim_matches('"').to_string());
-                                }
-                                None
-                            };
-
-                            let detail = match name.as_str() {
-                                "run_command" => {
-                                    get_field("toolSummary")
-                                        .or_else(|| get_field("CommandLine"))
-                                        .unwrap_or_else(|| "Komut yürütüldü".to_string())
-                                }
-                                "read_file" | "edit_file" | "write_file" => {
-                                    let raw_path = get_field("Path").unwrap_or_else(|| "dosya".to_string());
-                                    let filename = raw_path.split('/').last().unwrap_or(&raw_path).to_string();
-                                    *file_map.entry(filename.clone()).or_insert(0) += 1;
-                                    filename
-                                }
-                                "search_web" => get_field("query").unwrap_or_else(|| "Web araması".to_string()),
-                                _ => "İşlem yapıldı".to_string(),
-                            };
-
-                            if recent_tools.len() < 8 {
-                                recent_tools.push(RecentToolCall {
-                                    name: name.clone(),
-                                    timestamp: created_at.clone(),
-                                    detail: detail.clone(),
-                                });
-                            }
-                        }
-                    }
-                }
-                if ticker_squares.len() >= 60 {
-                    break;
-                }
-            }
-        }
-    }
-
-    if let Some(first_tool) = recent_tools.first() {
-        marquee_text = format!("Ajan Aktif: {} → {}", first_tool.name, first_tool.detail);
-    }
-
-    let mut file_heat: Vec<FileHeatItem> = file_map
-        .into_iter()
-        .map(|(name, count)| FileHeatItem { name, count })
-        .collect();
-    file_heat.sort_by(|a, b| b.count.cmp(&a.count));
-    file_heat.truncate(5);
-
-    let cost = focus_cost.unwrap_or((inp as f64 / 1_000_000.0) * 0.15 + (out as f64 / 1_000_000.0) * 0.60);
+    let top = focus_view.unwrap_or_else(|| AgentLiveView {
+        agent: String::new(),
+        title: String::new(),
+        model: status.as_ref().map(|s| s.model.clone()).unwrap_or_else(|| "—".to_string()),
+        state: "idle".to_string(),
+        used_percentage: 0.0,
+        session_cost: 0.0,
+        total_input_tokens: 0,
+        total_output_tokens: 0,
+        tools_per_minute: 0,
+        marquee_text: "YDevDesk hazır.".to_string(),
+        ticker_squares: Vec::new(),
+        file_heat: Vec::new(),
+        subagents: Vec::new(),
+        recent_tools: Vec::new(),
+    });
     let active_count = session_list.iter().filter(|s| s.is_active).count();
-    let other_agent_working = session_list
-        .iter()
-        .any(|s| s.agent != "agy" && s.updated_ago_secs < 6);
-    let agy_fallback_working = !has_live_status
-        && session_list
-            .iter()
-            .any(|s| s.agent == "agy" && s.updated_ago_secs < 6);
-    let final_agent_state = if agent_state == "working" || other_agent_working || agy_fallback_working {
-        "working".to_string()
-    } else {
-        agent_state
-    };
 
     AgentStatus {
-        model,
-        used_percentage,
-        session_cost: (cost * 1000.0).round() / 1000.0,
-        total_input_tokens: inp,
-        total_output_tokens: out,
+        model: top.model,
+        used_percentage: top.used_percentage,
+        session_cost: top.session_cost,
+        total_input_tokens: top.total_input_tokens,
+        total_output_tokens: top.total_output_tokens,
         mode: read_caveman_mode(&home),
-        agent_state: final_agent_state,
+        agent_state: if live_views.is_empty() { "idle" } else { "working" }.to_string(),
         active_sessions_count: active_count,
-        quota_5h_percent: quota_5h,
-        quota_weekly_percent: quota_weekly,
-        tools_per_minute: tool_times
-            .iter()
-            .filter(|t| (-5..=60).contains(&(now_epoch - **t)))
-            .count() as u32,
-        marquee_text,
-        ticker_squares,
-        file_heat,
+        quota_5h_percent: status.as_ref().map(|s| s.quota_5h).unwrap_or(100.0),
+        quota_weekly_percent: status.as_ref().map(|s| s.quota_weekly).unwrap_or(100.0),
+        tools_per_minute: top.tools_per_minute,
+        marquee_text: top.marquee_text,
+        ticker_squares: top.ticker_squares,
+        file_heat: top.file_heat,
         sessions: session_list,
-        subagents: subagents_list,
-        recent_tools,
+        subagents: top.subagents,
+        recent_tools: top.recent_tools,
+        agents: live_views,
     }
 }
 
