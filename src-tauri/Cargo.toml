@@ -1,6 +1,6 @@
 [package]
 name = "ydevdesk"
-version = "1.2.1"
+version = "1.2.2"
 description = "YDevDesk: homelab and agent command center"
 authors = ["yagyz"]
 edition = "2024"

@@ -1,11 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bot, Sparkles, Wrench } from "lucide-react";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useData } from "../context/DataContext";
 import { api } from "../lib/tauri";
 import { formatTokens } from "../lib/format";
 import { Bar, Dot, PanelBody, Stat } from "../components/ui";
-import type { AgentUsageTotals, DailyUsagePoint, UsageWindowSummary } from "../types";
+import type { AgentLiveView, AgentUsageTotals, DailyUsagePoint, UsageWindowSummary } from "../types";
+
+/** Birden fazla ajan aynı anda çalışırken bilgileri bu aralıkla (ms) sırayla gösterilir. */
+const ROTATE_MS = 4000;
 
 type WindowKey = "d1" | "d7" | "d30";
 type SourceKey = "all" | "agy" | "claude" | "codex";
@@ -87,7 +90,28 @@ export default function AgentUsagePanel() {
   );
   const effectiveUsage = scope === "all" && otherDeviceCount > 0 ? (combinedUsage ?? usage) : usage;
 
-  const working = agent.agent_state === "working";
+  // Aynı anda birden fazla ajan çalışıyorsa görünümleri sırayla döndür (üzerine gelince durur).
+  const views = useMemo(() => [...(agent.agents ?? [])].sort((a, b) => a.agent.localeCompare(b.agent)), [agent.agents]);
+  const [rotIdx, setRotIdx] = useState(0);
+  const [rotPaused, setRotPaused] = useState(false);
+  useEffect(() => {
+    if (views.length < 2 || rotPaused) return;
+    const id = setInterval(() => setRotIdx((i) => i + 1), ROTATE_MS);
+    return () => clearInterval(id);
+  }, [views.length, rotPaused]);
+  const current: AgentLiveView | null = views.length > 0 ? views[rotIdx % views.length] : null;
+  const live = current ?? {
+    agent: "",
+    model: agent.model,
+    state: agent.agent_state,
+    used_percentage: agent.used_percentage,
+    session_cost: agent.session_cost,
+    total_input_tokens: agent.total_input_tokens,
+    total_output_tokens: agent.total_output_tokens,
+    tools_per_minute: agent.tools_per_minute,
+    marquee_text: agent.marquee_text,
+  };
+  const working = current ? current.state === "working" : agent.agent_state === "working";
   const quotaTone = (p: number) => (p < 15 ? "warn" : "ok");
   const agyConfigured = usage?.agy_quota_configured ?? true;
 
@@ -147,7 +171,21 @@ export default function AgentUsagePanel() {
     <PanelBody className="space-y-3">
       <div className="flex items-center gap-2 text-xs">
         <Bot className="w-4 h-4 text-[var(--accent)]" />
-        <span className="font-semibold truncate">{agent.model}</span>
+        <span className="font-semibold truncate">{live.model}</span>
+        {current && views.length > 1 && (
+          <span className="flex items-center gap-1 shrink-0" title={`${views.length} ajan çalışıyor`}>
+            <span className="rounded px-1 text-[10px] font-medium" style={{ color: AGENT_META[current.agent as "agy" | "claude" | "codex"]?.color ?? "var(--txt-muted)" }}>
+              {AGENT_META[current.agent as "agy" | "claude" | "codex"]?.label ?? current.agent}
+            </span>
+            {views.map((v, i) => (
+              <span
+                key={v.agent}
+                className="inline-block w-1 h-1 rounded-full"
+                style={{ background: i === rotIdx % views.length ? "var(--accent)" : "var(--txt-dim)" }}
+              />
+            ))}
+          </span>
+        )}
         <span className="ml-auto flex items-center gap-1.5 text-[var(--txt-muted)]">
           <Dot tone={working ? "ok" : "idle"} />
           {working ? "çalışıyor" : "boşta"}
@@ -187,16 +225,17 @@ export default function AgentUsagePanel() {
       </div>
 
       {tab === "live" && (
-        <>
+        <div onMouseEnter={() => setRotPaused(true)} onMouseLeave={() => setRotPaused(false)} className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
-            <Stat label="Girdi" value={formatTokens(agent.total_input_tokens)} sub="token" />
-            <Stat label="Çıktı" value={formatTokens(agent.total_output_tokens)} sub="token" />
-            <Stat label="Maliyet" value={`$${agent.session_cost.toFixed(3)}`} accent />
-            <Stat label="Araç/dk" value={agent.tools_per_minute} />
+            <Stat label="Girdi" value={formatTokens(live.total_input_tokens)} sub="token" />
+            <Stat label="Çıktı" value={formatTokens(live.total_output_tokens)} sub="token" />
+            <Stat label="Maliyet" value={`$${live.session_cost.toFixed(3)}`} accent />
+            <Stat label="Araç/dk" value={live.tools_per_minute} />
           </div>
+          {current && <div className="truncate text-[10px] text-[var(--txt-dim)]" title={live.marquee_text}>{live.marquee_text}</div>}
 
           <div className="space-y-2.5">
-            <Bar label="Bağlam kullanımı" percent={agent.used_percentage} tone={agent.used_percentage > 85 ? "warn" : "accent"} />
+            <Bar label="Bağlam kullanımı" percent={live.used_percentage} tone={live.used_percentage > 85 ? "warn" : "accent"} />
 
             {agyConfigured ? (
               <>
@@ -232,7 +271,7 @@ export default function AgentUsagePanel() {
               />
             )}
           </div>
-        </>
+        </div>
       )}
 
       {tab === "analytics" && (

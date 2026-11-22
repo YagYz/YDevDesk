@@ -39,6 +39,8 @@ export type ActiveAgentSession = {
   title: string;
   cwd?: string | null;
   is_active: boolean;
+  /** Oturum son 15 sn içinde yazıldı (canlı çalışıyor). is_active: son 5 dk. */
+  is_working: boolean;
   model: string;
   last_tool: string;
   updated_ago_secs: number;
@@ -67,6 +69,24 @@ export type RecentToolCall = {
   detail: string;
 };
 
+/** Tek ajanın canlı telemetri görünümü; birden fazla ajan çalışırken sırayla gösterilir. */
+export type AgentLiveView = {
+  agent: AgentKind | string;
+  title: string;
+  model: string;
+  state: "working" | "idle" | string;
+  used_percentage: number;
+  session_cost: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  tools_per_minute: number;
+  marquee_text: string;
+  ticker_squares: string[];
+  file_heat: FileHeatItem[];
+  subagents: SubagentInfo[];
+  recent_tools: RecentToolCall[];
+};
+
 export type AgentStatus = {
   model: string;
   used_percentage: number;
@@ -85,6 +105,8 @@ export type AgentStatus = {
   sessions: ActiveAgentSession[];
   subagents: SubagentInfo[];
   recent_tools: RecentToolCall[];
+  /** Aynı anda çalışan ajanların görünümleri (boşsa üst düzey alanlar kullanılır). */
+  agents: AgentLiveView[];
 };
 
 export type NetworkData = {
