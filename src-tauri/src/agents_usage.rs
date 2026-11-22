@@ -157,7 +157,14 @@ struct ProviderDayStats {
     cost_usd: f64,
 }
 
-fn claude_pricing_per_1m(model: &str) -> (f64, f64, f64, f64) {
+// Codex tahmini fiyat ($/1M): işlenmemiş girdi 1.50, önbellekli girdi 0.375, çıktı 6.00
+pub(crate) fn codex_cost_usd(uncached_input: u64, cached_input: u64, output: u64) -> f64 {
+    (uncached_input as f64 / 1_000_000.0) * 1.50
+        + (cached_input as f64 / 1_000_000.0) * 0.375
+        + (output as f64 / 1_000_000.0) * 6.00
+}
+
+pub(crate) fn claude_pricing_per_1m(model: &str) -> (f64, f64, f64, f64) {
     let lower = model.to_lowercase();
     if lower.contains("opus") {
         (15.0, 75.0, 15.0 * 1.25, 15.0 * 0.1)
@@ -458,9 +465,7 @@ fn compute_usage_analytics() -> UsageAnalytics {
 
         if session_date >= min_date && (max_inp > 0 || max_out > 0 || max_cached > 0) {
             let uncached_inp = max_inp.saturating_sub(max_cached);
-            let cost = (uncached_inp as f64 / 1_000_000.0) * 1.50
-                + (max_cached as f64 / 1_000_000.0) * 0.375
-                + (max_out as f64 / 1_000_000.0) * 6.00;
+            let cost = codex_cost_usd(uncached_inp, max_cached, max_out);
             let entry = codex_by_day.entry(session_date).or_default();
             entry.input_tokens += uncached_inp;
             entry.output_tokens += max_out;

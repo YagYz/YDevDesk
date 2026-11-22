@@ -5,12 +5,12 @@ import { useSettings } from "./SettingsContext";
 import type { AgentMarkdownFile, AgentStatus, UsageAnalytics } from "../types";
 
 export const INITIAL_AGENT: AgentStatus = {
-  model: "AGY",
+  model: "—",
   used_percentage: 0,
   session_cost: 0,
   total_input_tokens: 0,
   total_output_tokens: 0,
-  mode: "CAVEMAN",
+  mode: "NORMAL",
   agent_state: "idle",
   active_sessions_count: 0,
   quota_5h_percent: 100,
