@@ -575,34 +575,23 @@ fn claude_aggregate(path: &std::path::Path) -> Option<(String, u64, u64, f64, u6
             if v.get("type").and_then(|t| t.as_str()) != Some("assistant") {
                 continue;
             }
-            let Some(msg) = v.get("message") else { continue };
-            let Some(usage) = msg.get("usage") else { continue };
-            let n = |k: &str| usage.get(k).and_then(|x| x.as_u64()).unwrap_or(0);
-            let (inp, cc, cr, out) = (
-                n("input_tokens"),
-                n("cache_creation_input_tokens"),
-                n("cache_read_input_tokens"),
-                n("output_tokens"),
-            );
-            let model = msg.get("model").and_then(|m| m.as_str()).unwrap_or("");
-            if !model.is_empty() && !model.starts_with('<') {
-                agg.model = model.to_string();
+            let Some(rec) = v.get("message").and_then(crate::agents_usage::parse_claude_usage) else { continue };
+            if !rec.model.is_empty() && !rec.model.starts_with('<') {
+                agg.model = rec.model.clone();
             }
-            if inp + cc + cr + out == 0 {
+            if rec.is_empty() {
                 continue;
             }
-            let (ip, op, ccp, crp) = crate::agents_usage::claude_pricing_per_1m(model);
-            let cost = (inp as f64 * ip + out as f64 * op + cc as f64 * ccp + cr as f64 * crp) / 1_000_000.0;
-            let id = msg.get("id").and_then(|i| i.as_str()).unwrap_or("").to_string();
-            if let Some(old) = agg.per_msg.insert(id, (inp + cc, out, cost)) {
+            let (fresh, out, cost) = (rec.fresh_input(), rec.output, rec.cost_usd());
+            if let Some(old) = agg.per_msg.insert(rec.id.clone(), (fresh, out, cost)) {
                 agg.input -= old.0;
                 agg.output -= old.1;
                 agg.cost -= old.2;
             }
-            agg.input += inp + cc;
+            agg.input += fresh;
             agg.output += out;
             agg.cost += cost;
-            agg.last_ctx = inp + cc + cr;
+            agg.last_ctx = rec.prompt_tokens();
         }
         agg.offset += end as u64;
     }
@@ -634,9 +623,21 @@ fn claude_tool_detail(name: &str, input: Option<&serde_json::Value>) -> (String,
     }
 }
 
+// Bağlam penceresi: 5.x ailesi, Opus 4.6+ ve Sonnet 4.6 için 1M; Haiku 4.5 ve eski modeller 200K.
+fn claude_context_window(model: &str) -> u64 {
+    let m = model.to_lowercase();
+    let one_million = m.contains("[1m]")
+        || m.contains("fable")
+        || m.contains("mythos")
+        || ["opus-5", "sonnet-5", "haiku-5", "opus-4-6", "opus-4-7", "opus-4-8", "sonnet-4-6"]
+            .iter()
+            .any(|k| m.contains(k));
+    if one_million { 1_000_000 } else { 200_000 }
+}
+
 fn claude_focus_telemetry(path: &std::path::Path) -> Option<FocusTelemetry> {
     let (model, input, output, cost, last_ctx) = claude_aggregate(path)?;
-    let window: u64 = if model.contains("[1m]") { 1_000_000 } else { 200_000 };
+    let window = claude_context_window(&model);
     let used_percentage = ((last_ctx as f64 / window as f64) * 100.0).min(100.0);
 
     let mut recent_tools = Vec::new();
@@ -1244,5 +1245,22 @@ mod codex_agy_tests {
         assert_eq!(t.tool_times.len(), 2);
         assert!(t.cost > 0.0);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(test)]
+mod window_tests {
+    use super::claude_context_window as w;
+
+    #[test]
+    fn context_window_by_model() {
+        assert_eq!(w("claude-sonnet-5-5"), 1_000_000);
+        assert_eq!(w("claude-opus-5-5"), 1_000_000);
+        assert_eq!(w("claude-haiku-5-5"), 1_000_000);
+        assert_eq!(w("claude-fable-5-2"), 1_000_000);
+        assert_eq!(w("claude-opus-4-8"), 1_000_000);
+        assert_eq!(w("claude-haiku-4-5"), 200_000);
+        assert_eq!(w("claude-sonnet-4-5"), 200_000);
+        assert_eq!(w("claude-sonnet-4-5[1m]"), 1_000_000);
     }
 }

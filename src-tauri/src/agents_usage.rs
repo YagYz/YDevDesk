@@ -164,15 +164,95 @@ pub(crate) fn codex_cost_usd(uncached_input: u64, cached_input: u64, output: u64
         + (output as f64 / 1_000_000.0) * 6.00
 }
 
-pub(crate) fn claude_pricing_per_1m(model: &str) -> (f64, f64, f64, f64) {
-    let lower = model.to_lowercase();
-    if lower.contains("opus") {
-        (15.0, 75.0, 15.0 * 1.25, 15.0 * 0.1)
-    } else if lower.contains("haiku") {
-        (0.8, 4.0, 0.8 * 1.25, 0.8 * 0.1)
+/// Claude fiyatları ($/1M token): (girdi, çıktı, önbellek okuma).
+/// Kaynak: Anthropic yayınlı fiyat listesi (2026-11-03 önbelleği). Bilinmeyen model Sonnet 4.x sınıfı sayılır.
+/// Önbellek yazma: 5 dk = 1.25x girdi, 1 saat = 2x girdi (claude_cost_usd içinde).
+pub(crate) fn claude_rates_per_1m(model: &str, prompt_tokens: u64) -> (f64, f64, f64) {
+    let m = model.to_lowercase();
+    if m.contains("fable-5-2") || m.contains("mythos-5-2") {
+        (8.0, 40.0, 0.20)
+    } else if m.contains("fable") || m.contains("mythos") {
+        (10.0, 50.0, 1.0)
+    } else if m.contains("opus-5-5") {
+        (4.0, 20.0, 0.20)
+    } else if m.contains("opus") {
+        let legacy = m.contains("opus-4-1") || m.contains("opus-4-0") || m.contains("opus-4-2025") || m.contains("3-opus");
+        if legacy { (15.0, 75.0, 1.5) } else { (5.0, 25.0, 0.5) }
+    } else if m.contains("sonnet-5-5") {
+        (2.0, 10.0, 0.10)
+    } else if m.contains("sonnet-5") {
+        (2.0, 10.0, 0.20)
+    } else if m.contains("haiku-5-5") {
+        // 100K'ya kadar olan istemler: 0.10/0.50; üstü 0.50/2.50
+        if prompt_tokens > 100_000 { (0.5, 2.5, 0.025) } else { (0.10, 0.50, 0.005) }
+    } else if m.contains("haiku-4-5") {
+        (1.0, 5.0, 0.1)
+    } else if m.contains("haiku") {
+        (0.8, 4.0, 0.08)
     } else {
-        (3.0, 15.0, 3.0 * 1.25, 3.0 * 0.1)
+        (3.0, 15.0, 0.3)
     }
+}
+
+/// Tek bir Claude assistant mesajının usage kaydı.
+#[derive(Clone, Default)]
+pub(crate) struct ClaudeUsageRec {
+    pub id: String,
+    pub model: String,
+    pub input: u64,
+    pub cache_5m: u64,
+    pub cache_1h: u64,
+    pub cache_read: u64,
+    pub output: u64,
+    pub fast: bool,
+}
+
+impl ClaudeUsageRec {
+    pub fn is_empty(&self) -> bool {
+        self.input + self.cache_5m + self.cache_1h + self.cache_read + self.output == 0
+    }
+    /// Girdi taraflı yeni (önbelleksiz okunmayan) token: input + önbellek yazma.
+    pub fn fresh_input(&self) -> u64 {
+        self.input + self.cache_5m + self.cache_1h
+    }
+    pub fn prompt_tokens(&self) -> u64 {
+        self.fresh_input() + self.cache_read
+    }
+    pub fn cost_usd(&self) -> f64 {
+        let (ip, op, crp) = claude_rates_per_1m(&self.model, self.prompt_tokens());
+        let base = (self.input as f64 * ip
+            + self.cache_5m as f64 * ip * 1.25
+            + self.cache_1h as f64 * ip * 2.0
+            + self.cache_read as f64 * crp
+            + self.output as f64 * op)
+            / 1_000_000.0;
+        if self.fast { base * 2.0 } else { base }
+    }
+}
+
+/// jsonl'deki `message` nesnesinden usage kaydı çıkarır (usage yoksa None).
+pub(crate) fn parse_claude_usage(msg: &serde_json::Value) -> Option<ClaudeUsageRec> {
+    let usage = msg.get("usage")?;
+    let n = |k: &str| usage.get(k).and_then(|x| x.as_u64()).unwrap_or(0);
+    let total_cc = n("cache_creation_input_tokens");
+    let (cc5, cc1) = match usage.get("cache_creation") {
+        Some(c) => {
+            let c1 = c.get("ephemeral_1h_input_tokens").and_then(|x| x.as_u64()).unwrap_or(0).min(total_cc);
+            (total_cc - c1, c1)
+        }
+        None => (total_cc, 0),
+    };
+    let model = msg.get("model").and_then(|m| m.as_str()).unwrap_or("").to_string();
+    Some(ClaudeUsageRec {
+        id: msg.get("id").and_then(|i| i.as_str()).unwrap_or("").to_string(),
+        model,
+        input: n("input_tokens"),
+        cache_5m: cc5,
+        cache_1h: cc1,
+        cache_read: n("cache_read_input_tokens"),
+        output: n("output_tokens"),
+        fast: usage.get("speed").and_then(|x| x.as_str()) == Some("fast"),
+    })
 }
 
 fn collect_claude_jsonl_files(projects_dir: &std::path::Path, now: std::time::SystemTime) -> Vec<std::path::PathBuf> {
@@ -319,6 +399,10 @@ fn compute_usage_analytics() -> UsageAnalytics {
     let mut agy_by_day: HashMap<String, ProviderDayStats> = HashMap::new();
 
     // 1. Claude Code
+    // Aynı message.id içerik bloğu başına birden çok kayıtta tekrarlanır; en son kayıt esas alınır
+    // (aksi halde token ve maliyet ~2x şişer). Oturum devam ettirmeleri dosyalar arası tekrar da üretebilir.
+    let mut claude_msgs: HashMap<String, (String, ClaudeUsageRec)> = HashMap::new();
+    let mut anon_seq: u64 = 0;
     for f_path in collect_claude_jsonl_files(&home.join(".claude").join("projects"), now) {
         let fallback_date = std::fs::metadata(&f_path)
             .and_then(|m| m.modified())
@@ -330,12 +414,12 @@ fn compute_usage_analytics() -> UsageAnalytics {
                 let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) else {
                     continue;
                 };
-                let Some(msg) = v.get("message") else {
+                let Some(rec) = v.get("message").and_then(parse_claude_usage) else {
                     continue;
                 };
-                let Some(usage) = msg.get("usage") else {
+                if rec.is_empty() {
                     continue;
-                };
+                }
                 let date = v
                     .get("timestamp")
                     .and_then(|t| t.as_str())
@@ -344,33 +428,23 @@ fn compute_usage_analytics() -> UsageAnalytics {
                 if date < min_date.as_str() {
                     continue;
                 }
-                let inp = usage.get("input_tokens").and_then(|n| n.as_u64()).unwrap_or(0);
-                let cache_create = usage
-                    .get("cache_creation_input_tokens")
-                    .and_then(|n| n.as_u64())
-                    .unwrap_or(0);
-                let cache_read = usage
-                    .get("cache_read_input_tokens")
-                    .and_then(|n| n.as_u64())
-                    .unwrap_or(0);
-                let out = usage.get("output_tokens").and_then(|n| n.as_u64()).unwrap_or(0);
-                if inp == 0 && cache_create == 0 && cache_read == 0 && out == 0 {
-                    continue;
-                }
-                let model = msg.get("model").and_then(|m| m.as_str()).unwrap_or("sonnet");
-                let (in_p, out_p, cc_p, cr_p) = claude_pricing_per_1m(model);
-                let cost = (inp as f64 / 1_000_000.0) * in_p
-                    + (out as f64 / 1_000_000.0) * out_p
-                    + (cache_create as f64 / 1_000_000.0) * cc_p
-                    + (cache_read as f64 / 1_000_000.0) * cr_p;
-
-                let entry = claude_by_day.entry(date.to_string()).or_default();
-                entry.input_tokens += inp + cache_create + cache_read;
-                entry.output_tokens += out;
-                entry.cache_tokens += cache_create + cache_read;
-                entry.cost_usd += cost;
+                let key = if rec.id.is_empty() {
+                    anon_seq += 1;
+                    format!("anon-{anon_seq}")
+                } else {
+                    rec.id.clone()
+                };
+                claude_msgs.insert(key, (date.to_string(), rec));
             }
         }
+    }
+    for (date, rec) in claude_msgs.into_values() {
+        let entry = claude_by_day.entry(date).or_default();
+        let cache_total = rec.cache_5m + rec.cache_1h + rec.cache_read;
+        entry.input_tokens += rec.input + cache_total;
+        entry.output_tokens += rec.output;
+        entry.cache_tokens += cache_total;
+        entry.cost_usd += rec.cost_usd();
     }
 
     // 2. OpenAI Codex
@@ -655,3 +729,53 @@ pub fn enable_agy_quota_hook() -> Result<String, String> {
     Ok("AGY statusLine hook yapılandırıldı.".to_string())
 }
 
+
+#[cfg(test)]
+mod pricing_tests {
+    use super::*;
+
+    #[test]
+    fn rates_match_published_prices() {
+        assert_eq!(claude_rates_per_1m("claude-sonnet-5-5", 0), (2.0, 10.0, 0.10));
+        assert_eq!(claude_rates_per_1m("claude-opus-5-5", 0), (4.0, 20.0, 0.20));
+        assert_eq!(claude_rates_per_1m("claude-opus-4-8", 0), (5.0, 25.0, 0.5));
+        assert_eq!(claude_rates_per_1m("claude-opus-4-1-20250805", 0), (15.0, 75.0, 1.5));
+        assert_eq!(claude_rates_per_1m("claude-haiku-5-5", 50_000), (0.10, 0.50, 0.005));
+        assert_eq!(claude_rates_per_1m("claude-haiku-5-5", 150_000), (0.5, 2.5, 0.025));
+        assert_eq!(claude_rates_per_1m("claude-fable-5-2", 0), (8.0, 40.0, 0.20));
+        assert_eq!(claude_rates_per_1m("claude-sonnet-4-6", 0), (3.0, 15.0, 0.3));
+        assert_eq!(claude_rates_per_1m("bilinmeyen", 0), (3.0, 15.0, 0.3));
+    }
+
+    #[test]
+    fn usage_record_splits_cache_ttl_and_prices_it() {
+        let msg = serde_json::json!({
+            "id": "m1",
+            "model": "claude-sonnet-5-5",
+            "usage": {
+                "input_tokens": 2,
+                "cache_creation_input_tokens": 18065,
+                "cache_read_input_tokens": 34715,
+                "output_tokens": 24,
+                "cache_creation": {"ephemeral_1h_input_tokens": 18065, "ephemeral_5m_input_tokens": 0},
+                "speed": "standard"
+            }
+        });
+        let r = parse_claude_usage(&msg).unwrap();
+        assert_eq!((r.cache_5m, r.cache_1h, r.cache_read), (0, 18065, 34715));
+        let expected = (2.0 * 2.0 + 18065.0 * 2.0 * 2.0 + 34715.0 * 0.10 + 24.0 * 10.0) / 1_000_000.0;
+        assert!((r.cost_usd() - expected).abs() < 1e-12);
+        // Hızlı mod 2x
+        let mut fast = r.clone();
+        fast.fast = true;
+        assert!((fast.cost_usd() - expected * 2.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn usage_record_without_breakdown_uses_5m_rate() {
+        let msg = serde_json::json!({"id":"m","model":"claude-sonnet-5-5","usage":{"input_tokens":0,"cache_creation_input_tokens":1000,"output_tokens":0}});
+        let r = parse_claude_usage(&msg).unwrap();
+        assert_eq!((r.cache_5m, r.cache_1h), (1000, 0));
+        assert!((r.cost_usd() - 1000.0 * 2.0 * 1.25 / 1_000_000.0).abs() < 1e-12);
+    }
+}
