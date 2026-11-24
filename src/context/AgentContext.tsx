@@ -23,6 +23,7 @@ export const INITIAL_AGENT: AgentStatus = {
   subagents: [],
   recent_tools: [],
   agents: [],
+  flows: [],
 };
 
 export type AgentContextValue = {

@@ -5,7 +5,7 @@ import type { ModuleManifest } from "../../sdk/moduleSdk";
 const manifest: ModuleManifest = {
   id: "recent_tools",
   title: "Araç Akışı",
-  description: "AGY son araç çağrıları",
+  description: "AGY, Claude ve Codex son araç çağrıları",
   icon: Activity,
   component: ToolsPanel,
   width: 320,

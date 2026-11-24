@@ -60,6 +60,7 @@ pub fn run() {
             agents::markdown::read_markdown_file,
             agents_usage::get_usage_analytics,
             agents_usage::enable_agy_quota_hook,
+            agents_usage::enable_claude_quota_hook,
             homelab::fetch_homelab_notes,
             homelab::fetch_homelab_knowledge,
             homelab::fetch_ynetmon_summary,
