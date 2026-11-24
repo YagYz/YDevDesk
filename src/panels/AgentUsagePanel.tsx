@@ -134,9 +134,15 @@ export default function AgentUsagePanel() {
     total_input_tokens: agent.total_input_tokens,
     total_output_tokens: agent.total_output_tokens,
     tools_per_minute: agent.tools_per_minute,
+    context_used: agent.context_used,
+    context_limit: agent.context_limit,
     marquee_text: agent.marquee_text,
   };
   const working = current ? current.state === "working" : agent.agent_state === "working";
+  const ctxUsed = live.context_used ?? 0;
+  const ctxLimit = live.context_limit ?? 0;
+  const contextValue = ctxLimit > 0 ? `${formatTokens(ctxUsed)} / ${formatTokens(ctxLimit)}` : `%${Math.round(live.used_percentage)}`;
+  const contextSub = ctxLimit > 0 ? `%${Math.round(live.used_percentage)} dolu` : "bağlam";
   const quotaTone = (p: number) => (p < 15 ? "warn" : "ok");
   const agyConfigured = usage?.agy_quota_configured ?? true;
 
@@ -256,10 +262,10 @@ export default function AgentUsagePanel() {
       {tab === "live" && (
         <div onMouseEnter={() => setRotPaused(true)} onMouseLeave={() => setRotPaused(false)} className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
-            <Stat label="Girdi" value={formatTokens(live.total_input_tokens)} sub="token" />
-            <Stat label="Çıktı" value={formatTokens(live.total_output_tokens)} sub="token" />
+            <Stat label="Girdi" value={formatTokens(live.total_input_tokens)} sub="oturum toplamı" />
+            <Stat label="Çıktı" value={formatTokens(live.total_output_tokens)} sub="oturum toplamı" />
             <Stat label="Maliyet" value={`$${live.session_cost.toFixed(3)}`} accent />
-            <Stat label="Araç/dk" value={live.tools_per_minute} />
+            <Stat label="Bağlam" value={contextValue} sub={contextSub} />
           </div>
           {current && <div className="truncate text-[10px] text-[var(--txt-dim)]" title={live.marquee_text}>{live.marquee_text}</div>}
 

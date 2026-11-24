@@ -131,6 +131,9 @@ pub struct AgentLiveView {
     pub model: String,
     pub state: String,
     pub used_percentage: f64,
+    /// Bağlam penceresinde şu an kullanılan ve toplam token (limit bilinmiyorsa 0).
+    pub context_used: u64,
+    pub context_limit: u64,
     pub session_cost: f64,
     pub total_input_tokens: u64,
     pub total_output_tokens: u64,
@@ -166,6 +169,8 @@ pub struct FileHeatItem {
 pub struct AgentStatus {
     pub model: String,
     pub used_percentage: f64,
+    pub context_used: u64,
+    pub context_limit: u64,
     pub session_cost: f64,
     pub total_input_tokens: u64,
     pub total_output_tokens: u64,
@@ -665,6 +670,9 @@ struct ClaudeAgg {
     cost: f64,
     last_ctx: u64,
     model: String,
+    // Claude Code'un kendi `cost-state.totalCostUSD` değeri ve o andaki yerel hesabımız (çapa).
+    anchor_total: Option<f64>,
+    anchor_computed: f64,
 }
 
 static CLAUDE_AGG: std::sync::OnceLock<std::sync::Mutex<HashMap<std::path::PathBuf, ClaudeAgg>>> =
@@ -676,6 +684,8 @@ struct FocusTelemetry {
     output: u64,
     cost: f64,
     used_percentage: f64,
+    context_used: u64,
+    context_limit: u64,
     recent_tools: Vec<RecentToolCall>,
     ticker: Vec<String>,
     files: HashMap<String, u32>,
@@ -714,6 +724,13 @@ fn claude_aggregate(path: &std::path::Path) -> Option<(String, u64, u64, f64, u6
         let end = buf.iter().rposition(|b| *b == b'\n').map(|i| i + 1).unwrap_or(0);
         for line in String::from_utf8_lossy(&buf[..end]).lines() {
             let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else { continue };
+            if v.get("type").and_then(|t| t.as_str()) == Some("cost-state") {
+                if let Some(total) = v.get("totalCostUSD").and_then(|c| c.as_f64()) {
+                    agg.anchor_total = Some(total);
+                    agg.anchor_computed = agg.cost;
+                }
+                continue;
+            }
             if v.get("type").and_then(|t| t.as_str()) != Some("assistant") {
                 continue;
             }
@@ -737,7 +754,23 @@ fn claude_aggregate(path: &std::path::Path) -> Option<(String, u64, u64, f64, u6
         }
         agg.offset += end as u64;
     }
-    Some((agg.model.clone(), agg.input, agg.output, agg.cost, agg.last_ctx))
+    Some((agg.model.clone(), agg.input, agg.output, claude_anchored_cost(agg), agg.last_ctx))
+}
+
+/// Transkriptten hesaplanan maliyet, düşünme token'ları/arka plan çağrıları gibi kayıtlara yansımayan
+/// harcamaları kaçırır. Claude Code'un son `totalCostUSD` değerini çapa alır, sonrasını aynı oranla ölçekler.
+fn claude_anchored_cost(agg: &ClaudeAgg) -> f64 {
+    match agg.anchor_total {
+        Some(total) => {
+            let factor = if agg.anchor_computed > 0.0 {
+                (total / agg.anchor_computed).clamp(1.0, 1.25)
+            } else {
+                1.0
+            };
+            total + (agg.cost - agg.anchor_computed).max(0.0) * factor
+        }
+        None => agg.cost,
+    }
 }
 
 fn claude_tool_detail(name: &str, input: Option<&serde_json::Value>) -> (String, Option<String>) {
@@ -820,7 +853,7 @@ fn claude_focus_telemetry(path: &std::path::Path) -> Option<FocusTelemetry> {
             }
         }
     }
-    Some(FocusTelemetry { model, input, output, cost, used_percentage, recent_tools, ticker, files, tool_times })
+    Some(FocusTelemetry { model, input, output, cost, used_percentage, context_used: last_ctx, context_limit: window, recent_tools, ticker, files, tool_times })
 }
 
 // "2026-11-22T19:14:51.893Z" -> unix epoch saniyesi (chrono bağımlılığı olmadan).
@@ -891,6 +924,7 @@ fn codex_focus_telemetry(path: &std::path::Path) -> Option<FocusTelemetry> {
     let mut model = String::new();
     let mut usage: Option<(u64, u64, u64)> = None; // (input, cached, output)
     let mut used_percentage = 0.0;
+    let (mut context_used, mut context_limit) = (0u64, 0u64);
     let mut recent_tools = Vec::new();
     let mut ticker = Vec::new();
     let mut files: HashMap<String, u32> = HashMap::new();
@@ -929,6 +963,8 @@ fn codex_focus_telemetry(path: &std::path::Path) -> Option<FocusTelemetry> {
                     .unwrap_or(0);
                 if window > 0 {
                     used_percentage = ((last_in as f64 / window as f64) * 100.0).min(100.0);
+                    context_used = last_in;
+                    context_limit = window;
                 }
             }
         }
@@ -982,6 +1018,8 @@ fn codex_focus_telemetry(path: &std::path::Path) -> Option<FocusTelemetry> {
         output: out,
         cost: crate::agents_usage::codex_cost_usd(uncached, cached, out),
         used_percentage,
+        context_used,
+        context_limit,
         recent_tools,
         ticker,
         files,
@@ -1009,6 +1047,7 @@ fn read_caveman_mode(home: &std::path::Path) -> String {
 struct AgyStatusFile {
     model: String,
     used_percentage: f64,
+    context_limit: u64,
     input: u64,
     output: u64,
     agent_state: String,
@@ -1062,6 +1101,7 @@ fn read_agy_status_file(agy_dir: &std::path::Path, now: std::time::SystemTime) -
             .unwrap_or("AGY")
             .to_string(),
         used_percentage: cw.and_then(|c| c.get("used_percentage")).and_then(|p| p.as_f64()).unwrap_or(0.0),
+        context_limit: cw.and_then(|c| c.get("context_window_size")).and_then(|t| t.as_u64()).unwrap_or(0),
         input: cw.and_then(|c| c.get("total_input_tokens")).and_then(|t| t.as_u64()).unwrap_or(0),
         output: cw.and_then(|c| c.get("total_output_tokens")).and_then(|t| t.as_u64()).unwrap_or(0),
         agent_state: v.get("agent_state").and_then(|s| s.as_str()).unwrap_or("idle").to_string(),
@@ -1086,6 +1126,8 @@ fn agy_tools_telemetry(t_path: &std::path::Path) -> FocusTelemetry {
         output: 0,
         cost: 0.0,
         used_percentage: 0.0,
+        context_used: 0,
+        context_limit: 0,
         recent_tools: Vec::new(),
         ticker: Vec::new(),
         files: HashMap::new(),
@@ -1170,6 +1212,8 @@ fn make_view(
         model,
         state: state.to_string(),
         used_percentage: tel.used_percentage,
+        context_used: tel.context_used,
+        context_limit: tel.context_limit,
         session_cost: (tel.cost * 1000.0).round() / 1000.0,
         total_input_tokens: tel.input,
         total_output_tokens: tel.output,
@@ -1201,6 +1245,8 @@ fn build_agy_view(
     match status.filter(|_| matched) {
         Some(st) => {
             tel.used_percentage = st.used_percentage;
+            tel.context_limit = st.context_limit;
+            tel.context_used = ((st.used_percentage / 100.0) * st.context_limit as f64).round() as u64;
             tel.input = st.input;
             tel.output = st.output;
             subagents = st.subagents.clone();
@@ -1231,6 +1277,8 @@ fn build_file_view(
         output: 0,
         cost: 0.0,
         used_percentage: 0.0,
+        context_used: 0,
+        context_limit: 0,
         recent_tools: Vec::new(),
         ticker: Vec::new(),
         files: HashMap::new(),
@@ -1325,6 +1373,8 @@ pub fn get_agent_status() -> AgentStatus {
         model: status.as_ref().map(|s| s.model.clone()).unwrap_or_else(|| "—".to_string()),
         state: "idle".to_string(),
         used_percentage: 0.0,
+        context_used: 0,
+        context_limit: 0,
         session_cost: 0.0,
         total_input_tokens: 0,
         total_output_tokens: 0,
@@ -1340,6 +1390,8 @@ pub fn get_agent_status() -> AgentStatus {
     AgentStatus {
         model: top.model,
         used_percentage: top.used_percentage,
+        context_used: top.context_used,
+        context_limit: top.context_limit,
         session_cost: top.session_cost,
         total_input_tokens: top.total_input_tokens,
         total_output_tokens: top.total_output_tokens,
@@ -1523,5 +1575,31 @@ mod turn_marker_tests {
         assert!(!resolve_working(TURN_STALE_SECS + 1, Some(true))); // takılı kalma sınırı
         assert!(resolve_working(5, None)); // işaret yok: eski mtime davranışı
         assert!(!resolve_working(60, None));
+    }
+}
+
+#[cfg(test)]
+mod cost_anchor_tests {
+    use super::*;
+
+    #[test]
+    fn cost_is_anchored_to_cost_state_and_scales_later_messages() {
+        let dir = std::env::temp_dir().join(format!("ydd_anchor_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("s.jsonl");
+        let msg = |id: &str| {
+            format!(r#"{{"type":"assistant","message":{{"id":"{id}","model":"claude-sonnet-5-5","usage":{{"input_tokens":1000,"output_tokens":100}}}}}}"#)
+        };
+        // m1 = 0.003$ yerel; Claude Code 0.00315$ diyor (çarpan 1.05); m2 çapadan sonra gelir.
+        let rows = [msg("m1"), r#"{"type":"cost-state","totalCostUSD":0.00315}"#.to_string(), msg("m2")];
+        std::fs::write(&path, rows.join("\n") + "\n").unwrap();
+        let (_, _, _, cost, _) = claude_aggregate(&path).unwrap();
+        assert!((cost - 0.00630).abs() < 1e-9, "cost = {cost}");
+        // cost-state yoksa yerel hesap kullanılır.
+        let path2 = dir.join("t.jsonl");
+        std::fs::write(&path2, [msg("a"), msg("b")].join("\n") + "\n").unwrap();
+        let (_, _, _, cost2, _) = claude_aggregate(&path2).unwrap();
+        assert!((cost2 - 0.006).abs() < 1e-9, "cost2 = {cost2}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -76,6 +76,9 @@ export type AgentLiveView = {
   model: string;
   state: "working" | "idle" | string;
   used_percentage: number;
+  /** Bağlam penceresinde kullanılan / toplam token (limit bilinmiyorsa 0). */
+  context_used?: number;
+  context_limit?: number;
   session_cost: number;
   total_input_tokens: number;
   total_output_tokens: number;
@@ -90,6 +93,8 @@ export type AgentLiveView = {
 export type AgentStatus = {
   model: string;
   used_percentage: number;
+  context_used?: number;
+  context_limit?: number;
   session_cost: number;
   total_input_tokens: number;
   total_output_tokens: number;
