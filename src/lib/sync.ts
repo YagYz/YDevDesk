@@ -231,5 +231,8 @@ export function aggregateUsageAnalytics(
     agy_quota_configured: localUsage.agy_quota_configured,
     codex_quota_5h_remaining: localUsage.codex_quota_5h_remaining,
     codex_quota_weekly_remaining: localUsage.codex_quota_weekly_remaining,
+    claude_quota_configured: localUsage.claude_quota_configured,
+    claude_quota_5h_remaining: localUsage.claude_quota_5h_remaining,
+    claude_quota_weekly_remaining: localUsage.claude_quota_weekly_remaining,
   };
 }

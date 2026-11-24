@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Bot, Sparkles, Wrench } from "lucide-react";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useData } from "../context/DataContext";
@@ -75,6 +75,31 @@ function summarizeWindow(win: UsageWindowSummary, source: SourceKey) {
   };
 }
 
+function QuotaGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--txt-dim)]">{label}</div>
+      {children}
+    </div>
+  );
+}
+
+function EnableRow({ text, button, busy, onClick }: { text: string; button: string; busy: boolean; onClick: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-2.5 py-1.5">
+      <span className="text-[11px] text-[var(--txt-muted)]">{text}</span>
+      <button
+        onClick={onClick}
+        disabled={busy}
+        className="inline-flex items-center gap-1 rounded-md bg-[var(--accent)]/15 px-2 py-1 text-[11px] font-medium text-[var(--accent)] hover:bg-[var(--accent)]/25 disabled:opacity-50 transition-colors"
+      >
+        <Sparkles className="w-3 h-3" />
+        {busy ? "Açılıyor..." : button}
+      </button>
+    </div>
+  );
+}
+
 export default function AgentUsagePanel() {
   const { agent, usage, combinedUsage, remoteSnapshots, syncStatus, refreshUsage } = useData();
   const ws = useWorkspace();
@@ -82,7 +107,7 @@ export default function AgentUsagePanel() {
   const [windowKey, setWindowKey] = useState<WindowKey>("d7");
   const [sourceKey, setSourceKey] = useState<SourceKey>("all");
   const [scope, setScope] = useState<"all" | "local">("all");
-  const [enablingHook, setEnablingHook] = useState(false);
+  const [enablingHook, setEnablingHook] = useState<"agy" | "claude" | null>(null);
 
   const otherDeviceCount = useMemo(
     () => Object.values(remoteSnapshots).filter((s) => s.device_id !== syncStatus?.device_id).length,
@@ -115,16 +140,20 @@ export default function AgentUsagePanel() {
   const quotaTone = (p: number) => (p < 15 ? "warn" : "ok");
   const agyConfigured = usage?.agy_quota_configured ?? true;
 
-  const handleEnableAgyQuota = async () => {
+  const claudeConfigured = usage?.claude_quota_configured ?? false;
+  const claude5h = usage?.claude_quota_5h_remaining ?? null;
+  const claudeWk = usage?.claude_quota_weekly_remaining ?? null;
+
+  const handleEnableQuota = async (which: "agy" | "claude") => {
     if (enablingHook) return;
-    setEnablingHook(true);
+    setEnablingHook(which);
     try {
-      await api.enableAgyQuotaHook();
+      await (which === "agy" ? api.enableAgyQuotaHook() : api.enableClaudeQuotaHook());
       await refreshUsage();
     } catch (e) {
-      console.error("AGY kota izleme açılamadı:", e);
+      console.error(`${which} kota izleme açılamadı:`, e);
     } finally {
-      setEnablingHook(false);
+      setEnablingHook(null);
     }
   };
 
@@ -237,39 +266,46 @@ export default function AgentUsagePanel() {
           <div className="space-y-2.5">
             <Bar label="Bağlam kullanımı" percent={live.used_percentage} tone={live.used_percentage > 85 ? "warn" : "accent"} />
 
-            {agyConfigured ? (
-              <>
-                <Bar label="AGY 5 saatlik kota (kalan)" percent={agent.quota_5h_percent} tone={quotaTone(agent.quota_5h_percent)} />
-                <Bar label="AGY Haftalık kota (kalan)" percent={agent.quota_weekly_percent} tone={quotaTone(agent.quota_weekly_percent)} />
-              </>
-            ) : (
-              <div className="flex items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] px-2.5 py-1.5">
-                <span className="text-[11px] text-[var(--txt-muted)]">AGY kota izleme kapalı</span>
-                <button
-                  onClick={handleEnableAgyQuota}
-                  disabled={enablingHook}
-                  className="inline-flex items-center gap-1 rounded-md bg-[var(--accent)]/15 px-2 py-1 text-[11px] font-medium text-[var(--accent)] hover:bg-[var(--accent)]/25 disabled:opacity-50 transition-colors"
-                >
-                  <Sparkles className="w-3 h-3" />
-                  {enablingHook ? "Açılıyor..." : "AGY Kota İzlemeyi Aç"}
-                </button>
-              </div>
-            )}
+            <QuotaGroup label="AGY">
+              {agyConfigured ? (
+                <>
+                  <Bar label="5 saatlik kota (kalan)" percent={agent.quota_5h_percent} tone={quotaTone(agent.quota_5h_percent)} />
+                  <Bar label="Haftalık kota (kalan)" percent={agent.quota_weekly_percent} tone={quotaTone(agent.quota_weekly_percent)} />
+                </>
+              ) : (
+                <EnableRow text="AGY kota izleme kapalı" button="AGY Kota İzlemeyi Aç" busy={enablingHook === "agy"} onClick={() => handleEnableQuota("agy")} />
+              )}
+            </QuotaGroup>
 
-            {usage?.codex_quota_5h_remaining != null && (
-              <Bar
-                label="Codex 5 saatlik kota (kalan)"
-                percent={usage.codex_quota_5h_remaining}
-                tone={quotaTone(usage.codex_quota_5h_remaining)}
-              />
-            )}
-            {usage?.codex_quota_weekly_remaining != null && (
-              <Bar
-                label="Codex Haftalık kota (kalan)"
-                percent={usage.codex_quota_weekly_remaining}
-                tone={quotaTone(usage.codex_quota_weekly_remaining)}
-              />
-            )}
+            <QuotaGroup label="Claude">
+              {claudeConfigured ? (
+                claude5h != null || claudeWk != null ? (
+                  <>
+                    {claude5h != null && <Bar label="5 saatlik kota (kalan)" percent={claude5h} tone={quotaTone(claude5h)} />}
+                    {claudeWk != null && <Bar label="Haftalık kota (kalan)" percent={claudeWk} tone={quotaTone(claudeWk)} />}
+                  </>
+                ) : (
+                  <div className="text-[11px] text-[var(--txt-dim)] px-0.5">Kota Claude'daki bir sonraki yanıttan sonra görünür (abonelik gerekir).</div>
+                )
+              ) : (
+                <EnableRow text="Claude kota izleme kapalı" button="Claude Kota İzlemeyi Aç" busy={enablingHook === "claude"} onClick={() => handleEnableQuota("claude")} />
+              )}
+            </QuotaGroup>
+
+            <QuotaGroup label="Codex">
+              {usage?.codex_quota_5h_remaining != null || usage?.codex_quota_weekly_remaining != null ? (
+                <>
+                  {usage?.codex_quota_5h_remaining != null && (
+                    <Bar label="5 saatlik kota (kalan)" percent={usage.codex_quota_5h_remaining} tone={quotaTone(usage.codex_quota_5h_remaining)} />
+                  )}
+                  {usage?.codex_quota_weekly_remaining != null && (
+                    <Bar label="Haftalık kota (kalan)" percent={usage.codex_quota_weekly_remaining} tone={quotaTone(usage.codex_quota_weekly_remaining)} />
+                  )}
+                </>
+              ) : (
+                <div className="text-[11px] text-[var(--txt-dim)] px-0.5">Codex oturumu bulunamadı; kota ilk oturumdan sonra görünür.</div>
+              )}
+            </QuotaGroup>
           </div>
         </div>
       )}

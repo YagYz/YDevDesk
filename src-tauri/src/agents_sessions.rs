@@ -86,6 +86,8 @@ pub struct AgentStatus {
     pub recent_tools: Vec<RecentToolCall>,
     /// Aynı anda çalışan ajanların görünümleri (UI 3-5 sn'de bir sırayla gösterir).
     pub agents: Vec<AgentLiveView>,
+    /// Her ajan türünün en yeni oturum görünümü (çalışan ya da boşta); Araç Akışı bunları ajana göre gruplar.
+    pub flows: Vec<AgentLiveView>,
 }
 
 
@@ -1179,6 +1181,7 @@ pub fn get_agent_status() -> AgentStatus {
     let focus_kind = session_list.first().map(|s| s.agent.clone());
     let mut seen_kinds: Vec<&str> = Vec::new();
     let mut live_views: Vec<AgentLiveView> = Vec::new();
+    let mut flow_views: Vec<AgentLiveView> = Vec::new();
     let mut focus_view: Option<AgentLiveView> = None;
     for s in &session_list {
         if seen_kinds.contains(&s.agent.as_str()) {
@@ -1186,9 +1189,6 @@ pub fn get_agent_status() -> AgentStatus {
         }
         seen_kinds.push(s.agent.as_str());
         let is_focus = focus_kind.as_deref() == Some(s.agent.as_str());
-        if !(is_focus || s.is_working || (s.agent == "agy" && s.is_active)) {
-            continue;
-        }
         let view = match s.agent.as_str() {
             "agy" => agy_transcript
                 .as_deref()
@@ -1206,6 +1206,12 @@ pub fn get_agent_status() -> AgentStatus {
             _ => None,
         };
         if let Some(v) = view {
+            if !v.recent_tools.is_empty() {
+                flow_views.push(v.clone());
+            }
+            if !(is_focus || s.is_working || (s.agent == "agy" && s.is_active)) {
+                continue;
+            }
             if is_focus {
                 focus_view = Some(v.clone());
             }
@@ -1252,6 +1258,7 @@ pub fn get_agent_status() -> AgentStatus {
         subagents: top.subagents,
         recent_tools: top.recent_tools,
         agents: live_views,
+        flows: flow_views,
     }
 }
 

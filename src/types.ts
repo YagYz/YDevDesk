@@ -107,6 +107,8 @@ export type AgentStatus = {
   recent_tools: RecentToolCall[];
   /** Aynı anda çalışan ajanların görünümleri (boşsa üst düzey alanlar kullanılır). */
   agents: AgentLiveView[];
+  /** Her ajan türünün en yeni oturum görünümü (Araç Akışı ajana göre gruplar). */
+  flows?: AgentLiveView[];
 };
 
 export type NetworkData = {
@@ -286,6 +288,10 @@ export type UsageAnalytics = {
   agy_quota_configured: boolean;
   codex_quota_5h_remaining: number | null;
   codex_quota_weekly_remaining: number | null;
+  /** Eski sürümlerden gelen uzak snapshot'larda bulunmayabilir. */
+  claude_quota_configured?: boolean;
+  claude_quota_5h_remaining?: number | null;
+  claude_quota_weekly_remaining?: number | null;
 };
 
 export type SyncStatusInfo = {

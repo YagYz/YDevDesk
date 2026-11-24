@@ -50,6 +50,9 @@ pub struct UsageAnalytics {
     pub agy_quota_configured: bool,
     pub codex_quota_5h_remaining: Option<f64>,
     pub codex_quota_weekly_remaining: Option<f64>,
+    pub claude_quota_configured: bool,
+    pub claude_quota_5h_remaining: Option<f64>,
+    pub claude_quota_weekly_remaining: Option<f64>,
 }
 
 static USAGE_ANALYTICS_CACHE: OnceLock<Mutex<Option<(std::time::Instant, UsageAnalytics)>>> =
@@ -659,6 +662,9 @@ fn compute_usage_analytics() -> UsageAnalytics {
         || agy_dir.join("cache").join("last_statusline.json").exists()
         || agy_dir.join("status.json").exists();
 
+    let (claude_quota_configured, claude_quota_5h_remaining, claude_quota_weekly_remaining) =
+        read_claude_quota(&home);
+
     UsageAnalytics {
         windows: UsageWindows {
             d1: build_usage_window(1, &date_keys, &agy_by_day, &claude_by_day, &codex_by_day),
@@ -668,6 +674,115 @@ fn compute_usage_analytics() -> UsageAnalytics {
         agy_quota_configured,
         codex_quota_5h_remaining,
         codex_quota_weekly_remaining,
+        claude_quota_configured,
+        claude_quota_5h_remaining,
+        claude_quota_weekly_remaining,
+    }
+}
+
+const CLAUDE_HOOK_MARKER: &str = "claude-quota-hook";
+
+/// Claude Code statusLine JSON'u (`rate_limits.five_hour|seven_day`) yakalayan hook'un önbelleğinden
+/// kalan kota yüzdelerini okur. Dönüş: (kurulu mu, 5 saatlik kalan, haftalık kalan).
+fn read_claude_quota(home: &std::path::Path) -> (bool, Option<f64>, Option<f64>) {
+    let cache = home.join(".config").join("ydevdesk").join("claude-statusline.json");
+    let settings_has_hook = std::fs::read_to_string(home.join(".claude").join("settings.json"))
+        .ok()
+        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+        .and_then(|v| v.get("statusLine")?.get("command")?.as_str().map(|c| c.contains(CLAUDE_HOOK_MARKER)))
+        .unwrap_or(false);
+    let configured = settings_has_hook || cache.exists();
+    let Some(v) = std::fs::read_to_string(&cache)
+        .ok()
+        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+    else {
+        return (configured, None, None);
+    };
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as f64)
+        .unwrap_or(0.0);
+    let remaining = |key: &str| -> Option<f64> {
+        let w = v.get("rate_limits")?.get(key)?;
+        // Pencere sıfırlandıysa önbellekteki değer eskidir: kota tam kabul edilir.
+        if w.get("resets_at").and_then(|r| r.as_f64()).is_some_and(|r| r < now) {
+            return Some(100.0);
+        }
+        let used = w.get("used_percentage")?.as_f64()?;
+        Some((100.0 - used).clamp(0.0, 100.0))
+    };
+    (configured, remaining("five_hour"), remaining("seven_day"))
+}
+
+/// Claude Code statusLine'ına kota yakalayan bir sarmalayıcı ekler; mevcut statusLine komutu korunur.
+#[tauri::command]
+pub fn enable_claude_quota_hook() -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    {
+        return Err("Claude kota izleme şimdilik yalnızca macOS/Linux'ta destekleniyor.".to_string());
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let home = dirs::home_dir().ok_or_else(|| "Home dizini bulunamadı".to_string())?;
+        let settings_path = home.join(".claude").join("settings.json");
+        let mut settings: serde_json::Value = match std::fs::read_to_string(&settings_path) {
+            Ok(raw) if !raw.trim().is_empty() => serde_json::from_str(&raw).map_err(|e| e.to_string())?,
+            _ => serde_json::json!({}),
+        };
+        let obj = settings
+            .as_object_mut()
+            .ok_or_else(|| "settings.json geçerli bir JSON nesnesi değil".to_string())?;
+
+        let existing = obj.get("statusLine").filter(|v| !v.is_null()).cloned();
+        let existing_cmd = match &existing {
+            Some(sl) => match sl.get("command").and_then(|c| c.as_str()) {
+                Some(c) if c.contains(CLAUDE_HOOK_MARKER) => {
+                    return Ok("Claude statusLine zaten yapılandırılmış.".to_string());
+                }
+                Some(c) => Some(c.to_string()),
+                None => return Err("Mevcut Claude statusLine komut türünde değil; elle yapılandırın.".to_string()),
+            },
+            None => None,
+        };
+
+        let dir = home.join(".config").join("ydevdesk");
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let orig_file = dir.join("claude-statusline-orig.txt");
+        match &existing_cmd {
+            Some(c) => std::fs::write(&orig_file, c).map_err(|e| e.to_string())?,
+            None => {
+                let _ = std::fs::remove_file(&orig_file);
+            }
+        }
+        let hook_path = dir.join(format!("{}.sh", CLAUDE_HOOK_MARKER));
+        let script = "#!/bin/sh\nD=\"$HOME/.config/ydevdesk\"\nT=\"$D/claude-statusline.json\"\nmkdir -p \"$D\"\ncat > \"$T.tmp\" && mv \"$T.tmp\" \"$T\"\nif [ -s \"$D/claude-statusline-orig.txt\" ]; then sh -c \"$(cat \"$D/claude-statusline-orig.txt\")\" < \"$T\"; fi\n";
+        std::fs::write(&hook_path, script).map_err(|e| e.to_string())?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&hook_path, std::fs::Permissions::from_mode(0o755)).map_err(|e| e.to_string())?;
+        }
+
+        // Yedek al, sonra statusLine'ı hook'a yönlendir.
+        if settings_path.exists() {
+            let _ = std::fs::copy(&settings_path, settings_path.with_extension("json.ydevdesk-bak"));
+        }
+        obj.insert(
+            "statusLine".to_string(),
+            serde_json::json!({ "type": "command", "command": hook_path.to_string_lossy() }),
+        );
+        if let Some(parent) = settings_path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        let serialized = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
+        std::fs::write(&settings_path, serialized).map_err(|e| e.to_string())?;
+
+        if let Some(cache) = USAGE_ANALYTICS_CACHE.get() {
+            if let Ok(mut guard) = cache.lock() {
+                *guard = None;
+            }
+        }
+        Ok("Claude statusLine hook yapılandırıldı. Kota, Claude'daki bir sonraki yanıttan sonra görünür.".to_string())
     }
 }
 
@@ -786,5 +901,35 @@ mod pricing_tests {
         let r = parse_claude_usage(&msg).unwrap();
         assert_eq!((r.cache_5m, r.cache_1h), (1000, 0));
         assert!((r.cost_usd() - 1000.0 * 2.0 * 1.25 / 1_000_000.0).abs() < 1e-12);
+    }
+}
+
+#[cfg(test)]
+mod claude_quota_tests {
+    use super::*;
+
+    #[test]
+    fn reads_remaining_and_resets_stale_windows() {
+        let home = std::env::temp_dir().join(format!("ydd_cq_{}", std::process::id()));
+        let dir = home.join(".config").join("ydevdesk");
+        std::fs::create_dir_all(&dir).unwrap();
+        let future = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            + 3600;
+        std::fs::write(
+            dir.join("claude-statusline.json"),
+            format!(
+                r#"{{"rate_limits":{{"five_hour":{{"used_percentage":30.0,"resets_at":{future}}},"seven_day":{{"used_percentage":90.0,"resets_at":1}}}}}}"#
+            ),
+        )
+        .unwrap();
+        let (configured, h5, wk) = read_claude_quota(&home);
+        assert!(configured);
+        assert_eq!(h5, Some(70.0));
+        assert_eq!(wk, Some(100.0)); // resets_at geçmişte -> sıfırlanmış
+        let _ = std::fs::remove_dir_all(&home);
+        assert_eq!(read_claude_quota(&home), (false, None, None));
     }
 }

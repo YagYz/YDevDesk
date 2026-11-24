@@ -65,6 +65,7 @@ export const api = {
   windowToggleMaximize: () => invoke<void>("app_window_toggle_maximize"),
   usageAnalytics: () => invoke<UsageAnalytics>("get_usage_analytics"),
   enableAgyQuotaHook: () => invoke<string>("enable_agy_quota_hook"),
+  enableClaudeQuotaHook: () => invoke<string>("enable_claude_quota_hook"),
   syncStartAuth: () => invoke<DeviceFlowStart>("github_device_flow_start"),
   syncPollAuth: (deviceCode: string) => invoke<DeviceFlowPollResult>("github_device_flow_poll", { deviceCode }),
   syncStatus: () => invoke<SyncStatusInfo>("github_sync_status"),
