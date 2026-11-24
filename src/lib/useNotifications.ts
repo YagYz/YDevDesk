@@ -5,8 +5,12 @@ import type { AgentStatus, HubStatus, NetworkData, NotificationSettings } from "
 
 type Snapshot = { agent: AgentStatus; hubStatus: HubStatus; network: NetworkData };
 
-/** Ajan bu süre boyunca boşta kalırsa "bitti" bildirimi gönderilir (uzun araç/düşünme duraklamalarında sahte bildirimi önler). */
-const DONE_DEBOUNCE_MS = 20_000;
+/**
+ * Ajan bu süre boyunca boşta kalırsa "bitti" bildirimi gönderilir. "Boşta" artık transkriptteki tur sonu
+ * işaretinden gelir (uzun araç/düşünme sahte boşta üretmez); bu süre yalnızca tur sonu ile sıradaki
+ * (kuyruğa alınmış) isteğin başlaması arasındaki kısa boşluğu — 2 sn'lik polling dahil — tolere eder.
+ */
+const DONE_DEBOUNCE_MS = 4_000;
 
 /** Çalışan ajanların model adları; hiçbiri yoksa üst düzey model. */
 function workingLabel(agent: AgentStatus): string {

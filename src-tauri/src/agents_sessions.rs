@@ -25,6 +25,103 @@ pub const WORKING_SECS: u64 = 15;
 pub const ACTIVE_SECS: u64 = 300;
 /// AGY status hook'u bu süreden uzun güncellenmediyse içindeki "working" durumuna güvenilmez.
 const AGY_STATUS_STALE_SECS: u64 = 120;
+/// Tur işaretine göre "çalışıyor" görünen ama dosyaya hiç yazılmayan (çökmüş/izin bekleyen) oturum
+/// bu süreden sonra boşta sayılır.
+const TURN_STALE_SECS: u64 = 900;
+
+/// Tur işareti biliniyorsa onu, bilinmiyorsa dosya yazım zamanını kullanır.
+fn resolve_working(diff_secs: u64, marker: Option<bool>) -> bool {
+    match marker {
+        Some(running) => running && diff_secs < TURN_STALE_SECS,
+        None => diff_secs < WORKING_SECS,
+    }
+}
+
+fn user_text_of(v: &serde_json::Value) -> String {
+    let Some(c) = v.get("message").and_then(|m| m.get("content")) else { return String::new() };
+    if let Some(s) = c.as_str() {
+        return s.to_string();
+    }
+    c.as_array()
+        .and_then(|a| a.iter().find_map(|b| b.get("text").and_then(|t| t.as_str())))
+        .unwrap_or("")
+        .to_string()
+}
+
+/// Claude transkriptinin sonundan tur durumunu çıkarır: Some(true) = tur sürüyor, Some(false) = bitti.
+fn claude_turn_running_from(tail: &str) -> Option<bool> {
+    for line in tail.lines().rev() {
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else { continue };
+        match v.get("type").and_then(|t| t.as_str()) {
+            Some("system") => {
+                if v.get("subtype").and_then(|t| t.as_str()) == Some("turn_duration") {
+                    return Some(false);
+                }
+            }
+            Some("assistant") => {
+                let stop = v.get("message").and_then(|m| m.get("stop_reason")).and_then(|r| r.as_str());
+                return Some(matches!(stop, None | Some("tool_use")));
+            }
+            Some("user") => {
+                if v.get("isMeta").and_then(|m| m.as_bool()) == Some(true) {
+                    continue;
+                }
+                let t = user_text_of(&v);
+                let t = t.trim_start();
+                if t.starts_with("[Request interrupted") {
+                    return Some(false);
+                }
+                // Slash komutu / yerel çıktı kayıtları bir tur başlatmaz.
+                if t.starts_with("<command-name>") || t.starts_with("<local-command") || t.starts_with("<bash-") {
+                    continue;
+                }
+                return Some(true);
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// AGY transkripti: kullanıcı girdisi / araç sonucu / araç çağrılı yanıt = sürüyor; araçsız nihai yanıt = bitti.
+fn agy_turn_running_from(tail: &str) -> Option<bool> {
+    for line in tail.lines().rev() {
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else { continue };
+        match v.get("type").and_then(|t| t.as_str()) {
+            Some("USER_INPUT") | Some("GENERIC") => return Some(true),
+            Some("PLANNER_RESPONSE") => {
+                let has_calls = v.get("tool_calls").and_then(|c| c.as_array()).is_some_and(|a| !a.is_empty());
+                let done = v.get("status").and_then(|s| s.as_str()).is_none_or(|s| s == "DONE");
+                return Some(has_calls || !done);
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Codex rollout: task_started/turn_started = sürüyor; task_complete/turn_complete/turn_aborted = bitti.
+fn codex_turn_running_from(tail: &str) -> Option<bool> {
+    for line in tail.lines().rev() {
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else { continue };
+        if v.get("type").and_then(|t| t.as_str()) != Some("event_msg") {
+            continue;
+        }
+        match v.get("payload").and_then(|p| p.get("type")).and_then(|t| t.as_str()) {
+            Some("task_started") | Some("turn_started") => return Some(true),
+            Some("task_complete") | Some("turn_complete") | Some("turn_aborted") => return Some(false),
+            _ => {}
+        }
+    }
+    None
+}
+
+fn turn_marker(path: &std::path::Path, diff_secs: u64, f: fn(&str) -> Option<bool>) -> Option<bool> {
+    if diff_secs >= TURN_STALE_SECS {
+        return None;
+    }
+    read_tail(path, 512 * 1024).and_then(|t| f(&t))
+}
 
 /// Tek bir ajanın canlı telemetri görünümü (ajan durumu sekmesinde sırayla döndürülür).
 #[derive(Serialize, Deserialize, Clone)]
@@ -265,7 +362,7 @@ fn collect_agy_sessions(
             title,
             cwd: None,
             is_active: diff_secs < ACTIVE_SECS,
-            is_working: diff_secs < WORKING_SECS,
+            is_working: resolve_working(diff_secs, turn_marker(&t_path, diff_secs, agy_turn_running_from)),
             model: "AGY".to_string(),
             last_tool: "working".to_string(),
             updated_ago_secs: diff_secs,
@@ -418,7 +515,7 @@ fn collect_claude_sessions(home: &std::path::Path, now: std::time::SystemTime) -
             title,
             cwd,
             is_active: diff_secs < ACTIVE_SECS,
-            is_working: diff_secs < WORKING_SECS,
+            is_working: resolve_working(diff_secs, turn_marker(&f_path, diff_secs, claude_turn_running_from)),
             model,
             last_tool: "working".to_string(),
             updated_ago_secs: diff_secs,
@@ -543,7 +640,7 @@ fn collect_codex_sessions(home: &std::path::Path, now: std::time::SystemTime) ->
             title,
             cwd,
             is_active: diff_secs < ACTIVE_SECS,
-            is_working: diff_secs < WORKING_SECS,
+            is_working: resolve_working(diff_secs, turn_marker(&f_path, diff_secs, codex_turn_running_from)),
             model,
             last_tool: "working".to_string(),
             updated_ago_secs: diff_secs,
@@ -1118,7 +1215,8 @@ fn build_agy_view(
     }
     // Gemini Flash/Pro karışık tahmini fiyat ($0.15 girdi / $0.60 çıktı per 1M)
     tel.cost = (tel.input as f64 / 1_000_000.0) * 0.15 + (tel.output as f64 / 1_000_000.0) * 0.60;
-    let state = if hook_working || session.is_working { "working" } else { "idle" };
+    let marker_known = turn_marker(transcript, session.updated_ago_secs, agy_turn_running_from).is_some();
+    let state = if session.is_working || (hook_working && !marker_known) { "working" } else { "idle" };
     make_view("agy", session, model, tel, state, subagents, now_epoch)
 }
 
@@ -1375,5 +1473,55 @@ mod window_tests {
         assert_eq!(w("claude-haiku-4-5"), 200_000);
         assert_eq!(w("claude-sonnet-4-5"), 200_000);
         assert_eq!(w("claude-sonnet-4-5[1m]"), 1_000_000);
+    }
+}
+
+
+#[cfg(test)]
+mod turn_marker_tests {
+    use super::*;
+
+    #[test]
+    fn claude_turn_states() {
+        let tool = r#"{"type":"assistant","message":{"stop_reason":"tool_use","content":[]}}"#;
+        let result = r#"{"type":"user","message":{"content":[{"type":"tool_result","content":"x"}]}}"#;
+        let noise = r#"{"type":"api-request","x":1}"#;
+        let end = r#"{"type":"assistant","message":{"stop_reason":"end_turn","content":[]}}"#;
+        let dur = r#"{"type":"system","subtype":"turn_duration"}"#;
+        let slash = r#"{"type":"user","message":{"content":"<command-name>/model</command-name>"}}"#;
+        let intr = r#"{"type":"user","message":{"content":[{"type":"text","text":"[Request interrupted by user]"}]}}"#;
+        let j = |rows: &[&str]| rows.join("\n");
+        assert_eq!(claude_turn_running_from(&j(&[end, tool, noise])), Some(true)); // araç çalışıyor
+        assert_eq!(claude_turn_running_from(&j(&[tool, result, noise])), Some(true)); // sonuç döndü, sürüyor
+        assert_eq!(claude_turn_running_from(&j(&[tool, end, noise])), Some(false));
+        assert_eq!(claude_turn_running_from(&j(&[tool, end, dur])), Some(false));
+        assert_eq!(claude_turn_running_from(&j(&[end, slash])), Some(false)); // slash komutu tur başlatmaz
+        assert_eq!(claude_turn_running_from(&j(&[tool, intr])), Some(false));
+        assert_eq!(claude_turn_running_from(""), None);
+    }
+
+    #[test]
+    fn agy_and_codex_turn_states() {
+        let call = r#"{"type":"PLANNER_RESPONSE","status":"DONE","tool_calls":[{"name":"run_command"}]}"#;
+        let fin = r#"{"type":"PLANNER_RESPONSE","status":"DONE","content":"bitti"}"#;
+        let res = r#"{"type":"GENERIC","status":"DONE"}"#;
+        let sys = r#"{"type":"SYSTEM_MESSAGE"}"#;
+        assert_eq!(agy_turn_running_from(&[call, res].join("\n")), Some(true));
+        assert_eq!(agy_turn_running_from(&[call, res, fin, sys].join("\n")), Some(false));
+        let start = r#"{"type":"event_msg","payload":{"type":"task_started"}}"#;
+        let tok = r#"{"type":"event_msg","payload":{"type":"token_count"}}"#;
+        let done = r#"{"type":"event_msg","payload":{"type":"task_complete"}}"#;
+        assert_eq!(codex_turn_running_from(&[start, tok].join("\n")), Some(true));
+        assert_eq!(codex_turn_running_from(&[start, tok, done, tok].join("\n")), Some(false));
+        assert_eq!(codex_turn_running_from(tok), None);
+    }
+
+    #[test]
+    fn working_resolution() {
+        assert!(resolve_working(100, Some(true))); // uzun araç: dosya yazılmasa da çalışıyor
+        assert!(!resolve_working(3, Some(false))); // tur bitti: hemen boşta
+        assert!(!resolve_working(TURN_STALE_SECS + 1, Some(true))); // takılı kalma sınırı
+        assert!(resolve_working(5, None)); // işaret yok: eski mtime davranışı
+        assert!(!resolve_working(60, None));
     }
 }
