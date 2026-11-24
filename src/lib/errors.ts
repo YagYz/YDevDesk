@@ -75,7 +75,7 @@ export function formatError(err: unknown, context?: ErrorContext): FormattedErro
   }
   if (/\b403\b/.test(low) || low.includes("forbidden")) {
     return {
-      message: "Erişim reddedildi (403). Yetki veya istek sınırını kontrol et.",
+      message: "Erişim reddedildi (403). GitHub istek sınırı dolmuş olabilir; VPN/WARP ortak IP kullanır, kapatıp tekrar dene.",
       detail: raw,
     };
   }

@@ -41,9 +41,94 @@ pub fn get_app_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
 
+/// Release dosya adı: macOS arşivleri sürümsüz (`ydevdesk_aarch64.app.tar.gz`), diğerleri sürümlü
+/// (`ydevdesk_1.2.4_amd64.AppImage`). `release.yml` çıktılarıyla eşleşir.
+pub(crate) fn asset_file_name(version: &str, suffix: &str) -> String {
+    if suffix.ends_with("app.tar.gz") {
+        format!("ydevdesk_{suffix}")
+    } else {
+        format!("ydevdesk_{version}_{suffix}")
+    }
+}
+
+/// `https://github.com/<repo>/releases/tag/v1.2.4` -> `1.2.4`
+pub(crate) fn version_from_location(location: &str) -> Option<String> {
+    let tag = location.trim_end_matches('/').rsplit('/').next()?;
+    let v = tag.trim_start_matches('v');
+    (v.chars().next()?.is_ascii_digit()).then(|| v.to_string())
+}
+
+/// GitHub API istek sınırına (WARP/VPN ortak IP'lerinde sık) takılınca kullanılan yedek yol:
+/// `/releases/latest` yönlendirmesinden son sürümü okur, dosya adını kendisi kurar.
+async fn check_via_redirect(current: &str) -> Result<UpdateCheckResult, String> {
+    let no_redirect = reqwest::Client::builder()
+        .user_agent("YDevDesk-Updater")
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(std::time::Duration::from_secs(20))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let res = no_redirect
+        .get("https://github.com/YagYz/YDevDesk/releases/latest")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let location = res
+        .headers()
+        .get(reqwest::header::LOCATION)
+        .and_then(|l| l.to_str().ok())
+        .ok_or_else(|| format!("GitHub HTTP {}", res.status()))?
+        .to_string();
+    let latest = version_from_location(&location).ok_or("Son sürüm okunamadı")?;
+    let has_update = parse_semver(&latest) > parse_semver(current);
+    let asset_name = asset_file_name(&latest, target_asset_suffix());
+    let asset_url = format!("https://github.com/YagYz/YDevDesk/releases/download/v{latest}/{asset_name}");
+    let html_url = format!("https://github.com/YagYz/YDevDesk/releases/tag/v{latest}");
+
+    // Release oluşmuş ama dosyalar henüz yüklenmemiş olabilir: yoksa güncelleme sunma.
+    let follow = reqwest::Client::builder()
+        .user_agent("YDevDesk-Updater")
+        .timeout(std::time::Duration::from_secs(20))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let available = follow.head(&asset_url).send().await.map(|r| r.status().is_success()).unwrap_or(false);
+    if !available {
+        return Ok(UpdateCheckResult {
+            current_version: current.to_string(),
+            latest_version: current.to_string(),
+            has_update: false,
+            release_name: String::new(),
+            release_notes: String::new(),
+            html_url: String::new(),
+            asset_name: String::new(),
+            asset_url: String::new(),
+        });
+    }
+    Ok(UpdateCheckResult {
+        current_version: current.to_string(),
+        latest_version: latest.clone(),
+        has_update,
+        release_name: format!("v{latest}"),
+        release_notes: "Sürüm notları için sürüm sayfasına bakın (GitHub API istek sınırı nedeniyle yedek kontrol kullanıldı).".to_string(),
+        html_url,
+        asset_name,
+        asset_url,
+    })
+}
+
 #[tauri::command]
 pub async fn check_app_update() -> Result<UpdateCheckResult, String> {
     let current = env!("CARGO_PKG_VERSION").to_string();
+    match check_via_api(&current).await {
+        Ok(r) => Ok(r),
+        // 403/429 (istek sınırı) veya ağ hatası: API'siz yedek yolu dene.
+        Err(api_err) => check_via_redirect(&current).await.map_err(|fb| {
+            format!("{api_err}; yedek kontrol de başarısız: {fb}. VPN/WARP açıksa kapatıp tekrar dene.")
+        }),
+    }
+}
+
+async fn check_via_api(current: &str) -> Result<UpdateCheckResult, String> {
+    let current = current.to_string();
     let client = reqwest::Client::builder()
         .user_agent("YDevDesk-Updater")
         .build()
@@ -208,3 +293,26 @@ pub async fn install_app_update(app: AppHandle, asset_url: String) -> Result<Str
     }
 }
 
+
+
+#[cfg(test)]
+mod fallback_tests {
+    use super::*;
+
+    #[test]
+    fn asset_names_match_release_workflow() {
+        assert_eq!(asset_file_name("1.2.4", "aarch64.app.tar.gz"), "ydevdesk_aarch64.app.tar.gz");
+        assert_eq!(asset_file_name("1.2.4", "x64.app.tar.gz"), "ydevdesk_x64.app.tar.gz");
+        assert_eq!(asset_file_name("1.2.4", "amd64.AppImage"), "ydevdesk_1.2.4_amd64.AppImage");
+        assert_eq!(asset_file_name("1.2.4", "x64-setup.exe"), "ydevdesk_1.2.4_x64-setup.exe");
+    }
+
+    #[test]
+    fn version_parsed_from_redirect_location() {
+        assert_eq!(
+            version_from_location("https://github.com/YagYz/YDevDesk/releases/tag/v1.2.4").as_deref(),
+            Some("1.2.4")
+        );
+        assert_eq!(version_from_location("https://github.com/YagYz/YDevDesk/releases").as_deref(), None);
+    }
+}
