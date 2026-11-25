@@ -10,6 +10,7 @@ mod config;
 mod env_helpers;
 mod git;
 mod homelab;
+mod knowledge;
 mod platform;
 mod plugins;
 mod pty;
@@ -38,6 +39,7 @@ pub fn run() {
                     let _ = window.set_icon(icon.clone());
                 }
             }
+            knowledge::commands::start_background();
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
@@ -100,10 +102,27 @@ pub fn run() {
             themes::list_themes,
             themes::remove_theme,
             themes::create_sample_theme,
-            themes::open_themes_dir
+            themes::open_themes_dir,
+            knowledge::commands::knowledge_get_settings,
+            knowledge::commands::knowledge_save_settings,
+            knowledge::commands::knowledge_list,
+            knowledge::commands::knowledge_tags,
+            knowledge::commands::knowledge_status,
+            knowledge::commands::knowledge_add
         ])
-        .run(context)
-        .expect("error while running tauri application");
+        .build(context)
+        .expect("error while building tauri application")
+        .run(|_app, event| {
+            if let tauri::RunEvent::Exit = event {
+                knowledge::heartbeat::clear();
+            }
+        });
+}
+
+/// `ydevdesk --mcp`: pencere açmadan stdio MCP sunucusu olarak çalışır; çıkış kodunu döner.
+pub fn run_mcp() -> i32 {
+    let stdin = std::io::stdin();
+    knowledge::mcp::run(stdin.lock(), std::io::stdout(), knowledge::mcp::Ctx::real())
 }
 
 

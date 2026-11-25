@@ -99,6 +99,12 @@ pub(crate) fn expand_home(p: &str) -> std::path::PathBuf {
 }
 
 pub(crate) fn ydevdesk_config_dir() -> std::path::PathBuf {
+    // Test ve izole çalıştırma için ayar klasörü env ile geçersiz kılınabilir.
+    if let Ok(dir) = std::env::var("YDEVDESK_CONFIG_DIR") {
+        if !dir.trim().is_empty() {
+            return std::path::PathBuf::from(dir);
+        }
+    }
     dirs::home_dir().unwrap_or_default().join(".config").join("ydevdesk")
 }
 

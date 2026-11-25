@@ -32,6 +32,30 @@ fn sanitize_pty_cmd(cmd: &mut CommandBuilder) {
 }
 
 
+/// Bilgi Ağı için terminale verilen ortam değişkenleri. MCP süreci bunları ajandan miras alır.
+/// Ajan adı `init_cmd`'nin ilk sözcüğünün taban adından çıkarılır; tanınmazsa `shell`.
+pub(crate) fn knowledge_env(session_id: &str, init_cmd: Option<&str>) -> Vec<(String, String)> {
+    let agent = init_cmd
+        .and_then(|c| c.split_whitespace().next())
+        .and_then(|first| std::path::Path::new(first).file_name())
+        .and_then(|n| n.to_str())
+        .map(|n| match n {
+            "claude" => "claude",
+            "codex" => "codex",
+            "agy" => "agy",
+            _ => "shell",
+        })
+        .unwrap_or("shell");
+    let bin = std::env::current_exe()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+    vec![
+        ("YDEVDESK_SESSION".to_string(), session_id.to_string()),
+        ("YDEVDESK_AGENT".to_string(), agent.to_string()),
+        ("YDEVDESK_BIN".to_string(), bin),
+    ]
+}
+
 // 1. Çoklu PTY Başlatma (macOS ve Linux uyumlu terminal oturumu). Aynı oturum için tekrar çağrı güvenlidir.
 #[tauri::command]
 pub fn start_pty(app: AppHandle, state: State<'_, TerminalState>, session_id: String, cols: u16, rows: u16, init_cmd: Option<String>) -> Result<(), String> {
@@ -59,6 +83,9 @@ pub fn start_pty(app: AppHandle, state: State<'_, TerminalState>, session_id: St
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
     cmd.env("PATH", get_enhanced_path());
+    for (k, v) in knowledge_env(&session_id, init_cmd.as_deref()) {
+        cmd.env(k, v);
+    }
 
     if let Some(home) = dirs::home_dir() {
         cmd.cwd(home);
@@ -163,3 +190,34 @@ pub fn close_pty(state: State<'_, TerminalState>, session_id: String) -> Result<
 }
 
 // 4. Yerel Homelab / YDevHub Yapılandırmasını Otomatik Okuma
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn env_get(v: &[(String, String)], k: &str) -> Option<String> {
+        v.iter().find(|(key, _)| key == k).map(|(_, val)| val.clone())
+    }
+
+    #[test]
+    fn agent_from_init_cmd() {
+        for (cmd, want) in [
+            (Some("claude"), "claude"),
+            (Some("/usr/local/bin/agy --x"), "agy"),
+            (Some("codex"), "codex"),
+            (None, "shell"),
+            (Some("npm run dev"), "shell"),
+        ] {
+            let env = knowledge_env("s1", cmd);
+            assert_eq!(env_get(&env, "YDEVDESK_AGENT").as_deref(), Some(want), "cmd={:?}", cmd);
+        }
+    }
+
+    #[test]
+    fn session_env_present() {
+        let env = knowledge_env("sess-42", Some("claude"));
+        assert_eq!(env_get(&env, "YDEVDESK_SESSION").as_deref(), Some("sess-42"));
+        let bin = env_get(&env, "YDEVDESK_BIN").expect("YDEVDESK_BIN yok");
+        assert!(!bin.is_empty());
+    }
+}

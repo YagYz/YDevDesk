@@ -5,12 +5,11 @@ import type { ModuleManifest } from "../../sdk/moduleSdk";
 const manifest: ModuleManifest = {
   id: "knowledge",
   title: "Bilgi Ağı",
-  description: "YDevHub hafıza kayıtları",
+  description: "Yerel ve YDevHub hafıza kayıtları",
   icon: Brain,
   component: KnowledgePanel,
   width: 320,
   order: 90,
-  requires: "ydevhub",
 };
 
 export default manifest;

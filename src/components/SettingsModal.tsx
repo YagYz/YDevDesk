@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   Bell,
   Bot,
+  Brain,
   CheckCircle2,
   Download,
   LayoutGrid,
@@ -21,6 +22,7 @@ import { useData } from "../context/DataContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { ErrorBanner } from "./ui";
 import { AgentSetupContent } from "./AgentSetupModal";
+import { KnowledgeSettingsContent } from "./KnowledgeSettingsContent";
 import { SyncSettingsContent } from "./SyncSettingsContent";
 import { PluginsSettingsTab, ThemesSettingsTab } from "./ThemesPluginsTabs";
 import { MODULES } from "../panels/registry";
@@ -29,7 +31,7 @@ import { playChime } from "../lib/sound";
 import { notify } from "../lib/notify";
 import type { AppSettings, Connection, ConnectionType, UpdateCheckResult } from "../types";
 
-export type SettingsTab = "connections" | "modules" | "themes" | "plugins" | "commands" | "notifications" | "agents" | "sync" | "update";
+export type SettingsTab = "connections" | "modules" | "themes" | "plugins" | "commands" | "notifications" | "agents" | "knowledge" | "sync" | "update";
 
 const TABS: { id: SettingsTab; label: string; icon: LucideIcon }[] = [
   { id: "connections", label: "Bağlantılar", icon: Link2 },
@@ -39,6 +41,7 @@ const TABS: { id: SettingsTab; label: string; icon: LucideIcon }[] = [
   { id: "commands", label: "Komutlar", icon: Terminal },
   { id: "notifications", label: "Bildirimler", icon: Bell },
   { id: "agents", label: "Ajanlar", icon: Bot },
+  { id: "knowledge", label: "Bilgi Ağı", icon: Brain },
   { id: "sync", label: "Senkronizasyon", icon: RefreshCw },
   { id: "update", label: "Sürüm", icon: Download },
 ];
@@ -406,6 +409,8 @@ export function SettingsModal({ onClose, initialTab = "connections" }: { onClose
             <AgentSetupContent />
           </div>
         )}
+
+        {tab === "knowledge" && <KnowledgeSettingsContent />}
 
         {tab === "sync" && <SyncSettingsContent />}
 
