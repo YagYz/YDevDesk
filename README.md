@@ -7,7 +7,7 @@
 
 **YDevDesk**, yapay zeka kodlama ajanlarını (**Antigravity / AGY**, **Claude Code**, **OpenAI Codex**), yerel PTY terminallerini, çalışma zamanı eklentilerini (**Plugins**), özel temaları ve isteğe bağlı Homelab servislerini (**YDevHub**, **YNetMon**, **Git**) tek bir modüler masaüstü komuta merkezinde birleştiren **Tauri v2 (Rust) + React 19 + Dockview** uygulamasıdır.
 
-🌐 **Web Sitesi:** [yagyz.github.io/YDevDesk](https://yagyz.github.io/YDevDesk/) · 📚 **Dokümantasyon:** [Docs](https://yagyz.github.io/YDevDesk/docs.html) · 🔒 **Gizlilik & Çerezler:** [Privacy](https://yagyz.github.io/YDevDesk/privacy.html)
+🌐 **Web Sitesi:** [yagyz.github.io/YDevDesk](https://yagyz.github.io/YDevDesk/) · 🧠 **Bilgi Ağı:** [Rehber](https://yagyz.github.io/YDevDesk/knowledge.html) · 📚 **Dokümantasyon:** [Docs](https://yagyz.github.io/YDevDesk/docs.html) · 🔒 **Gizlilik & Çerezler:** [Privacy](https://yagyz.github.io/YDevDesk/privacy.html)
 
 ![YDevDesk Çalışma Alanı](docs/screenshots/workspace-v12.png)
 

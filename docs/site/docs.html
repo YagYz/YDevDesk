@@ -4,7 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dokümantasyon — YDevDesk</title>
-  <meta name="description" content="YDevDesk kurulum, kısayollar, çoklu ajan yönetimi, eklenti (plugin) geliştirme SDK, özel tema oluşturma, çekirdek modül SDK ve veri dizinleri dokümantasyonu." />
+  <meta name="description" content="YDevDesk kurulum, kısayollar, çoklu ajan yönetimi, Bilgi Ağı (ortak ajan hafızası, MCP), eklenti (plugin) geliştirme SDK, özel tema oluşturma, çekirdek modül SDK ve veri dizinleri dokümantasyonu." />
+  <link rel="alternate" hreflang="tr" href="docs.html" />
+  <link rel="alternate" hreflang="en" href="docs-en.html" />
+  <link rel="alternate" hreflang="x-default" href="docs.html" />
   <link rel="icon" type="image/png" href="logo.png" />
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -21,11 +24,16 @@
         <a href="index.html#ozellikler">Özellikler</a>
         <a href="index.html#ekran-goruntuleri">Ekran Görüntüleri</a>
         <a href="docs.html" class="active">Dokümantasyon</a>
+        <a href="knowledge.html">Bilgi Ağı</a>
         <a href="sync.html">Senkronizasyon</a>
         <a href="privacy.html">Gizlilik &amp; Çerezler</a>
       </nav>
 
       <div class="nav-actions">
+        <span class="lang-switch" role="group" aria-label="Dil seçimi / Language">
+          <a href="docs.html" hreflang="tr" lang="tr" aria-current="page" title="Türkçe">TR</a>
+          <a href="docs-en.html" hreflang="en" lang="en" title="English">EN</a>
+        </span>
         <a class="btn btn-ghost btn-sm" href="https://github.com/YagYz/YDevDesk" target="_blank" rel="noopener noreferrer">GitHub</a>
         <a class="btn btn-primary btn-sm" href="index.html#indir">İndir</a>
         <button class="nav-toggle" id="nav-toggle" aria-label="Menüyü aç/kapat" aria-expanded="false">
@@ -73,6 +81,23 @@
         </div>
 
         <div class="docs-nav-group">
+          <div class="docs-nav-title">Bilgi Ağı</div>
+          <ul class="docs-nav-list">
+            <li><a href="knowledge.html"><strong>Ayrıntılı Rehber &rarr;</strong></a></li>
+            <li><a href="#bilgi-agi">Nedir &amp; Nasıl Çalışır</a></li>
+            <li><a href="#bilgi-depolama">Depolama Modları</a></li>
+            <li><a href="#bilgi-calisma-izni">Çalışma İzni</a></li>
+            <li><a href="#bilgi-mcp">MCP Araçları</a></li>
+            <li><a href="#bilgi-tek-tik">Tek Tık Kurulum</a></li>
+            <li><a href="#bilgi-elle">Elle Kurulum</a></li>
+            <li><a href="#bilgi-sablon">Kural Şablonları (İndir)</a></li>
+            <li><a href="#bilgi-guvenlik">Güvenlik Notları</a></li>
+            <li><a href="#bilgi-sorun">Sorun Giderme</a></li>
+            <li><a href="#bilgi-sinirlar">Bilinen Sınırlar</a></li>
+          </ul>
+        </div>
+
+        <div class="docs-nav-group">
           <div class="docs-nav-title">Eklenti (Plugin) Geliştirme</div>
           <ul class="docs-nav-list">
             <li><a href="#plugin-yapi">Klasör Yapısı &amp; plugin.json</a></li>
@@ -104,7 +129,7 @@
           <span class="badge"><span class="badge-dot" aria-hidden="true"></span>YDevDesk Dokümantasyon Portalı</span>
           <h1>Kullanım, Eklenti ve Tema Rehberi</h1>
           <p>
-            YDevDesk'i dakikalar içinde kurun, klavye kısayolları ile çalışma alanınızı hızlandırın ve kendi eklentilerinizi,
+            YDevDesk'i dakikalar içinde kurun, klavye kısayolları ile çalışma alanınızı hızlandırın, ajanlarınızın ortak hafızasını (Bilgi Ağı) kurun ve kendi eklentilerinizi,
             temalarınızı veya çekirdek modüllerinizi geliştirin.
           </p>
         </div>
@@ -178,8 +203,20 @@ sudo apt update && sudo apt install -y ydevdesk</code></pre>
           <ul>
             <li><strong>Proje Kök Dizinleri:</strong> <em>Ayarlar &rarr; Bağlantılar</em> bölümünden sık çalıştığınız proje klasörlerini (ör. <code>/mnt/Depo/Projeler</code> veya <code>~/Projects</code>) ekleyin. Git durumu, dosya haritası ve hızlı terminal açma bu dizinleri kullanır.</li>
             <li><strong>Homelab Servisleri (İsteğe Bağlı):</strong> YDevHub veya YNetMon kullanıyorsanız URL ve API anahtarını ekleyerek notlar, görevler, Bilgi Ağı ve canlı ağ trafiği panellerini etkinleştirebilirsiniz.</li>
+            <li><strong>Ajan Hafızası (Bilgi Ağı):</strong> Ajanlarınızın birbirinin işini görmesi için <em>Ayarlar &rarr; Bilgi Ağı</em> sekmesine bakın; ayrıntılar <a href="#bilgi-agi">Bilgi Ağı</a> bölümündedir.</li>
             <li><strong>İsteğe Bağlı Senkronizasyon:</strong> Birden fazla bilgisayarda çalışıyorsanız <em>Ayarlar &rarr; Senkronizasyon</em> sekmesinden <a href="sync.html">şifreli GitHub Secret Gist</a> eşitlemesini açabilirsiniz.</li>
           </ul>
+          <h3>Ayarlar Sekmeleri</h3>
+          <p>
+            Ayarlar penceresinde şu sekmeler bulunur: <em>Bağlantılar</em>, <em>Modüller</em>, <em>Temalar</em>, <em>Eklentiler</em>, <em>Komutlar</em>,
+            <em>Bildirimler</em>, <em>Ajanlar</em>, <em>Bilgi Ağı</em>, <em>Senkronizasyon</em> ve <em>Sürüm</em>.
+          </p>
+          <h3>Yerleşik Paneller (Modüller)</h3>
+          <p>
+            Çalışma alanına eklenebilen yerleşik paneller: <em>Oturumlar</em>, <em>Ajan Durumu</em>, <em>Araç Akışı</em>, <em>Git</em>,
+            <em>Dosya Yoğunluğu</em>, <em>Hızlı Eylemler</em>, <em>Görevler</em>, <em>Notlar</em>, <em>Bilgi Ağı</em> ve <em>YNetMon Ağ</em>.
+            Görevler, Notlar ve YNetMon Ağ panelleri YDevHub / YNetMon bağlantısı gerektirir; hangilerinin görüneceğini <em>Ayarlar &rarr; Modüller</em> bölümünden seçebilirsiniz.
+          </p>
         </section>
 
         <!-- 3. KISAYOLLAR -->
@@ -198,9 +235,9 @@ sudo apt update && sudo apt install -y ydevdesk</code></pre>
               </thead>
               <tbody>
                 <tr>
-                  <td><kbd>Ctrl</kbd> + <kbd>K</kbd></td>
+                  <td><kbd>Ctrl</kbd> + <kbd>K</kbd> (macOS'ta <kbd>Cmd</kbd> + <kbd>K</kbd> de çalışır)</td>
                   <td>Komut Paleti (Omnibar)</td>
-                  <td>Terminale komut gönderin, panel açın, hızlı not alın veya Bilgi Ağına kayıt ekleyin.</td>
+                  <td>Üç kip arasında <kbd>Tab</kbd> ile geçilir: terminale komut gönderme, hızlı not (YDevHub bağlıysa) ve <em>Hafıza</em> (Bilgi Ağına kayıt ekleme). <kbd>Esc</kbd> kapatır.</td>
                 </tr>
                 <tr>
                   <td><kbd>Ctrl</kbd> + <kbd>Tab</kbd></td>
@@ -208,7 +245,7 @@ sudo apt update && sudo apt install -y ydevdesk</code></pre>
                   <td>Açık Dockview sekmeleri ve terminaller arasında anında geçiş yapar.</td>
                 </tr>
                 <tr>
-                  <td><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>T</kbd></td>
+                  <td><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>T</kbd> (macOS'ta <kbd>Cmd</kbd> da olur)</td>
                   <td>Kapatılan Paneli Geri Aç</td>
                   <td>Yanlışlıkla kapattığınız son terminal veya araç panelini düzeniyle birlikte geri yükler.</td>
                 </tr>
@@ -265,6 +302,10 @@ sudo apt update && sudo apt install -y ydevdesk</code></pre>
             Oturumlar panelinde herhangi bir konuşmayı <strong>sabitleyebilir</strong>, özel bir takma ad (alias) verebilir ve
             tek tıkla ilgili ajanın <code>--resume</code> komutuyla yerleşik terminalde kaldığınız yerden sürdürebilirsiniz.
           </p>
+          <p>
+            <em>Ayarlar &rarr; Ajanlar</em> sekmesi kurulu ajanları tarar; normal veya bypass kipinde başlatmanızı, güncellemenizi, terminalde açmanızı ve eksik olanı kurmanızı sağlar.
+            Ajanların birbirinin çalışmasını görmesi için <a href="#bilgi-agi">Bilgi Ağı</a> hafızasını kullanın.
+          </p>
         </section>
 
         <!-- 7. GÜVENLİ OTURUM SİLME -->
@@ -291,6 +332,315 @@ sudo apt update && sudo apt install -y ydevdesk</code></pre>
             <li><strong>Token &amp; USD Maliyet:</strong> Girdi, çıktı ve önbellek (cache) token sayılarını model bazlı tahmini USD maliyetiyle birlikte gösterir.</li>
             <li><strong>Kota Eşikleri:</strong> 5 saatlik ve haftalık kullanım kotalarını canlı ilerleme çubuklarıyla takip eder; belirlediğiniz eşiğe ulaşıldığında yerel masaüstü bildirimi ve sesli uyarı verir.</li>
             <li><strong>Çoklu Cihaz Toplamı:</strong> Şifreli Gist senkronizasyonu açıksa tüm cihazlarınızdaki kullanım özetleri tek grafikte birleştirilir.</li>
+          </ul>
+        </section>
+
+        <!-- BİLGİ AĞI -->
+        <section class="doc-section" id="bilgi-agi">
+          <h2>Bilgi Ağı: Nedir ve Nasıl Çalışır?</h2>
+          <div class="callout callout-ok">
+            <div class="callout-title">Ayrıntılı rehber</div>
+            <p>
+              Sisteminizde hangi dosyaların değiştiği, yedekler, elle kurulum ve <strong>elle kaldırma</strong>, gizlilik ve veri akışı için:
+              <a class="btn btn-primary btn-sm" href="knowledge.html">Ayrıntılı rehber &rarr; knowledge.html</a>
+            </p>
+          </div>
+          <p>
+            <strong>Bilgi Ağı</strong>, Claude Code, Codex ve Antigravity (AGY) oturumlarınızın ortak kullandığı yerel bir hafızadır.
+            Bir ajan işini bitirince ne yaptığını kısa bir kayıtla yazar; bir sonraki oturumda (aynı ya da başka bir ajan) işe başlamadan önce
+            bu kayıtları okuyarak kaldığı yeri görür. Böylece aynı işi tekrarlamaz veya önceki işi bozmaz.
+          </p>
+          <ul>
+            <li><strong>Yerel SQLite:</strong> Kayıtlar bilgisayarınızdaki bir SQLite veritabanında (WAL kipinde) tutulur. Varsayılan konum, işletim sisteminin veri dizini altındaki <code>com.yagyz.ydevdesk/knowledge.db</code> dosyasıdır. Özel bir mutlak yol (veya <code>~/</code> ile başlayan yol) <em>Ayarlar &rarr; Bilgi Ağı &rarr; Veritabanı yolu</em> alanından verilebilir; göreli yollar süreçler arası farklı veritabanlarına yazdırdığı için reddedilir.</li>
+            <li><strong>Kayıt alanları:</strong> servis (proje adı), başlık, özet, etiketler, cihaz adı ve yazan ajan (<code>claude</code>, <code>codex</code>, <code>agy</code>, <code>user</code> veya <code>unknown</code>). Ajan adı doğrulanmamış bir iddiadır.</li>
+            <li><strong>Etiketler:</strong> Özet içinde <code>[[servis/konu]]</code> biçiminde yazılan etiketler otomatik ayrıştırılır; ayrıca <code>tags</code> alanıyla ek etiket verilebilir.</li>
+            <li><strong>YDevHub opsiyoneldir:</strong> Homelab'ınızda YDevHub varsa kayıtlar oraya da eşlenebilir. YDevHub olmadan Bilgi Ağı tamamen yerel çalışır.</li>
+            <li><strong>Ajan erişimi (MCP):</strong> Ajanlar hafızaya <code>ydevdesk --mcp</code> komutuyla başlayan, pencere açmayan bir stdio MCP sunucusu üzerinden erişir. Aynı servis katmanı uygulama arayüzü tarafından da kullanılır.</li>
+            <li><strong>Arayüzde:</strong> <em>Bilgi Ağı</em> paneli kayıtları listeler; <kbd>Ctrl</kbd> + <kbd>K</kbd> komut paletindeki <em>Hafıza</em> kipi ile (servis adı <code>Hızlı Kayıt</code>, ajan <code>user</code>) elle kayıt ekleyebilirsiniz. Ayarlar <em>Ayarlar &rarr; Bilgi Ağı</em> sekmesindedir.</li>
+          </ul>
+        </section>
+
+        <section class="doc-section" id="bilgi-depolama">
+          <h2>Depolama Modları</h2>
+          <p><em>Ayarlar &rarr; Bilgi Ağı &rarr; Depolama</em> altında üç mod vardır. Varsayılan <strong>Yerel</strong>'dir. YDevHub bağlantısı (Ayarlar &rarr; Bağlantılar) yapılandırılmamışsa diğer iki seçenek seçilemez.</p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Mod</th><th>Yazma</th><th>Okuma</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Yerel</strong></td>
+                  <td>Yalnızca bu cihazdaki SQLite veritabanı.</td>
+                  <td>Yerel veritabanı.</td>
+                </tr>
+                <tr>
+                  <td><strong>YDevHub</strong></td>
+                  <td>Yalnızca YDevHub. Hub'a ulaşılamazsa kayıt yerel gönderim kuyruğuna (outbox) alınır.</td>
+                  <td>Doğrudan YDevHub'dan. Hub erişilemezse okuma hata verir; yerel veritabanına geri düşülmez.</td>
+                </tr>
+                <tr>
+                  <td><strong>İkisi birden</strong></td>
+                  <td>Önce yerel veritabanına, sonra YDevHub'a. Hub erişilemezse kayıt yine yerelde kalır ve hub için kuyruğa alınır.</td>
+                  <td>Yerel veritabanı.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Hub kapalıyken kuyruk</h3>
+          <ul>
+            <li>Gönderilemeyen kayıtlar yerel veritabanındaki <code>outbox</code> tablosunda bekler. Uygulama açıkken 30 saniyede bir, ayrıca her başarılı MCP kaydından sonra arka planda boşaltılır; aynı anda en çok 20 kayıt işlenir.</li>
+            <li>Geçici hata (ağ, 5xx, 408, 429) halinde kayıtlar kuyrukta kalır ve sonra yeniden denenir. Kalıcı hata (diğer 4xx) alan kayıt atlanır ve sonrakiler engellenmez; deneme sayısı üst sınıra ulaşan kayıt artık denenmez ve kuyrukta kalır.</li>
+            <li>Gönderim <strong>en-az-bir-kez</strong> (at-least-once) garantilidir: yanıtın kaybolduğu nadir durumlarda aynı kayıt hub'a iki kez ulaşabilir.</li>
+            <li><em>Kapalı</em> çalışma izninde arka plan boşaltması da ağa çıkmaz.</li>
+            <li>Ayarlar sekmesinin altındaki durum satırı kayıt sayısını ve kuyruktaki kayıt sayısını gösterir.</li>
+          </ul>
+        </section>
+
+        <section class="doc-section" id="bilgi-calisma-izni">
+          <h2>Çalışma İzni</h2>
+          <p>Ajanların MCP araçlarını kullanıp kullanamayacağını <em>Ayarlar &rarr; Bilgi Ağı &rarr; Çalışma izni</em> belirler:</p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Seçenek</th><th>Davranış</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><strong>Kapalı</strong></td><td>MCP araçları <code>knowledge devre dışı (kapalı)</code> yanıtı verir. Arka plan kuyruk boşaltması da çalışmaz.</td></tr>
+                <tr><td><strong>Yalnızca uygulama açıkken</strong></td><td>YDevDesk çalışırken araçlar çalışır. Uygulama her 5 saniyede bir <code>app.alive</code> nabız dosyasını günceller; 15 saniyeden eski ya da yok sayılan nabız "uygulama kapalı" demektir ve araçlar <code>knowledge devre dışı (uygulama kapalı)</code> yanıtı verir.</td></tr>
+                <tr><td><strong>Her zaman</strong> (varsayılan)</td><td>Uygulama kapalı olsa bile araçlar çalışır.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="callout">
+            <div class="callout-title">MCP sunucusu bir daemon değildir</div>
+            <p>
+              <code>ydevdesk --mcp</code> arka plan servisi olarak çalışmaz; ajan oturumu açıldığında ajan tarafından başlatılır ve oturumla birlikte kapanır.
+              "Her zaman", sunucunun sürekli çalıştığı anlamına gelmez; yalnızca ajan onu başlattığında uygulamanın açık olmasının gerekmediği anlamına gelir.
+              Uygulama arayüzündeki panel ve Hızlı Kayıt, kullanıcı tarafından yönetildiği için bu kapıya tabi değildir.
+            </p>
+          </div>
+          <div class="callout callout-warn">
+            <div class="callout-title">Ayar dosyası bozuksa kapalı kalır</div>
+            <p>
+              Ayarlar <code>~/.config/ydevdesk/knowledge.json</code> dosyasında tutulur. Dosya yoksa varsayılanlar kullanılır; dosya var ama okunamıyor
+              ya da ayrıştırılamıyorsa özellik güvenli tarafta kalır: çalışma izni <strong>Kapalı</strong> sayılır. Dosyayı düzeltin veya silin.
+            </p>
+          </div>
+        </section>
+
+        <section class="doc-section" id="bilgi-mcp">
+          <h2>MCP Araçları</h2>
+          <p>
+            Sunucu <code>ydevdesk-knowledge</code> adıyla kaydedilir (stdio, JSON-RPC 2.0) ve iki araç sunar. Araç açıklamaları ve yanıt metinleri Türkçedir.
+          </p>
+
+          <h3><code>knowledge_log</code></h3>
+          <p>Yapılan işi hafızaya kaydeder. İş bittiğinde çağrılır.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Alan</th><th>Tür</th><th>Açıklama</th></tr></thead>
+              <tbody>
+                <tr><td><code>service</code></td><td>string, zorunlu</td><td>Servis veya proje adı (en çok 100 karakter, kontrol karakteri yok).</td></tr>
+                <tr><td><code>title</code></td><td>string, zorunlu</td><td>Kısa, tek satırlık başlık (en çok 200 karakter).</td></tr>
+                <tr><td><code>summary</code></td><td>string, zorunlu</td><td>1-2 cümlelik özet, <code>[[servis/konu]]</code> etiketleri içerebilir (en çok 8000 karakter).</td></tr>
+                <tr><td><code>tags</code></td><td>string dizisi, isteğe bağlı</td><td>Ek etiketler (en çok 20 adet, her biri en çok 64 karakter; <code>[</code> ve <code>]</code> içeremez).</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Başarıda <code>kaydedildi #&lt;id&gt;</code> döner; hub kuyruğuna alındıysa sonuna <code>(hub kuyruğunda)</code> eklenir.</p>
+
+          <h3><code>knowledge_read</code></h3>
+          <p>Son kayıtları okur. İşe başlamadan önce ilgili servis için çağrılır. Tüm alanlar isteğe bağlıdır.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Alan</th><th>Tür</th><th>Açıklama</th></tr></thead>
+              <tbody>
+                <tr><td><code>service</code></td><td>string</td><td>Servis/proje adına göre süzer.</td></tr>
+                <tr><td><code>search</code></td><td>string</td><td>Metin araması (büyük/küçük harf duyarsız).</td></tr>
+                <tr><td><code>tag</code></td><td>string</td><td>Etikete göre süzer.</td></tr>
+                <tr><td><code>limit</code></td><td>integer</td><td>Varsayılan 10, en çok 100.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <ul>
+            <li>Çıktı, başa eklenen bir "güvenilmeyen veri" uyarısıyla ve her çağrıda rastgele bir <code>nonce</code> içeren <code>&lt;knowledge_entries&gt;</code> sınırlayıcılarıyla sarılır; kayıt içeriği bu sınırı taklit edemez.</li>
+            <li>Her kayıt servis, id, başlık, ajan@cihaz, UTC zamanı ve "doğrulanmamış" ibaresiyle listelenir. Kontrol karakterleri temizlenir; tek kayıt özeti 2000, toplam çıktı yaklaşık 20.000 karakterle sınırlıdır. Sınır aşılırsa kaç kaydın gösterilmediği yazılır.</li>
+            <li>Kayıt yoksa <code>kayıt yok</code> döner.</li>
+          </ul>
+        </section>
+
+        <section class="doc-section" id="bilgi-tek-tik">
+          <h2>Uygulamadan Tek Tık Kurulum</h2>
+          <p><a class="btn btn-secondary btn-sm" href="knowledge.html#changes">Ayrıntılı rehber &rarr; hangi dosyalar değişir</a></p>
+          <p>
+            <em>Ayarlar &rarr; Bilgi Ağı &rarr; <strong>Ajanlara ekle</strong></em> bölümü, Claude Code, Codex ve AGY için iki şeyi sizin yerinize yapar:
+          </p>
+          <ol>
+            <li><strong>MCP kaydı:</strong> <code>ydevdesk-knowledge</code> sunucusunu, komut olarak uygulamanın kendi ikili dosyası ve <code>--mcp</code> argümanıyla ajanın kullanıcı (genel) yapılandırmasına ekler.</li>
+            <li><strong>Genel kural dosyası bloğu:</strong> Ajanın genel kural dosyasına, <code>&lt;!-- ydevdesk:knowledge:start --&gt;</code> ve <code>&lt;!-- ydevdesk:knowledge:end --&gt;</code> işaretçileri arasında İngilizce bir kural bloğu ekler (ajana işe başlarken <code>knowledge_read</code>, iş bitince <code>knowledge_log</code> çağırmasını söyler).</li>
+          </ol>
+          <h3>Nasıl ilerler</h3>
+          <p>
+            Ajanları işaretleyip <strong>Önizle ve ekle</strong>'ye basarsınız; hedef yollar, eylem ve yazılacak parça önizlemede gösterilir, <strong>Onayla ve yaz</strong>'a basmadan hiçbir dosya değişmez.
+            Yalnızca işaretçili blok yazılır, ilk yazmadan önce <code>&lt;dosya&gt;.ydevdesk.bak</code> yedeği alınır, yazma atomiktir ve ikinci tıklama çoğaltmaz.
+            <strong>Kaldır</strong> eklenenleri geri alır. Adım adım akış, hata durumları ve elle kaldırma için
+            <a href="knowledge.html#one-click">ayrıntılı rehbere</a> bakın.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Ajan</th><th>MCP kaydı</th><th>Genel kural dosyası</th></tr></thead>
+              <tbody>
+                <tr><td>Claude Code</td><td><code>claude mcp add --scope user</code></td><td><code>~/.claude/CLAUDE.md</code></td></tr>
+                <tr><td>Codex</td><td><code>~/.codex/config.toml</code> içinde işaretçili <code>[mcp_servers.ydevdesk-knowledge]</code> tablosu</td><td><code>~/.codex/AGENTS.md</code></td></tr>
+                <tr><td>AGY</td><td><code>~/.gemini/config/mcp_config.json</code> içindeki <code>mcpServers</code> nesnesine birleştirme</td><td><code>~/.gemini/config/GEMINI.md</code> (belgelenmiş bir genel kural yolu değildir, ancak AGY ile denenerek doğrulanmıştır; bkz. <a href="#bilgi-sinirlar">Bilinen Sınırlar</a>)</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="doc-section" id="bilgi-elle">
+          <h2>Elle Kurulum</h2>
+          <p><a class="btn btn-secondary btn-sm" href="knowledge.html#manual-install">Ayrıntılı rehber &rarr; elle kurulum</a> <a class="btn btn-ghost btn-sm" href="knowledge.html#manual-removal">Elle kaldırma</a></p>
+          <p>
+            Tek tık kurulumu kullanmak istemezseniz her ajan için MCP sunucusunu elle kaydedebilirsiniz. Üç örnekte de komut, YDevDesk ikili dosyasının
+            <em>tam yolu</em> ve argüman <code>--mcp</code> olmalıdır. Yolu bulmak için:
+          </p>
+          <ul>
+            <li><strong>Linux (<code>install.sh</code>):</strong> <code>~/.local/bin/ydevdesk</code> (argümanları AppImage'a ileten başlatıcı). AppImage'ı elle çalıştırıyorsanız <code>$APPIMAGE</code> yolunu kullanın.</li>
+            <li><strong>Linux (APT / .deb):</strong> <code>command -v ydevdesk</code> çıktısı.</li>
+            <li><strong>macOS:</strong> <code>/Applications/ydevdesk.app/Contents/MacOS/ydevdesk</code> (uygulamayı başka yere taşıdıysanız ona göre).</li>
+            <li><strong>Windows:</strong> kurulum dizinindeki <code>ydevdesk.exe</code>; yol boşluk içeriyorsa tırnaklayın.</li>
+          </ul>
+
+          <h3>Claude Code</h3>
+          <div class="code-block">
+            <div class="code-header">
+              <span>bash — Claude Code MCP kaydı</span>
+              <button class="copy-btn" data-copy>Kopyala</button>
+            </div>
+            <pre><code>claude mcp add --scope user ydevdesk-knowledge -- &lt;ydevdesk yolu&gt; --mcp</code></pre>
+          </div>
+
+          <h3>Codex</h3>
+          <p><code>~/.codex/config.toml</code> dosyasına şu tabloyu ekleyin (yol için TOML literal string, yani tek tırnak, kullanmak ters bölü içeren Windows yollarında güvenlidir):</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span>~/.codex/config.toml</span>
+              <button class="copy-btn" data-copy>Kopyala</button>
+            </div>
+            <pre><code>[mcp_servers.ydevdesk-knowledge]
+command = '&lt;ydevdesk yolu&gt;'
+args = ["--mcp"]</code></pre>
+          </div>
+
+          <h3>Antigravity (AGY)</h3>
+          <p><code>~/.gemini/config/mcp_config.json</code> dosyasındaki <code>mcpServers</code> nesnesine girdiyi ekleyin; dosyadaki diğer sunucuları silmeyin:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span>~/.gemini/config/mcp_config.json</span>
+              <button class="copy-btn" data-copy>Kopyala</button>
+            </div>
+            <pre><code>{
+  "mcpServers": {
+    "ydevdesk-knowledge": {
+      "command": "&lt;ydevdesk yolu&gt;",
+      "args": ["--mcp"]
+    }
+  }
+}</code></pre>
+          </div>
+          <p>
+            Kaydı yaptıktan sonra ajanı yeniden başlatın. Kural bloğunu da eklemek için sonraki bölümdeki şablonları kullanın; kural bloğu olmadan araçlar
+            kullanılabilir ama ajan onları kendiliğinden çağırmayabilir.
+          </p>
+        </section>
+
+        <section class="doc-section" id="bilgi-sablon">
+          <h2>Kural Şablonu İndirme Bağlantıları</h2>
+          <p>
+            Ajanlara hafızayı ne zaman okuyup yazacaklarını anlatan kural bloğu İngilizcedir ve üç şablon dosyasında aynı metinle sunulur.
+            Her dosyanın başında kısa bir kurulum notu vardır; işaretçiler (<code>ydevdesk:knowledge:start/end</code>) arasındaki blok yönetilen bölümdür:
+            güncellenmiş bloğu yeniden yapıştırırsanız eskisinin yerine geçer.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Şablon</th><th>Nereye eklenir</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><a href="agents/CLAUDE.md" download="CLAUDE.md"><code>agents/CLAUDE.md</code></a></td>
+                  <td>Claude Code: <code>~/.claude/CLAUDE.md</code> dosyasının sonuna ekleyin.</td>
+                </tr>
+                <tr>
+                  <td><a href="agents/AGENTS.md" download="AGENTS.md"><code>agents/AGENTS.md</code></a></td>
+                  <td>Codex (ve <code>AGENTS.md</code> okuyan ajanlar): <code>~/.codex/AGENTS.md</code> dosyasının sonuna ekleyin.</td>
+                </tr>
+                <tr>
+                  <td><a href="agents/GEMINI.md" download="GEMINI.md"><code>agents/GEMINI.md</code></a></td>
+                  <td>Antigravity (AGY): tüm projelerde geçerli olması için <code>~/.gemini/config/GEMINI.md</code> dosyasına ekleyin; yalnızca bir proje için kullanacaksanız o projenin dizinindeki <code>GEMINI.md</code> dosyasına ekleyin (tek tık kurulum genel yolu kullanır).</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="code-block">
+            <div class="code-header">
+              <span>bash — Claude Code için ekleme örneği</span>
+              <button class="copy-btn" data-copy>Kopyala</button>
+            </div>
+            <pre><code>curl -fsSL https://yagyz.github.io/YDevDesk/agents/CLAUDE.md &gt;&gt; ~/.claude/CLAUDE.md</code></pre>
+          </div>
+          <p>
+            Şablonun başındaki HTML yorumu da dosyaya eklenir; zararsızdır. Elle ekliyorsanız yalnızca işaretçiler dahil bloğu kopyalayabilirsiniz.
+            Aynı bloğu iki kez eklemeyin; güncellemek için eski bloğu silip yenisini yapıştırın.
+          </p>
+        </section>
+
+        <section class="doc-section" id="bilgi-guvenlik">
+          <h2>Güvenlik Notları</h2>
+          <p><a class="btn btn-secondary btn-sm" href="knowledge.html#security">Ayrıntılı rehber &rarr; güvenlik modeli</a> <a class="btn btn-ghost btn-sm" href="knowledge.html#privacy">Gizlilik &amp; veri akışı</a></p>
+          <ul>
+            <li><strong>Kayıtlar güvenilmeyen veridir.</strong> Hafızadaki metni başka oturumlar, başka ajanlar veya YDevHub üzerinden gelen veriler yazmış olabilir. <code>knowledge_read</code> çıktısı uyarı ve rastgele sınırlayıcılarla sarılır ve kural şablonu ajana kayıtlardaki talimatları asla izlememesini söyler. Yine de bu bir kesin garanti değil, savunma katmanıdır.</li>
+            <li><strong>Sır yazmayın.</strong> Token, parola, API anahtarı veya dosya içeriğini kayıt alanlarına koymayın. Kayıtlar yerel veritabanında düz metin olarak durur ve YDevHub modunda hub'a gönderilir.</li>
+            <li><strong>Çalışma izni bir güvenlik sınırı değildir.</strong> Aynı kullanıcı olarak çalışan herhangi bir süreç hem ayar dosyasını hem veritabanını doğrudan okuyup yazabilir. İzin, ajanların araçları kullanmasını yönetmek içindir; yetkisiz süreçlere karşı koruma sağlamaz.</li>
+            <li><strong>Ayar bozuksa kapalı kalır.</strong> Bozuk <code>knowledge.json</code> özelliği sessizce açmaz; <em>Kapalı</em> sayılır.</li>
+            <li><strong>Dosya izinleri.</strong> Yeni veritabanı dosyası Unix sistemlerde <code>0600</code> izniyle, yeni klasör <code>0700</code> ile oluşturulur. Mevcut bir klasörün izinleri değiştirilmez.</li>
+            <li><strong>Hub isteği.</strong> YDevHub çağrıları <code>X-API-Key</code> başlığıyla yapılır ve yönlendirmeler (redirect) izlenmez; anahtar başka bir adrese gitmez. Zaman aşımı 5 saniyedir.</li>
+            <li><strong>Kurulum değişiklikleri.</strong> Tek tık kurulum önizleme olmadan yazmaz, yazmadan önce yedek alır ve yalnızca işaretçili bloğa dokunur.</li>
+          </ul>
+        </section>
+
+        <section class="doc-section" id="bilgi-sorun">
+          <h2>Sorun Giderme</h2>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Belirti</th><th>Olası neden ve çözüm</th></tr></thead>
+              <tbody>
+                <tr><td>Araç <code>knowledge devre dışı (kapalı)</code> diyor</td><td>Çalışma izni <em>Kapalı</em> ya da <code>knowledge.json</code> bozuk olduğu için güvenli tarafta kapalı sayılıyor. Ayarlar &rarr; Bilgi Ağı'ndan izni değiştirin; dosya bozuksa düzeltin veya silin.</td></tr>
+                <tr><td>Araç <code>knowledge devre dışı (uygulama kapalı)</code> diyor</td><td>İzin <em>Yalnızca uygulama açıkken</em> ve YDevDesk çalışmıyor (ya da <code>app.alive</code> 15 sn'den eski). Uygulamayı açın veya izni <em>Her zaman</em> yapın.</td></tr>
+                <tr><td>Ajan araçları görmüyor</td><td>MCP kaydı eksik ya da yol yanlış. <code>claude mcp list</code> ile kontrol edin; komutun <em>tam yol</em> ve <code>--mcp</code> argümanı içerdiğini doğrulayın; ajanı yeniden başlatın.</td></tr>
+                <tr><td>Ajan araçları var ama hiç çağırmıyor</td><td>Kural bloğu eklenmemiş. Şablon bağlantılarından ekleyin (<a href="#bilgi-sablon">Kural Şablonu</a>).</td></tr>
+                <tr><td>Hub seçenekleri soluk, seçilemiyor</td><td>YDevHub yapılandırılmamış. <em>Ayarlar &rarr; Bağlantılar</em> bölümünden URL ve API anahtarını girin.</td></tr>
+                <tr><td>Kuyrukta kayıt birikiyor</td><td>Hub erişilemiyor ya da kalıcı hata (4xx) veriyor. URL ve anahtarı kontrol edin; uygulama açıkken 30 sn'de bir yeniden denenir.</td></tr>
+                <tr><td>Hub-only modda okuma hata veriyor</td><td>Bu modda okuma doğrudan hub'dan yapılır. Hub'a ulaşılamıyorsa yerel veritabanına geri düşülmez; <em>İkisi birden</em> kipini düşünün.</td></tr>
+                <tr><td>"DB yolu mutlak olmalı…" hatası</td><td>Özel veritabanı yolu mutlak olmalı ya da <code>~/</code> ile başlamalı.</td></tr>
+                <tr><td>Tek tık kurulumda "CLI bulunamadı"</td><td>İlgili ajanın CLI'si PATH'te değil; kurun ya da <a href="#bilgi-elle">elle kurulum</a> yapın.</td></tr>
+                <tr><td>Yapılandırma dosyası ayrıştırılamadı</td><td><code>config.toml</code> veya <code>mcp_config.json</code> bozuk. Kurulum dosyaya dokunmaz; önce dosyayı düzeltin.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="doc-section" id="bilgi-sinirlar">
+          <h2>Bilinen Sınırlar</h2>
+          <p><a class="btn btn-secondary btn-sm" href="knowledge.html#limits">Ayrıntılı rehber &rarr; bilinen sınırlar</a></p>
+          <ul>
+            <li><strong>AGY genel kural dosyası resmi olarak belgelenmemiştir.</strong> Tek tık kurulum <code>~/.gemini/config/GEMINI.md</code> dosyasına yazar; yol gerçek AGY ile denenerek doğrulandı ve AGY sürümüne bağlıdır. Aynı bloğu iki yere birden koymayın. Ayrıntı: <a href="knowledge.html#limits">rehber</a>.</li>
+            <li><strong>Windows ve Linux'ta MCP yalnızca derleme/test düzeyinde doğrulandı.</strong> Bu platformlarda gerçek bir ajanla uçtan uca kullanım denenmemiştir; sorun yaşarsanız bildirin.</li>
+            <li><strong>Hub-only modda kuyruk davranışı.</strong> Hub'a ulaşılamazsa kayıt yalnızca yerel kuyruğa alınır, yerel kayıt listesinde görünmez (<code>knowledge_log</code> bu durumda kayıt numarası döndürmez) ve hub'a gidene kadar okunamaz. Kuyruğun boşalması uygulamanın (ya da başka bir MCP çağrısının) çalışmasına bağlıdır.</li>
+            <li><strong>En-az-bir-kez gönderim.</strong> Kuyruk ve hub gönderimi kopya üretebilir; istemci tarafında tekilleştirme yapılmaz.</li>
+            <li><strong>Etiket süzgeci hub'da farklı çalışır.</strong> Hub-only modda <code>tag</code> hub'ın <code>link</code> parametresine (tam eşleşme) eşlenir.</li>
+            <li>Kayıt silme/düzenleme MCP araçlarında yoktur; yalnızca ekleme ve okuma desteklenir.</li>
           </ul>
         </section>
 
@@ -623,7 +973,7 @@ export default function MyPanel() {
         <section class="doc-section" id="veri-yollari">
           <h2>Veri &amp; Önbellek Yolları</h2>
           <p>
-            YDevDesk tüm ayarları, eklentileri, özel temaları ve şifreleme anahtarlarını yalnızca yerel diskinizde saklar.
+            YDevDesk tüm ayarları, eklentileri, özel temaları, Bilgi Ağı kayıtlarını ve şifreleme anahtarlarını yalnızca yerel diskinizde saklar.
             Hassas yapılandırma dosyaları Unix sistemlerde <code>0600</code> (yalnızca kullanıcı okur/yazar) izniyle oluşturulur.
           </p>
 
@@ -641,26 +991,45 @@ export default function MyPanel() {
                   <td><strong>Linux</strong></td>
                   <td>
                     <code>~/.config/ydevdesk/</code><br />
-                    <span style="color:var(--txt-muted);font-size:12px;"><code>plugins/</code>, <code>themes/</code>, <code>sync_auth.json</code></span>
+                    <span style="color:var(--txt-muted);font-size:12px;"><code>plugins/</code>, <code>themes/</code>, <code>sync_auth.json</code>, <code>knowledge.json</code></span>
                   </td>
                   <td><code>~/.local/share/com.yagyz.ydevdesk/</code><br /><code>~/.cache/com.yagyz.ydevdesk/</code></td>
                 </tr>
                 <tr>
                   <td><strong>macOS</strong></td>
                   <td>
-                    <code>~/Library/Application Support/ydevdesk/</code><br />
-                    <span style="color:var(--txt-muted);font-size:12px;">(veya <code>~/.config/ydevdesk/</code>)</span>
+                    <code>~/.config/ydevdesk/</code><br />
+                    <span style="color:var(--txt-muted);font-size:12px;"><code>plugins/</code>, <code>themes/</code>, <code>sync_auth.json</code>, <code>knowledge.json</code></span>
                   </td>
                   <td><code>~/Library/WebKit/com.yagyz.ydevdesk/</code><br /><code>~/Library/Caches/com.yagyz.ydevdesk/</code></td>
                 </tr>
                 <tr>
                   <td><strong>Windows</strong></td>
                   <td>
-                    <code>%APPDATA%\ydevdesk\</code><br />
-                    <span style="color:var(--txt-muted);font-size:12px;"><code>plugins\</code>, <code>themes\</code>, <code>sync_auth.json</code></span>
+                    <code>%USERPROFILE%\.config\ydevdesk\</code><br />
+                    <span style="color:var(--txt-muted);font-size:12px;"><code>plugins\</code>, <code>themes\</code>, <code>sync_auth.json</code>, <code>knowledge.json</code></span>
                   </td>
                   <td><code>%LOCALAPPDATA%\com.yagyz.ydevdesk\EBWebView\</code></td>
                 </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Ayar klasörü, <code>YDEVDESK_CONFIG_DIR</code> ortam değişkeniyle değiştirilebilir (test ve izole çalıştırma için).
+          </p>
+
+          <h3>Bilgi Ağı Dosyaları</h3>
+          <p>Ajan yapılandırma dosyalarında yapılan değişiklikler (kural bloğu, MCP girdisi, yedekler) için <a href="knowledge.html#changes">Bilgi Ağı rehberine</a> bakın.</p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Dosya</th><th>Konum</th><th>Açıklama</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>knowledge.db</code></td><td>İşletim sisteminin veri dizini altında <code>com.yagyz.ydevdesk/</code> (Linux: <code>~/.local/share/</code>, macOS: <code>~/Library/Application Support/</code>, Windows: <code>%APPDATA%\</code>); özel yol ayarlanabilir</td><td>SQLite kayıt veritabanı ve hub gönderim kuyruğu</td></tr>
+                <tr><td><code>knowledge.json</code></td><td>Ayar klasörü</td><td>Depolama modu, çalışma izni, özel DB yolu</td></tr>
+                <tr><td><code>app.alive</code></td><td>Ayar klasörü</td><td>Uygulamanın canlı olduğunu gösteren nabız dosyası (5 sn'de bir güncellenir)</td></tr>
+                <tr><td><code>config.json</code></td><td><code>~/.config/ydevhub/</code></td><td>YDevHub URL ve API anahtarı (Bağlantılar sekmesi)</td></tr>
               </tbody>
             </table>
           </div>

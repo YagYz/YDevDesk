@@ -34,6 +34,7 @@ jobs:
           mkdir -p public/apt
           cp docs/site/*.html public/
           cp docs/site/*.css public/
+          cp -r docs/site/agents public/agents
           cp docs/screenshots/workspace.png public/workspace.png
           cp docs/screenshots/workspace-v12.png public/workspace-v12.png
           cp docs/screenshots/settings-themes.png public/settings-themes.png

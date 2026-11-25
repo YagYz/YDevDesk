@@ -21,6 +21,7 @@
         <a href="index.html#ozellikler">Özellikler</a>
         <a href="index.html#ekran-goruntuleri">Ekran Görüntüleri</a>
         <a href="docs.html">Dokümantasyon</a>
+        <a href="knowledge.html">Bilgi Ağı</a>
         <a href="sync.html">Senkronizasyon</a>
         <a href="privacy.html" class="active">Gizlilik &amp; Çerezler</a>
       </nav>
@@ -138,9 +139,26 @@
       </ul>
     </section>
 
-    <!-- 6. İletişim ve Açık Kaynak Şeffaflığı -->
+    <!-- 6. Bilgi Ağı -->
+    <section class="legal-card" id="bilgi-agi">
+      <h2>6. Bilgi Ağı (Ajan Hafızası)</h2>
+      <p>
+        Bilgi Ağı, Claude Code, Codex ve Antigravity oturumlarının yaptıkları işi kaydettiği yerel bir hafızadır. Çalışma biçimi, değişen dosyalar ve geri alma adımları
+        <a href="knowledge.html">Bilgi Ağı rehberinde</a> ayrıntılı anlatılır; özeti şöyledir:
+      </p>
+      <ul>
+        <li><strong>Veriler Yerel Kalır:</strong> Kayıtlar (servis/proje adı, başlık, özet, etiketler, cihazınızın ana makine adı, yazan ajan, zaman) bilgisayarınızdaki bir SQLite dosyasında (<code>knowledge.db</code>) düz metin olarak tutulur. Ayarlar <code>~/.config/ydevdesk/knowledge.json</code> dosyasındadır. Varsayılan modda Bilgi Ağı kodundan ağa hiçbir şey çıkmaz.</li>
+        <li><strong>Ajan Dosyalarında Yapılan Değişiklikler:</strong> Yalnızca <em>Ayarlar &rarr; Bilgi Ağı &rarr; Ajanlara ekle</em> ile onayladığınız ajanlar için, önizleme gösterildikten sonra, ajanın genel kural dosyasına (ör. <code>~/.claude/CLAUDE.md</code>) işaretçili bir blok eklenir ve YDevDesk'in <code>--mcp</code> sunucusu ajanın yapılandırmasına kaydedilir. Dosyaların geri kalanı değişmez, ilk yazmadan önce <code>.ydevdesk.bak</code> yedeği alınır ve tümü geri alınabilir.</li>
+        <li><strong>YDevHub İsteğe Bağlıdır:</strong> Yalnızca siz YDevHub veya "İkisi birden" modunu seçer ve hub adresini girerseniz, her kayıtla ilgili servis adı, başlık, özet (etiketlerle), cihaz adı ve API anahtarı başlığı sizin belirttiğiniz adrese gönderilir. Ajan adı gönderilmez.</li>
+        <li><strong>Telemetri Yoktur:</strong> Bilgi Ağı hiçbir kullanım veya çökme verisi toplamaz ya da göndermez.</li>
+        <li><strong>Ajanınızın Sağlayıcısı:</strong> Ajanlar hafızadan okuduklarını kendi konuşmalarının parçası olarak kendi model sağlayıcılarına iletir; bu akış ilgili ajanın ve sağlayıcının politikalarına tabidir. Hafızaya sır (token, parola) yazılmamalıdır.</li>
+        <li><strong>Kayıtları Kim Okuyabilir:</strong> Bilgisayarınızdaki aynı kullanıcı hesabındaki süreçler ve MCP kaydı yapılmış tüm ajanlar (tüm projelerden). Veritabanı şifrelenmez; Unix sistemlerde yeni dosya <code>0600</code> izniyle oluşturulur.</li>
+      </ul>
+    </section>
+
+    <!-- 7. İletişim ve Açık Kaynak Şeffaflığı -->
     <section class="legal-card" id="iletisim">
-      <h2>6. İletişim ve Açık Kaynak Şeffaflığı</h2>
+      <h2>7. İletişim ve Açık Kaynak Şeffaflığı</h2>
       <p>
         YDevDesk'in tüm istemci (React/TypeScript) ve çekirdek (Rust/Tauri) kaynak kodları MIT lisansı altında kamuya açıktır.
         Bu metinde beyan edilen tüm gizlilik ve güvenlik iddialarını doğrudan kaynak kod üzerinden denetleyebilirsiniz.
@@ -167,6 +185,7 @@
         <span>
           <a href="index.html">Ana Sayfa</a> &middot;
           <a href="docs.html">Dokümantasyon</a> &middot;
+          <a href="knowledge.html">Bilgi Ağı</a> &middot;
           <a href="sync.html">Senkronizasyon</a> &middot;
           <a href="https://github.com/YagYz/YDevDesk" target="_blank" rel="noopener noreferrer">GitHub</a>
         </span>
