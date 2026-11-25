@@ -28,6 +28,38 @@ export type Knowledge = {
   title: string;
   summary: string;
   linked_topics: string[];
+  /** Yerel Bilgi Ağı kayıtlarından gelir; hub kayıtlarında yoktur. */
+  agent?: string;
+  device?: string;
+  created_at?: string | number;
+};
+
+export type KnowledgeStorage = "local" | "hub" | "both";
+export type KnowledgeRunMode = "off" | "app_open" | "always";
+
+export type KnowledgeSettings = {
+  storage: KnowledgeStorage;
+  run_mode: KnowledgeRunMode;
+  db_path?: string | null;
+};
+
+export type KnowledgeEntry = {
+  id: number;
+  service: string;
+  title: string;
+  summary: string;
+  tags: string[];
+  device: string;
+  agent: string;
+  created_at: string | number;
+};
+
+export type KnowledgeStatus = {
+  db_path: string;
+  entries: number;
+  outbox: number;
+  hub_configured: boolean;
+  hub_url: string;
 };
 
 export type AgentKind = "agy" | "claude" | "codex";

@@ -104,7 +104,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 function DataSyncLayer({ children }: { children: ReactNode }) {
   const { config, settings, projectRoots, configLoaded, saveSettings: baseSaveSettings, setSettingsDirect: setSettings } = useSettings();
   const { agent, usage, markdowns, refreshUsage, refreshMarkdowns } = useAgent();
-  const { network, bandwidth, notes, knowledge, hubStatus, hubError, refreshHub, addNote, addKnowledge } = useHomelab();
+  const { network, bandwidth, notes, knowledge, hubStatus, hubError, refreshHub, addNote } = useHomelab();
 
   const [syncStatus, setSyncStatus] = useState<SyncStatusInfo | null>(null);
   const [syncPrefs, setSyncPrefsState] = useState<SyncPreferences>(() => loadSyncPreferences());
@@ -187,6 +187,11 @@ function DataSyncLayer({ children }: { children: ReactNode }) {
       window.clearInterval(interval);
     };
   }, [configLoaded]);
+
+  // Bilgi Ağı kaydı yerel/hub servisine knowledge_add üzerinden gider (hub zorunlu değil).
+  const addKnowledge = useCallback(async (title: string, summary: string) => {
+    await api.knowledgeAdd("ydevdesk", title, summary);
+  }, []);
 
   const refreshSyncStatus = useCallback(async () => {
     try {

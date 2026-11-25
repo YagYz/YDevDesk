@@ -7,6 +7,9 @@ import type {
   DeviceFlowPollResult,
   DeviceFlowStart,
   HomelabConfig,
+  KnowledgeEntry,
+  KnowledgeSettings,
+  KnowledgeStatus,
   InstalledPlugin,
   SessionPrefs,
   SyncPullResult,
@@ -41,6 +44,14 @@ export const api = {
       title,
       summary,
     }),
+  knowledgeGetSettings: () => invoke<KnowledgeSettings>("knowledge_get_settings"),
+  knowledgeSaveSettings: (settings: KnowledgeSettings) => invoke<void>("knowledge_save_settings", { settings }),
+  knowledgeList: (service?: string, search?: string, tag?: string, limit?: number) =>
+    invoke<KnowledgeEntry[]>("knowledge_list", { service, search, tag, limit }),
+  knowledgeTags: () => invoke<[string, number][]>("knowledge_tags"),
+  knowledgeStatus: () => invoke<KnowledgeStatus>("knowledge_status"),
+  knowledgeAdd: (service: string, title: string, summary: string) =>
+    invoke<unknown>("knowledge_add", { service, title, summary }),
   tasks: (cfg: HomelabConfig) =>
     invoke<any>("fetch_homelab_tasks", { url: cfg.ydevhub_url, key: cfg.ydevhub_key }),
   createTask: (cfg: HomelabConfig, title: string, priority: string) =>

@@ -34,7 +34,7 @@ export function OmniBar({ onClose }: { onClose: () => void }) {
       onClose();
       return;
     }
-    if (hubStatus !== "ok") {
+    if (mode === "note" && hubStatus !== "ok") {
       setError("YDevHub bağlı değil. Ayarlar'dan bağlantıyı yapılandır.");
       return;
     }
