@@ -10,6 +10,7 @@ mod config;
 mod env_helpers;
 mod git;
 mod homelab;
+mod knowledge;
 mod platform;
 mod plugins;
 mod pty;
