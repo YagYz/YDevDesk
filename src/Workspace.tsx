@@ -12,6 +12,9 @@ import { StatusBar } from "./components/StatusBar";
 import { OmniBar } from "./components/OmniBar";
 import { SettingsModal, type SettingsTab } from "./components/SettingsModal";
 import { UpdatePopup } from "./components/UpdatePopup";
+import { useSettings } from "./context/SettingsContext";
+import { ReleaseNotesModal } from "./components/ReleaseNotesModal";
+import { useReleaseNotes } from "./lib/useReleaseNotes";
 import { AgentSetupModal } from "./components/AgentSetupModal";
 import { SyncSetupModal, shouldShowSyncSetupOnLaunch } from "./components/SyncSettingsContent";
 import { api } from "./lib/tauri";
@@ -93,6 +96,8 @@ export default function Workspace() {
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
   const [showOmni, setShowOmni] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
+  const { configLoaded } = useSettings();
+  const releaseNotes = useReleaseNotes(configLoaded);
   const [showAgentSetup, setShowAgentSetup] = useState(false);
   const [showSyncSetup, setShowSyncSetup] = useState(false);
   const syncPromptCheckedRef = useRef(false);
@@ -479,6 +484,11 @@ export default function Workspace() {
       {showAgentSetup && <AgentSetupModal onClose={() => setShowAgentSetup(false)} />}
       {showSyncSetup && !showAgentSetup && <SyncSetupModal onClose={() => setShowSyncSetup(false)} />}
       {knowledgeItem && <KnowledgeModal item={knowledgeItem} onClose={() => setKnowledgeItem(null)} />}
+      <ReleaseNotesModal
+        notes={releaseNotes.notes}
+        onClose={releaseNotes.dismiss}
+        onOpenKnowledgeSettings={() => setSettingsTab("knowledge")}
+      />
       <UpdatePopup onOpenDetails={() => setSettingsTab("update")} />
     </WorkspaceContext.Provider>
   );
