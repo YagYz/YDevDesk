@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Documentation — YDevDesk</title>
+  <meta name="description" content="YDevDesk documentation: installation, shortcuts, multi-agent management, Knowledge Network (shared agent memory, MCP), plugin SDK, custom themes, core module SDK and data directories." />
+  <link rel="alternate" hreflang="tr" href="docs.html" />
+  <link rel="alternate" hreflang="en" href="docs-en.html" />
+  <link rel="alternate" hreflang="x-default" href="docs.html" />
+  <link rel="icon" type="image/png" href="logo.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Top navigation -->
+  <header class="site-header" id="site-header">
+    <div class="container nav-inner">
+      <a class="brand" href="index.html" hreflang="tr">
+        <img src="logo.png" alt="YDevDesk" class="brand-logo" width="26" height="26" />
+        <span>YDevDesk</span>
+      </a>
+
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="index.html#ozellikler" hreflang="tr">Features (TR)</a>
+        <a href="index.html#ekran-goruntuleri" hreflang="tr">Screenshots (TR)</a>
+        <a href="docs-en.html" class="active">Documentation</a>
+        <a href="knowledge-en.html">Knowledge Network</a>
+        <a href="sync.html" hreflang="tr">Sync (TR)</a>
+        <a href="privacy.html" hreflang="tr">Privacy &amp; Cookies (TR)</a>
+      </nav>
+
+      <div class="nav-actions">
+        <span class="lang-switch" role="group" aria-label="Dil seçimi / Language">
+          <a href="docs.html" hreflang="tr" lang="tr" title="Türkçe">TR</a>
+          <a href="docs-en.html" hreflang="en" lang="en" aria-current="page" title="English">EN</a>
+        </span>
+        <a class="btn btn-ghost btn-sm" href="https://github.com/YagYz/YDevDesk" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a class="btn btn-primary btn-sm" href="index.html#indir" hreflang="tr">Download</a>
+        <button class="nav-toggle" id="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="docs-shell">
+      <!-- Mobile table of contents button -->
+      <div class="docs-mobile-toc">
+        <button class="btn btn-secondary btn-sm" id="toc-toggle" style="width:100%;" aria-expanded="false">
+          Show / Hide Table of Contents
+        </button>
+      </div>
+
+      <!-- Sticky sidebar -->
+      <aside class="docs-sidebar" id="docs-sidebar" aria-label="Documentation sections">
+        <div class="docs-nav-group">
+          <div class="docs-nav-title">Getting Started</div>
+          <ul class="docs-nav-list">
+            <li><a href="#kurulum" class="active">Installation (Linux / macOS / Windows)</a></li>
+            <li><a href="#ilk-acilis">First Launch &amp; Connections</a></li>
+          </ul>
+        </div>
+
+        <div class="docs-nav-group">
+          <div class="docs-nav-title">Workspace</div>
+          <ul class="docs-nav-list">
+            <li><a href="#kisayollar">Keyboard Shortcuts</a></li>
+            <li><a href="#terminal">Terminal &amp; Click-to-Cursor</a></li>
+            <li><a href="#markdown">Markdown Auto-Open</a></li>
+          </ul>
+        </div>
+
+        <div class="docs-nav-group">
+          <div class="docs-nav-title">Agents &amp; Sessions</div>
+          <ul class="docs-nav-list">
+            <li><a href="#ajanlar">AGY / Claude Code / Codex</a></li>
+            <li><a href="#oturum-silme">Safe Session Deletion</a></li>
+            <li><a href="#kota-maliyet">Quota &amp; Cost Tracking</a></li>
+          </ul>
+        </div>
+
+        <div class="docs-nav-group">
+          <div class="docs-nav-title">Knowledge Network</div>
+          <ul class="docs-nav-list">
+            <li><a href="knowledge-en.html"><strong>Detailed Guide &rarr;</strong></a></li>
+            <li><a href="#bilgi-agi">What It Is &amp; How It Works</a></li>
+            <li><a href="#bilgi-depolama">Storage Modes</a></li>
+            <li><a href="#bilgi-calisma-izni">Run Permission</a></li>
+            <li><a href="#bilgi-mcp">MCP Tools</a></li>
+            <li><a href="#bilgi-tek-tik">One-Click Setup</a></li>
+            <li><a href="#bilgi-elle">Manual Setup</a></li>
+            <li><a href="#bilgi-sablon">Rule Templates (Download)</a></li>
+            <li><a href="#bilgi-guvenlik">Security Notes</a></li>
+            <li><a href="#bilgi-sorun">Troubleshooting</a></li>
+            <li><a href="#bilgi-sinirlar">Known Limitations</a></li>
+          </ul>
+        </div>
+
+        <div class="docs-nav-group">
+          <div class="docs-nav-title">Plugin Development</div>
+          <ul class="docs-nav-list">
+            <li><a href="#plugin-yapi">Folder Layout &amp; plugin.json</a></li>
+            <li><a href="#plugin-ornek">Complete index.html Example</a></li>
+            <li><a href="#plugin-sdk">Permission Model &amp; YDevDesk SDK</a></li>
+          </ul>
+        </div>
+
+        <div class="docs-nav-group">
+          <div class="docs-nav-title">Theme Development</div>
+          <ul class="docs-nav-list">
+            <li><a href="#tema-yapi">Folder Layout &amp; JSON Template</a></li>
+            <li><a href="#tema-degiskenler">CSS Variables &amp; Terminal</a></li>
+          </ul>
+        </div>
+
+        <div class="docs-nav-group">
+          <div class="docs-nav-title">Developers &amp; System</div>
+          <ul class="docs-nav-list">
+            <li><a href="#cekirdek-modul">Core Module SDK</a></li>
+            <li><a href="#veri-yollari">Data &amp; Cache Paths</a></li>
+          </ul>
+        </div>
+      </aside>
+
+      <!-- Main documentation content -->
+      <article class="docs-content">
+        <div class="docs-hero">
+          <span class="badge"><span class="badge-dot" aria-hidden="true"></span>YDevDesk Documentation Portal</span>
+          <h1>Usage, Plugin and Theme Guide</h1>
+          <p>
+            Install YDevDesk in minutes, speed up your workspace with keyboard shortcuts, set up the shared memory of your agents (Knowledge Network),
+            and build your own plugins, themes or core modules.
+          </p>
+        </div>
+
+        <!-- 1. GETTING STARTED: INSTALLATION -->
+        <section class="doc-section" id="kurulum">
+          <h2>Installation (Linux / macOS / Windows)</h2>
+          <p>
+            YDevDesk is a native desktop application built on <strong>Tauri v2</strong> and a <strong>Rust</strong> core.
+            It runs without installing any external runtime (Node.js or Electron).
+          </p>
+
+          <h3>Linux (Recommended One-Liner)</h3>
+          <p>Automatically installs the latest release on Arch, CachyOS, Ubuntu, Debian, Fedora and other modern Linux distributions:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span>bash — One-Command Install</span>
+              <button class="copy-btn" data-copy>Copy</button>
+            </div>
+            <pre><code>curl -fsSL https://raw.githubusercontent.com/YagYz/YDevDesk/main/install.sh | bash</code></pre>
+          </div>
+
+          <h3>Ubuntu / Debian (APT Repository)</h3>
+          <p>Add the APT repository to receive updates through the standard <code>apt upgrade</code> flow:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span>bash — APT Install</span>
+              <button class="copy-btn" data-copy>Copy</button>
+            </div>
+            <pre><code>echo 'deb [trusted=yes] https://yagyz.github.io/YDevDesk/apt ./' | sudo tee /etc/apt/sources.list.d/ydevdesk.list
+sudo apt update && sudo apt install -y ydevdesk</code></pre>
+          </div>
+
+          <div class="callout">
+            <div class="callout-title">Linux Wayland &amp; NVIDIA Note</div>
+            <p>
+              The <code>install.sh</code> script automatically installs a wrapper that sets the
+              <code>WEBKIT_DISABLE_DMABUF_RENDERER=1</code> environment variable to avoid the WebKitGTK white-screen issue on Wayland + NVIDIA GPUs.
+              If you launch the AppImage manually, you can prepend this variable to the command.
+            </p>
+          </div>
+
+          <h3>macOS (Apple Silicon &amp; Intel)</h3>
+          <p>
+            Download the <code>.dmg</code> package matching your processor (<code>aarch64.dmg</code> or <code>x64.dmg</code>) from the
+            <a href="https://github.com/YagYz/YDevDesk/releases/latest" target="_blank" rel="noopener noreferrer">GitHub Releases</a>
+            page, drag the app into <code>/Applications</code>, and remove the quarantine attribute before the first launch:
+          </p>
+          <div class="code-block">
+            <div class="code-header">
+              <span>zsh — macOS First-Run Permission</span>
+              <button class="copy-btn" data-copy>Copy</button>
+            </div>
+            <pre><code>xattr -cr /Applications/ydevdesk.app</code></pre>
+          </div>
+
+          <h3>Windows (64-bit)</h3>
+          <p>
+            Download and run the <code>*-setup.exe</code> (NSIS) installer from the latest release. When setup finishes,
+            a <strong>YDevDesk</strong> shortcut is available in the Start menu.
+          </p>
+        </section>
+
+        <!-- 2. FIRST LAUNCH & CONNECTIONS -->
+        <section class="doc-section" id="ilk-acilis">
+          <h2>First Launch &amp; Connections</h2>
+          <p>
+            On first launch, YDevDesk automatically detects the AI coding agents installed on your computer (<code>agy</code>, <code>claude</code>, <code>codex</code>).
+            You can personalize your environment with the following steps:
+          </p>
+          <ul>
+            <li><strong>Project Root Directories:</strong> In <em>Settings &rarr; Connections</em>, add the project folders you work in often (for example <code>/mnt/Depo/Projeler</code> or <code>~/Projects</code>). Git status, the file map and quick terminal launching use these directories.</li>
+            <li><strong>Homelab Services (Optional):</strong> If you use YDevHub or YNetMon, add the URL and API key to enable the notes, tasks, Knowledge Network and live network traffic panels.</li>
+            <li><strong>Agent Memory (Knowledge Network):</strong> So that your agents can see each other's work, look at the <em>Settings &rarr; Knowledge Network</em> tab; details are in the <a href="#bilgi-agi">Knowledge Network</a> section.</li>
+            <li><strong>Optional Sync:</strong> If you work on more than one computer, you can turn on <a href="sync.html" hreflang="tr">encrypted GitHub Secret Gist</a> sync (Turkish page) from the <em>Settings &rarr; Sync</em> tab.</li>
+          </ul>
+          <h3>Settings Tabs</h3>
+          <p>
+            The Settings window has these tabs: <em>Connections</em>, <em>Modules</em>, <em>Themes</em>, <em>Plugins</em>, <em>Commands</em>,
+            <em>Notifications</em>, <em>Agents</em>, <em>Knowledge Network</em>, <em>Sync</em> and <em>Version</em>.
+          </p>
+          <h3>Built-in Panels (Modules)</h3>
+          <p>
+            Built-in panels you can add to the workspace: <em>Sessions</em>, <em>Agent Status</em>, <em>Tool Feed</em>, <em>Git</em>,
+            <em>File Heat</em>, <em>Quick Actions</em>, <em>Tasks</em>, <em>Notes</em>, <em>Knowledge Network</em> and <em>YNetMon Network</em>.
+            The Tasks, Notes and YNetMon Network panels need a YDevHub / YNetMon connection; you can choose which panels are shown in <em>Settings &rarr; Modules</em>.
+          </p>
+        </section>
+
+        <!-- 3. SHORTCUTS -->
+        <section class="doc-section" id="kisayollar">
+          <h2>Keyboard Shortcuts</h2>
+          <p>The Dockview workspace and the quick command palette are designed for keyboard-first use:</p>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Shortcut</th>
+                  <th>Action</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><kbd>Ctrl</kbd> + <kbd>K</kbd> (<kbd>Cmd</kbd> + <kbd>K</kbd> also works on macOS)</td>
+                  <td>Command Palette (Omnibar)</td>
+                  <td>Switch between three modes with <kbd>Tab</kbd>: send a command to the terminal, quick note (when YDevHub is connected) and <em>Memory</em> (add an entry to the Knowledge Network). <kbd>Esc</kbd> closes it.</td>
+                </tr>
+                <tr>
+                  <td><kbd>Ctrl</kbd> + <kbd>Tab</kbd></td>
+                  <td>Panel / Tab Switching</td>
+                  <td>Instantly switches between open Dockview tabs and terminals.</td>
+                </tr>
+                <tr>
+                  <td><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>T</kbd> (<kbd>Cmd</kbd> also works on macOS)</td>
+                  <td>Reopen Closed Panel</td>
+                  <td>Restores the last terminal or tool panel you closed by accident, with its layout.</td>
+                </tr>
+                <tr>
+                  <td><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>C</kbd> / <kbd>V</kbd></td>
+                  <td>Terminal Copy / Paste</td>
+                  <td>Copy and paste text in the built-in PTY terminal.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 4. TERMINAL & CLICK-TO-CURSOR -->
+        <section class="doc-section" id="terminal">
+          <h2>Terminal &amp; Click-to-Cursor</h2>
+          <p>
+            YDevDesk uses a native Rust PTY (<code>portable-pty</code>) and a high-performance terminal renderer.
+            Compared with classic desktop terminals, you can run several shell sessions side by side with much lower memory use.
+          </p>
+          <ul>
+            <li><strong>Click-to-Cursor:</strong> While editing a long bash/zsh command, instead of holding down the arrow keys you can click any character on the command line to move the cursor straight there.</li>
+            <li><strong>Terminal Presets:</strong> Save frequently used SSH connections, agent launchers or project scripts as presets and open them in a new tab with one click.</li>
+            <li><strong>Theme Matching:</strong> When you change the application theme, the background, foreground, cursor and selection colors of all open terminals update instantly.</li>
+          </ul>
+        </section>
+
+        <!-- 5. MARKDOWN AUTO-OPEN -->
+        <section class="doc-section" id="markdown">
+          <h2>Markdown Auto-Open &amp; Open File</h2>
+          <p>
+            AI agents often produce plan files, technical reports or documents. YDevDesk's built-in
+            <strong>Markdown Viewer</strong> panel presents these files readably in the center of your workspace:
+          </p>
+          <ul>
+            <li><strong>Auto-Open:</strong> View <code>.md</code> files created or updated in agent output or in the File Heat panel in a new tab with one click or through automatic watching.</li>
+            <li><strong>Open File:</strong> Open any Markdown file on your computer instantly from the top toolbar or from the plugin/module SDK (<code>openMarkdown</code>).</li>
+            <li><strong>Live Refresh:</strong> The content refreshes automatically when the file changes on disk.</li>
+          </ul>
+        </section>
+
+        <!-- 6. AGENTS & SESSIONS -->
+        <section class="doc-section" id="ajanlar">
+          <h2>AGY, Claude Code &amp; Codex Agents</h2>
+          <p>
+            YDevDesk brings the three major coding agents running on your local machine into a single interface:
+          </p>
+          <ul>
+            <li><strong>Antigravity (AGY):</strong> Reads conversations, session IDs and token usage under <code>~/.gemini/antigravity-cli/</code>.</li>
+            <li><strong>Claude Code:</strong> Lists the session history and per-project chats under <code>~/.claude/</code>.</li>
+            <li><strong>OpenAI Codex:</strong> Detects session records under <code>~/.codex/</code> and lets you continue with one click.</li>
+          </ul>
+          <p>
+            In the Sessions panel you can <strong>pin</strong> any conversation, give it a custom alias, and
+            resume where you left off in the built-in terminal with one click, using the agent's <code>--resume</code> command.
+          </p>
+          <p>
+            The <em>Settings &rarr; Agents</em> tab scans the installed agents; it lets you launch them in normal or bypass mode, update them, open them in a terminal and install missing ones.
+            To let agents see each other's work, use the <a href="#bilgi-agi">Knowledge Network</a> memory.
+          </p>
+        </section>
+
+        <!-- 7. SAFE SESSION DELETION -->
+        <section class="doc-section" id="oturum-silme">
+          <h2>Safe Session Deletion</h2>
+          <p>
+            You can clean up old agent sessions you no longer need directly from YDevDesk. The safe session deletion mechanism:
+          </p>
+          <ul>
+            <li>Asks for explicit confirmation before deleting, preventing accidental data loss.</li>
+            <li>Removes only files inside the verified (path-validated / canonicalized) session directory of the relevant agent; it never touches system or project files.</li>
+            <li>Automatically cleans up pin and custom-name records as well.</li>
+          </ul>
+        </section>
+
+        <!-- 8. QUOTA & COST TRACKING -->
+        <section class="doc-section" id="kota-maliyet">
+          <h2>Quota &amp; Cost Tracking</h2>
+          <p>
+            The analytics panel derives detailed usage from local session logs over
+            <strong>1-day, 7-day and 30-day</strong> windows, without any external plugin or cloud tool:
+          </p>
+          <ul>
+            <li><strong>Tokens &amp; USD Cost:</strong> Shows input, output and cache token counts together with an estimated per-model USD cost.</li>
+            <li><strong>Quota Thresholds:</strong> Tracks 5-hour and weekly usage quotas with live progress bars; when your chosen threshold is reached it gives a local desktop notification and an audible alert.</li>
+            <li><strong>Multi-Device Total:</strong> If encrypted Gist sync is on, usage summaries from all your devices are merged into a single chart.</li>
+          </ul>
+        </section>
+
+        <!-- KNOWLEDGE NETWORK -->
+        <section class="doc-section" id="bilgi-agi">
+          <h2>Knowledge Network: What It Is and How It Works</h2>
+          <div class="callout callout-ok">
+            <div class="callout-title">Detailed guide</div>
+            <p>
+              Which files change on your system, backups, manual install and <strong>manual removal</strong>, privacy and data flow:
+              <a class="btn btn-primary btn-sm" href="knowledge-en.html">Detailed guide &rarr; knowledge-en.html</a>
+            </p>
+          </div>
+          <p>
+            The <strong>Knowledge Network</strong> is a local memory shared by your Claude Code, Codex and Antigravity (AGY) sessions.
+            When an agent finishes its work it writes a short entry about what it did; in the next session (the same or a different agent) it reads
+            these entries before starting, so it can see where things were left. That way it does not repeat work or undo earlier work.
+          </p>
+          <ul>
+            <li><strong>Local SQLite:</strong> Entries are kept in a SQLite database (WAL mode) on your computer. The default location is <code>com.yagyz.ydevdesk/knowledge.db</code> under the operating system's data directory. You can set a custom absolute path (or one starting with <code>~/</code>) in <em>Settings &rarr; Knowledge Network &rarr; Database path</em>; relative paths are rejected because they would make different processes write to different databases.</li>
+            <li><strong>Entry fields:</strong> service (project name), title, summary, tags, device name and the writing agent (<code>claude</code>, <code>codex</code>, <code>agy</code>, <code>user</code> or <code>unknown</code>). The agent name is an unverified claim.</li>
+            <li><strong>Tags:</strong> Tags written inside the summary as <code>[[service/topic]]</code> are parsed automatically; you can also pass extra tags through the <code>tags</code> field.</li>
+            <li><strong>YDevHub is optional:</strong> If you have YDevHub in your homelab, entries can be mirrored there too. Without YDevHub the Knowledge Network works fully locally.</li>
+            <li><strong>Agent access (MCP):</strong> Agents reach the memory through a stdio MCP server started with <code>ydevdesk --mcp</code>, which opens no window. The same service layer is used by the application UI.</li>
+            <li><strong>In the UI:</strong> The <em>Knowledge Network</em> panel lists entries; in the <kbd>Ctrl</kbd> + <kbd>K</kbd> command palette you can add an entry by hand with the <em>Memory</em> mode (service name <code>Hızlı Kayıt</code>, agent <code>user</code>). Settings are in the <em>Settings &rarr; Knowledge Network</em> tab.</li>
+          </ul>
+        </section>
+
+        <section class="doc-section" id="bilgi-depolama">
+          <h2>Storage Modes</h2>
+          <p>There are three modes under <em>Settings &rarr; Knowledge Network &rarr; Storage</em>. The default is <strong>Local</strong>. If the YDevHub connection (Settings &rarr; Connections) is not configured, the other two options cannot be selected.</p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Mode</th><th>Write</th><th>Read</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Local</strong></td>
+                  <td>Only the SQLite database on this device.</td>
+                  <td>The local database.</td>
+                </tr>
+                <tr>
+                  <td><strong>YDevHub</strong></td>
+                  <td>Only YDevHub. If the hub is unreachable the entry is placed in the local send queue (outbox).</td>
+                  <td>Directly from YDevHub. If the hub is unreachable, reading fails; it does not fall back to the local database.</td>
+                </tr>
+                <tr>
+                  <td><strong>Both</strong></td>
+                  <td>First to the local database, then to YDevHub. If the hub is unreachable the entry still stays local and is queued for the hub.</td>
+                  <td>The local database.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Queue while the hub is down</h3>
+          <ul>
+            <li>Entries that could not be sent wait in the <code>outbox</code> table of the local database. While the app is open the queue is drained every 30 seconds, and also in the background after each successful MCP write; at most 20 entries are processed at a time.</li>
+            <li>On a transient error (network, 5xx, 408, 429) entries stay in the queue and are retried later. An entry that gets a permanent error (other 4xx) is skipped and does not block the ones after it; an entry whose attempt count reaches the upper limit is no longer retried and stays in the queue.</li>
+            <li>Delivery is <strong>at-least-once</strong>: in rare cases where a response is lost, the same entry can reach the hub twice.</li>
+            <li>With the <em>Off</em> run permission, the background drain does not go to the network either.</li>
+            <li>The status line under the settings tab shows the number of entries and the number of entries in the queue.</li>
+          </ul>
+        </section>
+
+        <section class="doc-section" id="bilgi-calisma-izni">
+          <h2>Run Permission</h2>
+          <p><em>Settings &rarr; Knowledge Network &rarr; Run permission</em> decides whether agents can use the MCP tools:</p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Option</th><th>Behavior</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><strong>Off</strong></td><td>The MCP tools reply <code>knowledge devre dışı (kapalı)</code> (disabled, off). The background queue drain does not run either.</td></tr>
+                <tr><td><strong>Only while the app is open</strong></td><td>The tools work while YDevDesk is running. The app refreshes the <code>app.alive</code> heartbeat file every 5 seconds; a heartbeat that is missing or older than 15 seconds means "app closed", and the tools reply <code>knowledge devre dışı (uygulama kapalı)</code> (disabled, app closed).</td></tr>
+                <tr><td><strong>Always</strong> (default)</td><td>The tools work even when the app is closed.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="callout">
+            <div class="callout-title">The MCP server is not a daemon</div>
+            <p>
+              <code>ydevdesk --mcp</code> does not run as a background service; the agent starts it when an agent session opens and it exits with the session.
+              "Always" does not mean the server runs all the time; it only means the app does not have to be open when the agent starts it.
+              The panel and Quick Entry in the application UI are managed by the user, so they are not subject to this gate.
+            </p>
+          </div>
+          <div class="callout callout-warn">
+            <div class="callout-title">If the settings file is corrupt, it stays off</div>
+            <p>
+              Settings are kept in <code>~/.config/ydevdesk/knowledge.json</code>. If the file does not exist the defaults are used; if it exists but cannot be read
+              or parsed, the feature stays on the safe side: the run permission is treated as <strong>Off</strong>. Fix or delete the file.
+            </p>
+          </div>
+        </section>
+
+        <section class="doc-section" id="bilgi-mcp">
+          <h2>MCP Tools</h2>
+          <p>
+            The server is registered as <code>ydevdesk-knowledge</code> (stdio, JSON-RPC 2.0) and offers two tools. Tool descriptions and response texts are in Turkish.
+          </p>
+
+          <h3><code>knowledge_log</code></h3>
+          <p>Records finished work in memory. Called when a task is done.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td><code>service</code></td><td>string, required</td><td>Service or project name (at most 100 characters, no control characters).</td></tr>
+                <tr><td><code>title</code></td><td>string, required</td><td>Short single-line title (at most 200 characters).</td></tr>
+                <tr><td><code>summary</code></td><td>string, required</td><td>A one-to-two sentence summary; may contain <code>[[service/topic]]</code> tags (at most 8000 characters).</td></tr>
+                <tr><td><code>tags</code></td><td>array of strings, optional</td><td>Extra tags (at most 20, each at most 64 characters; cannot contain <code>[</code> or <code>]</code>).</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>On success it returns <code>kaydedildi #&lt;id&gt;</code> ("saved"); if the entry was put into the hub queue, <code>(hub kuyruğunda)</code> ("in hub queue") is appended.</p>
+
+          <h3><code>knowledge_read</code></h3>
+          <p>Reads recent entries. Called for the relevant service before starting work. All fields are optional.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td><code>service</code></td><td>string</td><td>Filters by service/project name.</td></tr>
+                <tr><td><code>search</code></td><td>string</td><td>Text search (case-insensitive).</td></tr>
+                <tr><td><code>tag</code></td><td>string</td><td>Filters by tag.</td></tr>
+                <tr><td><code>limit</code></td><td>integer</td><td>Default 10, at most 100.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <ul>
+            <li>The output is wrapped in a leading "untrusted data" warning and in <code>&lt;knowledge_entries&gt;</code> delimiters carrying a random <code>nonce</code> on every call; entry content cannot imitate this boundary.</li>
+            <li>Each entry is listed with service, id, title, agent@device, UTC time and the word "doğrulanmamış" (unverified). Control characters are stripped; a single entry summary is limited to 2000 characters and the total output to roughly 20,000 characters. If the limit is exceeded, the output says how many entries were not shown.</li>
+            <li>If there are no entries it returns <code>kayıt yok</code> ("no entries").</li>
+          </ul>
+        </section>
+
+        <section class="doc-section" id="bilgi-tek-tik">
+          <h2>One-Click Setup from the App</h2>
+          <p><a class="btn btn-secondary btn-sm" href="knowledge-en.html#changes">Detailed guide &rarr; which files change</a></p>
+          <p>
+            The <em>Settings &rarr; Knowledge Network &rarr; <strong>Add to agents</strong></em> section does two things for you for Claude Code, Codex and AGY:
+          </p>
+          <ol>
+            <li><strong>MCP registration:</strong> Adds the <code>ydevdesk-knowledge</code> server to the agent's user (global) configuration, with the app's own binary as the command and <code>--mcp</code> as the argument.</li>
+            <li><strong>Global rules file block:</strong> Adds an English rule block to the agent's global rules file, between the <code>&lt;!-- ydevdesk:knowledge:start --&gt;</code> and <code>&lt;!-- ydevdesk:knowledge:end --&gt;</code> markers (it tells the agent to call <code>knowledge_read</code> when starting work and <code>knowledge_log</code> when finishing).</li>
+          </ol>
+          <h3>How it proceeds</h3>
+          <p>
+            Tick the agents and press <strong>Preview and add</strong>; the target paths, the action and the snippet to be written are shown in the preview, and no file changes until you press <strong>Confirm and write</strong>.
+            Only the marked block is written, a <code>&lt;file&gt;.ydevdesk.bak</code> backup is made before the first write, writes are atomic, and a second click does not duplicate anything.
+            <strong>Remove</strong> undoes what was added. For the step-by-step flow, error cases and manual removal see the
+            <a href="knowledge-en.html#one-click">detailed guide</a>.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Agent</th><th>MCP registration</th><th>Global rules file</th></tr></thead>
+              <tbody>
+                <tr><td>Claude Code</td><td><code>claude mcp add --scope user</code></td><td><code>~/.claude/CLAUDE.md</code></td></tr>
+                <tr><td>Codex</td><td>A marked <code>[mcp_servers.ydevdesk-knowledge]</code> table in <code>~/.codex/config.toml</code></td><td><code>~/.codex/AGENTS.md</code></td></tr>
+                <tr><td>AGY</td><td>Merged into the <code>mcpServers</code> object in <code>~/.gemini/config/mcp_config.json</code></td><td><code>~/.gemini/config/GEMINI.md</code> (not an officially documented global rules path, but verified against AGY; see <a href="#bilgi-sinirlar">Known Limitations</a>)</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="doc-section" id="bilgi-elle">
+          <h2>Manual Setup</h2>
+          <p><a class="btn btn-secondary btn-sm" href="knowledge-en.html#manual-install">Detailed guide &rarr; manual install</a> <a class="btn btn-ghost btn-sm" href="knowledge-en.html#manual-removal">Manual removal</a></p>
+          <p>
+            If you do not want to use one-click setup, you can register the MCP server by hand for each agent. In all three examples the command must be the
+            <em>full path</em> of the YDevDesk binary and the argument must be <code>--mcp</code>. To find the path:
+          </p>
+          <ul>
+            <li><strong>Linux (<code>install.sh</code>):</strong> <code>~/.local/bin/ydevdesk</code> (the launcher that forwards arguments to the AppImage). If you run the AppImage manually, use the <code>$APPIMAGE</code> path.</li>
+            <li><strong>Linux (APT / .deb):</strong> the output of <code>command -v ydevdesk</code>.</li>
+            <li><strong>macOS:</strong> <code>/Applications/ydevdesk.app/Contents/MacOS/ydevdesk</code> (adjust if you moved the app elsewhere).</li>
+            <li><strong>Windows:</strong> <code>ydevdesk.exe</code> in the install directory; quote the path if it contains spaces.</li>
+          </ul>
+
+          <h3>Claude Code</h3>
+          <div class="code-block">
+            <div class="code-header">
+              <span>bash — Claude Code MCP registration</span>
+              <button class="copy-btn" data-copy>Copy</button>
+            </div>
+            <pre><code>claude mcp add --scope user ydevdesk-knowledge -- &lt;ydevdesk path&gt; --mcp</code></pre>
+          </div>
+
+          <h3>Codex</h3>
+          <p>Add this table to <code>~/.codex/config.toml</code> (using a TOML literal string, that is single quotes, for the path is safe for Windows paths containing backslashes):</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span>~/.codex/config.toml</span>
+              <button class="copy-btn" data-copy>Copy</button>
+            </div>
+            <pre><code>[mcp_servers.ydevdesk-knowledge]
+command = '&lt;ydevdesk path&gt;'
+args = ["--mcp"]</code></pre>
+          </div>
+
+          <h3>Antigravity (AGY)</h3>
+          <p>Add the entry to the <code>mcpServers</code> object in <code>~/.gemini/config/mcp_config.json</code>; do not delete the other servers in the file:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span>~/.gemini/config/mcp_config.json</span>
+              <button class="copy-btn" data-copy>Copy</button>
+            </div>
+            <pre><code>{
+  "mcpServers": {
+    "ydevdesk-knowledge": {
+      "command": "&lt;ydevdesk path&gt;",
+      "args": ["--mcp"]
+    }
+  }
+}</code></pre>
+          </div>
+          <p>
+            Restart the agent after registering. To add the rule block as well, use the templates in the next section; without the rule block the tools
+            are available but the agent may not call them on its own.
+          </p>
+        </section>
+
+        <section class="doc-section" id="bilgi-sablon">
+          <h2>Rule Template Download Links</h2>
+          <p>
+            The rule block that tells agents when to read and write memory is in English and is provided with identical text in three template files.
+            Each file starts with a short setup note; the block between the markers (<code>ydevdesk:knowledge:start/end</code>) is the managed part:
+            if you paste an updated block again, it replaces the old one.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Template</th><th>Where to add it</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><a href="agents/CLAUDE.md" download="CLAUDE.md"><code>agents/CLAUDE.md</code></a></td>
+                  <td>Claude Code: append to the end of <code>~/.claude/CLAUDE.md</code>.</td>
+                </tr>
+                <tr>
+                  <td><a href="agents/AGENTS.md" download="AGENTS.md"><code>agents/AGENTS.md</code></a></td>
+                  <td>Codex (and agents that read <code>AGENTS.md</code>): append to the end of <code>~/.codex/AGENTS.md</code>.</td>
+                </tr>
+                <tr>
+                  <td><a href="agents/GEMINI.md" download="GEMINI.md"><code>agents/GEMINI.md</code></a></td>
+                  <td>Antigravity (AGY): add it to <code>~/.gemini/config/GEMINI.md</code> to apply to every project, or to <code>GEMINI.md</code> in a single project's directory to limit it to that project (one-click setup uses the global path).</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="code-block">
+            <div class="code-header">
+              <span>bash — Example of appending for Claude Code</span>
+              <button class="copy-btn" data-copy>Copy</button>
+            </div>
+            <pre><code>curl -fsSL https://yagyz.github.io/YDevDesk/agents/CLAUDE.md &gt;&gt; ~/.claude/CLAUDE.md</code></pre>
+          </div>
+          <p>
+            The HTML comment at the top of the template is appended to the file as well; it is harmless. If you add it by hand, you can copy only the block including the markers.
+            Do not add the same block twice; to update, delete the old block and paste the new one.
+          </p>
+        </section>
+
+        <section class="doc-section" id="bilgi-guvenlik">
+          <h2>Security Notes</h2>
+          <p><a class="btn btn-secondary btn-sm" href="knowledge-en.html#security">Detailed guide &rarr; security model</a> <a class="btn btn-ghost btn-sm" href="knowledge-en.html#privacy">Privacy &amp; data flow</a></p>
+          <ul>
+            <li><strong>Entries are untrusted data.</strong> The text in memory may have been written by other sessions, other agents or data coming through YDevHub. The <code>knowledge_read</code> output is wrapped in a warning and random delimiters, and the rule template tells the agent never to follow instructions found in entries. Still, this is a defense layer, not an absolute guarantee.</li>
+            <li><strong>Do not write secrets.</strong> Do not put tokens, passwords, API keys or file contents into entry fields. Entries are stored as plain text in the local database and, in YDevHub mode, are sent to the hub.</li>
+            <li><strong>Run permission is not a security boundary.</strong> Any process running as the same user can read and write both the settings file and the database directly. The permission is for managing agents' use of the tools; it does not protect against unauthorized processes.</li>
+            <li><strong>If the settings are corrupt it stays off.</strong> A corrupt <code>knowledge.json</code> does not silently turn the feature on; it is treated as <em>Off</em>.</li>
+            <li><strong>File permissions.</strong> On Unix systems a new database file is created with <code>0600</code> permissions and a new folder with <code>0700</code>. The permissions of an existing folder are not changed.</li>
+            <li><strong>Hub requests.</strong> YDevHub calls are made with the <code>X-API-Key</code> header and redirects are not followed; the key never goes to another address. The timeout is 5 seconds.</li>
+            <li><strong>Setup changes.</strong> One-click setup does not write without a preview, makes a backup before writing, and touches only the marked block.</li>
+          </ul>
+        </section>
+
+        <section class="doc-section" id="bilgi-sorun">
+          <h2>Troubleshooting</h2>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Symptom</th><th>Likely cause and fix</th></tr></thead>
+              <tbody>
+                <tr><td>A tool says <code>knowledge devre dışı (kapalı)</code></td><td>Run permission is <em>Off</em>, or <code>knowledge.json</code> is corrupt and is treated as off on the safe side. Change the permission in Settings &rarr; Knowledge Network; if the file is corrupt, fix or delete it.</td></tr>
+                <tr><td>A tool says <code>knowledge devre dışı (uygulama kapalı)</code></td><td>The permission is <em>Only while the app is open</em> and YDevDesk is not running (or <code>app.alive</code> is older than 15 s). Open the app or set the permission to <em>Always</em>.</td></tr>
+                <tr><td>The agent does not see the tools</td><td>The MCP registration is missing or the path is wrong. Check with <code>claude mcp list</code>; verify the command contains the <em>full path</em> and the <code>--mcp</code> argument; restart the agent.</td></tr>
+                <tr><td>The agent has the tools but never calls them</td><td>The rule block has not been added. Add it from the template links (<a href="#bilgi-sablon">Rule Templates</a>).</td></tr>
+                <tr><td>Hub options are greyed out and cannot be selected</td><td>YDevHub is not configured. Enter the URL and API key in <em>Settings &rarr; Connections</em>.</td></tr>
+                <tr><td>Entries are piling up in the queue</td><td>The hub is unreachable or returns a permanent error (4xx). Check the URL and key; while the app is open it retries every 30 s.</td></tr>
+                <tr><td>Reading fails in hub-only mode</td><td>In this mode reads go straight to the hub. If the hub is unreachable it does not fall back to the local database; consider the <em>Both</em> mode.</td></tr>
+                <tr><td>"DB yolu mutlak olmalı…" error (the DB path must be absolute)</td><td>A custom database path must be absolute or start with <code>~/</code>.</td></tr>
+                <tr><td>"CLI not found" in one-click setup</td><td>The agent's CLI is not on PATH; install it or do a <a href="#bilgi-elle">manual setup</a>.</td></tr>
+                <tr><td>Could not parse a configuration file</td><td><code>config.toml</code> or <code>mcp_config.json</code> is corrupt. Setup does not touch the file; fix the file first.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="doc-section" id="bilgi-sinirlar">
+          <h2>Known Limitations</h2>
+          <p><a class="btn btn-secondary btn-sm" href="knowledge-en.html#limits">Detailed guide &rarr; known limits</a></p>
+          <ul>
+            <li><strong>The AGY global rules file is not officially documented.</strong> One-click setup writes to <code>~/.gemini/config/GEMINI.md</code>; the path was verified by experiment with a real AGY and depends on the AGY version. Do not put the same block in two places. Details: <a href="knowledge-en.html#limits">guide</a>.</li>
+            <li><strong>On Windows and Linux, MCP has been verified only at build/test level.</strong> End-to-end use with a real agent has not been tried on these platforms; please report any problems.</li>
+            <li><strong>Queue behavior in hub-only mode.</strong> If the hub is unreachable the entry goes only to the local queue, does not appear in the local entry list (<code>knowledge_log</code> returns no entry number in this case) and cannot be read until it reaches the hub. Draining the queue depends on the app (or another MCP call) running.</li>
+            <li><strong>At-least-once delivery.</strong> Queueing and hub delivery can produce duplicates; no client-side deduplication is done.</li>
+            <li><strong>The tag filter works differently on the hub.</strong> In hub-only mode <code>tag</code> maps to the hub's <code>link</code> parameter (exact match).</li>
+            <li>Deleting or editing entries is not available in the MCP tools; only adding and reading are supported.</li>
+          </ul>
+        </section>
+
+        <!-- 9. PLUGIN DEVELOPMENT -->
+        <section class="doc-section" id="plugin-yapi">
+          <h2>Plugin Development</h2>
+          <p>
+            You can extend YDevDesk without compiling its source code. Runtime plugins are written in plain HTML, CSS and JavaScript
+            and run inside a secure <code>sandbox="allow-scripts"</code> iframe.
+          </p>
+
+          <h3>Folder Layout</h3>
+          <p>Each plugin lives in its own folder. The folder name may contain only letters, digits, <code>-</code> and <code>_</code>:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span>Folder Layout</span>
+              <button class="copy-btn" data-copy>Copy</button>
+            </div>
+            <pre><code>~/.config/ydevdesk/plugins/
+└── hello-helper/
+    ├── plugin.json     # Plugin manifest and requested permissions
+    └── index.html      # Entry point (at most 2 MiB)</code></pre>
+          </div>
+
+          <h3>Full <code>plugin.json</code> Schema</h3>
+          <div class="code-block">
+            <div class="code-header">
+              <span>~/.config/ydevdesk/plugins/hello-helper/plugin.json</span>
+              <button class="copy-btn" data-copy>Copy</button>
+            </div>
+            <pre><code>{
+  "id": "hello-helper",
+  "name": "Quick Helper",
+  "version": "1.0.0",
+  "description": "Sample runtime plugin: terminal command, notification and local storage.",
+  "author": "Your Name",
+  "width": 320,
+  "entry": "index.html",
+  "permissions": ["terminal", "markdown", "notify", "storage"]
+}</code></pre>
+          </div>
+          <p>
+            When you press the <strong>Refresh</strong> button in the <em>Settings &rarr; Plugins</em> tab, your new plugin appears in the panel list immediately.
+          </p>
+        </section>
+
+        <section class="doc-section" id="plugin-ornek">
+          <h2>Complete Working <code>index.html</code> Example</h2>
+          <p>
+            YDevDesk automatically injects all the CSS variables of the active theme (<code>--bg</code>, <code>--surface</code>, <code>--accent</code>, etc.) and the
+            <code>window.YDevDesk</code> bridge into your plugin's <code>&lt;head&gt;</code>.
+          </p>
+          <div class="code-block">
+            <div class="code-header">
+              <span>~/.config/ydevdesk/plugins/hello-helper/index.html</span>
+              <button class="copy-btn" data-copy>Copy</button>
+            </div>
+            <pre><code>&lt;!doctype html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+  &lt;meta charset="utf-8" /&gt;
+  &lt;style&gt;
+    body {
+      padding: 14px;
+      font-size: 13px;
+      background: var(--surface);
+      color: var(--txt-main);
+    }
+    h3 { margin: 0 0 10px; font-size: 15px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    button {
+      background: var(--surface-raised);
+      color: var(--txt-main);
+      border: 1px solid var(--border-glow);
+      border-radius: 7px;
+      padding: 7px 11px;
+      cursor: pointer;
+    }
+    button:hover { border-color: var(--accent); color: var(--accent); }
+    .muted { color: var(--txt-muted); font-size: 12px; }
+  &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;h3&gt;Quick Helper Plugin&lt;/h3&gt;
+  &lt;div class="row"&gt;
+    &lt;button id="btn-git"&gt;Run git status&lt;/button&gt;
+    &lt;button id="btn-notify"&gt;Send Notification&lt;/button&gt;
+    &lt;button id="btn-count"&gt;Increment Counter&lt;/button&gt;
+  &lt;/div&gt;
+  &lt;p class="muted" id="status"&gt;Ready.&lt;/p&gt;
+
+  &lt;script&gt;
+    const statusEl = document.getElementById("status");
+
+    async function init() {
+      const count = await window.YDevDesk.storage.get("clicks", 0);
+      statusEl.textContent = "Saved click count: " + count;
+    }
+
+    document.getElementById("btn-git").addEventListener("click", async () =&gt; {
+      await window.YDevDesk.runInTerminal("git status -sb");
+      statusEl.textContent = "Command sent to the active terminal.";
+    });
+
+    document.getElementById("btn-notify").addEventListener("click", async () =&gt; {
+      await window.YDevDesk.notify("Quick Helper", "The plugin notification worked!");
+    });
+
+    document.getElementById("btn-count").addEventListener("click", async () =&gt; {
+      const prev = Number(await window.YDevDesk.storage.get("clicks", 0)) || 0;
+      const next = prev + 1;
+      await window.YDevDesk.storage.set("clicks", next);
+      statusEl.textContent = "Saved click count: " + next;
+    });
+
+    init();
+  &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+          </div>
+        </section>
+
+        <section class="doc-section" id="plugin-sdk">
+          <h2>Permission Model &amp; <code>window.YDevDesk</code> SDK Reference</h2>
+          <p>
+            Each plugin can call only the capabilities it declares in the <code>permissions</code> array of <code>plugin.json</code>.
+            If a call is made without permission, the bridge rejects the request.
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Permission</th>
+                  <th>SDK Method</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>terminal</code></td>
+                  <td><code>window.YDevDesk.runInTerminal(cmd)</code></td>
+                  <td>Runs the given command in the active PTY terminal tab.</td>
+                </tr>
+                <tr>
+                  <td><code>markdown</code></td>
+                  <td><code>window.YDevDesk.openMarkdown(path, title?)</code></td>
+                  <td>Opens the given local <code>.md</code> file in the central Markdown tab.</td>
+                </tr>
+                <tr>
+                  <td><code>notify</code></td>
+                  <td><code>window.YDevDesk.notify(title, body)</code></td>
+                  <td>Sends an operating system desktop notification.</td>
+                </tr>
+                <tr>
+                  <td><code>storage</code></td>
+                  <td>
+                    <code>window.YDevDesk.storage.get(key, fallback?)</code><br />
+                    <code>window.YDevDesk.storage.set(key, value)</code><br />
+                    <code>window.YDevDesk.storage.remove(key)</code>
+                  </td>
+                  <td>Read, write and delete in an isolated key-value storage area private to the plugin.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 10. THEME DEVELOPMENT -->
+        <section class="doc-section" id="tema-yapi">
+          <h2>Theme Development</h2>
+          <p>
+            In addition to the built-in themes (<em>Deep Navy &amp; Petrol</em>, <em>Midnight Violet</em>, <em>Emerald Terminal</em>, <em>Amber Forge</em>),
+            YDevDesk lets you add your own custom color palette with a single JSON file.
+          </p>
+
+          <h3>Folder Layout</h3>
+          <div class="code-block">
+            <div class="code-header">
+              <span>Theme File Path</span>
+              <button class="copy-btn" data-copy>Copy</button>
+            </div>
+            <pre><code>~/.config/ydevdesk/themes/&lt;theme-id&gt;.json</code></pre>
+          </div>
+
+          <h3>Full Theme JSON Template</h3>
+          <div class="code-block">
+            <div class="code-header">
+              <span>~/.config/ydevdesk/themes/ocean-cyan.json</span>
+              <button class="copy-btn" data-copy>Copy</button>
+            </div>
+            <pre><code>{
+  "id": "ocean-cyan",
+  "name": "Ocean Cyan",
+  "description": "Deep ocean navy with bright cyan accents.",
+  "author": "Your Name",
+  "vars": {
+    "--bg": "#06090e",
+    "--surface": "#0a111a",
+    "--surface-raised": "#0f1926",
+    "--border": "#162638",
+    "--border-glow": "#1f3a56",
+    "--accent": "#00d2ff",
+    "--petrol": "#00838f",
+    "--txt-main": "#f0f6fc",
+    "--txt-muted": "#7d8b99",
+    "--txt-dim": "#475569",
+    "--ok": "#2ed573",
+    "--warn": "#ffa502",
+    "--err": "#ff6b81"
+  },
+  "terminal": {
+    "background": "#06090e",
+    "foreground": "#f0f6fc",
+    "cursor": "#00d2ff",
+    "selectionBackground": "#1f3a56"
+  }
+}</code></pre>
+          </div>
+        </section>
+
+        <section class="doc-section" id="tema-degiskenler">
+          <h2>CSS Variables &amp; Terminal Color Map</h2>
+          <p>
+            The <code>vars</code> object in your theme is applied automatically to all application panels and sandboxed plugins.
+            The <code>terminal</code> object is passed on to all open xterm.js terminals.
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Variable</th>
+                  <th>Default (Deep Navy)</th>
+                  <th>Used For</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td><code>--bg</code></td><td><span class="swatch" style="background:#06090e"></span><code>#06090e</code></td><td>Main application background</td></tr>
+                <tr><td><code>--surface</code></td><td><span class="swatch" style="background:#0a111a"></span><code>#0a111a</code></td><td>Panel and card surfaces</td></tr>
+                <tr><td><code>--surface-raised</code></td><td><span class="swatch" style="background:#0f1926"></span><code>#0f1926</code></td><td>Raised areas, buttons and title bars</td></tr>
+                <tr><td><code>--border</code></td><td><span class="swatch" style="background:#162638"></span><code>#162638</code></td><td>Standard panel and card borders</td></tr>
+                <tr><td><code>--border-glow</code></td><td><span class="swatch" style="background:#1f3a56"></span><code>#1f3a56</code></td><td>Highlighted borders and focus rings</td></tr>
+                <tr><td><code>--accent</code></td><td><span class="swatch" style="background:#00d2ff"></span><code>#00d2ff</code></td><td>Main accent color, active tabs and links</td></tr>
+                <tr><td><code>--petrol</code></td><td><span class="swatch" style="background:#00838f"></span><code>#00838f</code></td><td>Secondary accent and gradient tone</td></tr>
+                <tr><td><code>--txt-main</code></td><td><span class="swatch" style="background:#f0f6fc"></span><code>#f0f6fc</code></td><td>Primary text color</td></tr>
+                <tr><td><code>--txt-muted</code></td><td><span class="swatch" style="background:#7d8b99"></span><code>#7d8b99</code></td><td>Secondary descriptions and labels</td></tr>
+                <tr><td><code>--txt-dim</code></td><td><span class="swatch" style="background:#475569"></span><code>#475569</code></td><td>Inactive text and hints</td></tr>
+                <tr><td><code>--ok</code></td><td><span class="swatch" style="background:#2ed573"></span><code>#2ed573</code></td><td>Success and online status badges</td></tr>
+                <tr><td><code>--warn</code></td><td><span class="swatch" style="background:#ffa502"></span><code>#ffa502</code></td><td>Warnings and quota threshold indicators</td></tr>
+                <tr><td><code>--err</code></td><td><span class="swatch" style="background:#ff6b81"></span><code>#ff6b81</code></td><td>Error messages and critical states</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Terminal Color Map (<code>terminal</code>)</h3>
+          <p>
+            In addition to the <code>background</code>, <code>foreground</code>, <code>cursor</code> and <code>selectionBackground</code> keys,
+            you can define the standard xterm.js ANSI colors (<code>black</code>, <code>red</code>, <code>green</code>, <code>yellow</code>, <code>blue</code>,
+            <code>magenta</code>, <code>cyan</code>, <code>white</code> and their <code>bright*</code> variants).
+          </p>
+        </section>
+
+        <!-- 11. CORE MODULE SDK -->
+        <section class="doc-section" id="cekirdek-modul">
+          <h2>Core Module SDK (Source Code Contribution)</h2>
+          <p>
+            If you want to contribute a new built-in panel directly to the YDevDesk repository, you do not need to edit <code>registry.ts</code>,
+            <code>Workspace.tsx</code> or <code>TitleBar.tsx</code>.
+            The <code>src/modules/&lt;id&gt;/manifest.ts</code> file is discovered automatically by Vite.
+          </p>
+
+          <div class="code-block">
+            <div class="code-header">
+              <span>src/modules/my_module/manifest.ts</span>
+              <button class="copy-btn" data-copy>Copy</button>
+            </div>
+            <pre><code>import { Box } from "lucide-react";
+import type { ModuleManifest } from "../../sdk/moduleSdk";
+import MyPanel from "./MyPanel";
+
+const manifest: ModuleManifest = {
+  id: "my_module",
+  title: "Module Title",
+  description: "Short panel description",
+  icon: Box,
+  component: MyPanel,
+  width: 320,
+  order: 100,
+};
+
+export default manifest;</code></pre>
+          </div>
+
+          <p>Inside your panel component, you can access all core services through the <code>useModuleSDK("my_module")</code> hook:</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span>src/modules/my_module/MyPanel.tsx</span>
+              <button class="copy-btn" data-copy>Copy</button>
+            </div>
+            <pre><code>import { useModuleSDK, useVisibilityPoll } from "../../sdk/moduleSdk";
+
+export default function MyPanel() {
+  const sdk = useModuleSDK("my_module");
+
+  // Polling that pauses automatically while the window is hidden
+  useVisibilityPoll(() =&gt; {
+    // Periodic data refresh
+  }, 15000);
+
+  return (
+    &lt;div className="p-3"&gt;
+      &lt;button onClick={() =&gt; sdk.terminal.run("git status")}&gt;
+        Check Status
+      &lt;/button&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+          </div>
+          <ul>
+            <li><code>sdk.terminal.run(cmd)</code> &mdash; Runs a command in the active terminal.</li>
+            <li><code>sdk.markdown.open({ path, title })</code> &mdash; Opens a Markdown file in the central tab.</li>
+            <li><code>sdk.notify(title, body)</code> &mdash; Sends a desktop notification.</li>
+            <li><code>sdk.storage.get / set</code> &mdash; Isolated local storage private to the module.</li>
+            <li><code>sdk.connections.projectRoots</code> &mdash; The list of project root directories from Settings.</li>
+          </ul>
+        </section>
+
+        <!-- 12. DATA & CACHE PATHS -->
+        <section class="doc-section" id="veri-yollari">
+          <h2>Data &amp; Cache Paths</h2>
+          <p>
+            YDevDesk stores all settings, plugins, custom themes, Knowledge Network entries and encryption keys only on your local disk.
+            Sensitive configuration files are created on Unix systems with <code>0600</code> permissions (readable and writable only by the user).
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Platform</th>
+                  <th>Configuration, Plugins &amp; Themes</th>
+                  <th>WebView Cache / Local Storage</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Linux</strong></td>
+                  <td>
+                    <code>~/.config/ydevdesk/</code><br />
+                    <span style="color:var(--txt-muted);font-size:12px;"><code>plugins/</code>, <code>themes/</code>, <code>sync_auth.json</code>, <code>knowledge.json</code></span>
+                  </td>
+                  <td><code>~/.local/share/com.yagyz.ydevdesk/</code><br /><code>~/.cache/com.yagyz.ydevdesk/</code></td>
+                </tr>
+                <tr>
+                  <td><strong>macOS</strong></td>
+                  <td>
+                    <code>~/.config/ydevdesk/</code><br />
+                    <span style="color:var(--txt-muted);font-size:12px;"><code>plugins/</code>, <code>themes/</code>, <code>sync_auth.json</code>, <code>knowledge.json</code></span>
+                  </td>
+                  <td><code>~/Library/WebKit/com.yagyz.ydevdesk/</code><br /><code>~/Library/Caches/com.yagyz.ydevdesk/</code></td>
+                </tr>
+                <tr>
+                  <td><strong>Windows</strong></td>
+                  <td>
+                    <code>%USERPROFILE%\.config\ydevdesk\</code><br />
+                    <span style="color:var(--txt-muted);font-size:12px;"><code>plugins\</code>, <code>themes\</code>, <code>sync_auth.json</code>, <code>knowledge.json</code></span>
+                  </td>
+                  <td><code>%LOCALAPPDATA%\com.yagyz.ydevdesk\EBWebView\</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            The settings folder can be changed with the <code>YDEVDESK_CONFIG_DIR</code> environment variable (for testing and isolated runs).
+          </p>
+
+          <h3>Knowledge Network Files</h3>
+          <p>For the changes made to agent configuration files (rules block, MCP entry, backups) see the <a href="knowledge-en.html#changes">Knowledge Network guide</a>.</p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>File</th><th>Location</th><th>Description</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>knowledge.db</code></td><td><code>com.yagyz.ydevdesk/</code> under the operating system's data directory (Linux: <code>~/.local/share/</code>, macOS: <code>~/Library/Application Support/</code>, Windows: <code>%APPDATA%\</code>); a custom path can be set</td><td>SQLite entry database and hub send queue</td></tr>
+                <tr><td><code>knowledge.json</code></td><td>Settings folder</td><td>Storage mode, run permission, custom DB path</td></tr>
+                <tr><td><code>app.alive</code></td><td>Settings folder</td><td>Heartbeat file showing the app is alive (refreshed every 5 s)</td></tr>
+                <tr><td><code>config.json</code></td><td><code>~/.config/ydevhub/</code></td><td>YDevHub URL and API key (Connections tab)</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </article>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-bottom" style="border-top:0;padding-top:0;">
+        <span>YDevDesk Documentation &mdash; MIT License</span>
+        <span>
+          <a href="index.html" hreflang="tr">Home (TR)</a> &middot;
+          <a href="sync.html" hreflang="tr">Sync (TR)</a> &middot;
+          <a href="privacy.html" hreflang="tr">Privacy &amp; Cookies (TR)</a> &middot;
+          <a href="https://github.com/YagYz/YDevDesk" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Mobile top menu
+    (function () {
+      const header = document.getElementById("site-header");
+      const toggle = document.getElementById("nav-toggle");
+      if (toggle && header) {
+        toggle.addEventListener("click", function () {
+          const open = header.classList.toggle("nav-open");
+          toggle.setAttribute("aria-expanded", String(open));
+        });
+      }
+
+      // Mobile table of contents
+      const tocToggle = document.getElementById("toc-toggle");
+      const sidebar = document.getElementById("docs-sidebar");
+      if (tocToggle && sidebar) {
+        tocToggle.addEventListener("click", function () {
+          const open = sidebar.classList.toggle("open");
+          tocToggle.setAttribute("aria-expanded", String(open));
+        });
+        sidebar.querySelectorAll("a").forEach(function (link) {
+          link.addEventListener("click", function () {
+            sidebar.classList.remove("open");
+            tocToggle.setAttribute("aria-expanded", "false");
+          });
+        });
+      }
+
+      // Copy for all code blocks
+      document.querySelectorAll("[data-copy]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          const block = btn.closest(".code-block");
+          const code = block ? block.querySelector("pre code") : null;
+          if (!code) return;
+          navigator.clipboard.writeText(code.textContent).then(function () {
+            const orig = btn.textContent;
+            btn.textContent = "Copied!";
+            btn.classList.add("copied");
+            setTimeout(function () {
+              btn.textContent = orig;
+              btn.classList.remove("copied");
+            }, 1500);
+          });
+        });
+      });
+
+      // Scroll tracking (active sidebar highlight)
+      const sections = Array.from(document.querySelectorAll(".doc-section[id]"));
+      const navLinks = Array.from(document.querySelectorAll(".docs-nav-list a"));
+      if ("IntersectionObserver" in window && sections.length) {
+        const observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              const id = entry.target.getAttribute("id");
+              navLinks.forEach(function (a) {
+                a.classList.toggle("active", a.getAttribute("href") === "#" + id);
+              });
+            }
+          });
+        }, { rootMargin: "-18% 0px -70% 0px", threshold: 0 });
+        sections.forEach(function (sec) { observer.observe(sec); });
+      }
+    })();
+  </script>
+</body>
+</html>

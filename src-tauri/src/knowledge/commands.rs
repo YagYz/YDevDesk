@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use serde::Serialize;
 
+use super::agent_setup;
 use super::hub::{self, HubCfg};
 use super::service::{self, LogOutcome};
 use super::settings::{self, KnowledgeSettings, RunMode, Storage};
@@ -48,6 +49,44 @@ fn device_name() -> String {
         .ok()
         .and_then(|h| h.into_string().ok())
         .unwrap_or_else(|| "unknown".to_string())
+}
+
+// --- Ajan kurulumu (Parça 2): `claude` CLI çağrısı engelleyici olduğundan hepsi `async` komut (ayrı iş parçacığı) ---
+
+fn home_dir() -> Result<std::path::PathBuf, String> {
+    dirs::home_dir().ok_or_else(|| "Kullanıcı ana dizini bulunamadı".to_string())
+}
+
+#[tauri::command(async)]
+pub fn agent_setup_status() -> Result<Vec<agent_setup::AgentSetupStatus>, String> {
+    Ok(agent_setup::status(&home_dir()?, &agent_setup::exe_path()))
+}
+
+#[tauri::command(async)]
+pub fn agent_setup_preview(agents: Vec<String>) -> Result<Vec<agent_setup::AgentPreview>, String> {
+    let (ids, bad) = agent_setup::parse_ids(&agents);
+    if !bad.is_empty() {
+        return Err(format!("Bilinmeyen ajan: {}", bad.join(", ")));
+    }
+    Ok(agent_setup::preview(&home_dir()?, &agent_setup::exe_path(), &ids))
+}
+
+#[tauri::command(async)]
+pub fn agent_setup_apply(agents: Vec<String>) -> Result<Vec<agent_setup::AgentApplyResult>, String> {
+    let (ids, bad) = agent_setup::parse_ids(&agents);
+    if !bad.is_empty() {
+        return Err(format!("Bilinmeyen ajan: {}", bad.join(", ")));
+    }
+    Ok(agent_setup::apply(&home_dir()?, &agent_setup::exe_path(), &ids))
+}
+
+#[tauri::command(async)]
+pub fn agent_setup_remove(agents: Vec<String>) -> Result<Vec<agent_setup::AgentApplyResult>, String> {
+    let (ids, bad) = agent_setup::parse_ids(&agents);
+    if !bad.is_empty() {
+        return Err(format!("Bilinmeyen ajan: {}", bad.join(", ")));
+    }
+    Ok(agent_setup::remove(&home_dir()?, &agent_setup::exe_path(), &ids))
 }
 
 #[tauri::command(async)]

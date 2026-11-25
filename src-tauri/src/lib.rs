@@ -108,7 +108,11 @@ pub fn run() {
             knowledge::commands::knowledge_list,
             knowledge::commands::knowledge_tags,
             knowledge::commands::knowledge_status,
-            knowledge::commands::knowledge_add
+            knowledge::commands::knowledge_add,
+            knowledge::commands::agent_setup_status,
+            knowledge::commands::agent_setup_preview,
+            knowledge::commands::agent_setup_apply,
+            knowledge::commands::agent_setup_remove
         ])
         .build(context)
         .expect("error while building tauri application")

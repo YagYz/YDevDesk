@@ -10,6 +10,7 @@ pub mod hub;
 pub mod service;
 pub mod mcp;
 pub mod commands;
+pub mod agent_setup;
 
 /// Yeni kayıt girdisi (henüz id/zaman yok).
 #[derive(Clone, Debug)]
