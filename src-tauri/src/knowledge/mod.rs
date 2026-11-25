@@ -6,6 +6,8 @@ use serde::Serialize;
 pub mod store;
 pub mod settings;
 pub mod heartbeat;
+pub mod hub;
+pub mod service;
 
 /// Yeni kayıt girdisi (henüz id/zaman yok).
 #[derive(Clone, Debug)]
