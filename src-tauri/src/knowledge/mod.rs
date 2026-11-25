@@ -8,6 +8,7 @@ pub mod settings;
 pub mod heartbeat;
 pub mod hub;
 pub mod service;
+pub mod mcp;
 
 /// Yeni kayıt girdisi (henüz id/zaman yok).
 #[derive(Clone, Debug)]

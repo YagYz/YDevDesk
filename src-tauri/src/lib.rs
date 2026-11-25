@@ -108,6 +108,12 @@ pub fn run() {
 }
 
 
+/// `ydevdesk --mcp`: pencere açmadan stdio MCP sunucusu olarak çalışır; çıkış kodunu döner.
+pub fn run_mcp() -> i32 {
+    let stdin = std::io::stdin();
+    knowledge::mcp::run(stdin.lock(), std::io::stdout(), knowledge::mcp::Ctx::real())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
