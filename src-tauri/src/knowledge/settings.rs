@@ -160,7 +160,9 @@ mod tests {
         let s = KnowledgeSettings { db_path: Some("knowledge.db".into()), ..Default::default() };
         assert_eq!(db_path(&s), def, "göreli yol süreçler arası farklı DB'ye yazdırır");
         assert!(custom_path_error(&s).is_some());
-        let abs = KnowledgeSettings { db_path: Some("/tmp/x/k.db".into()), ..Default::default() };
+        // Mutlak yol platforma göre değişir (Windows'ta `/tmp/..` mutlak değildir): temp_dir ile kur.
+        let abs_path = std::env::temp_dir().join("x").join("k.db");
+        let abs = KnowledgeSettings { db_path: Some(abs_path.to_string_lossy().into()), ..Default::default() };
         assert!(custom_path_error(&abs).is_none());
         let home = KnowledgeSettings { db_path: Some("~/x/k.db".into()), ..Default::default() };
         assert!(custom_path_error(&home).is_none());
