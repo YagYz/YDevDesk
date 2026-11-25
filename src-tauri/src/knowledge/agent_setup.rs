@@ -820,7 +820,9 @@ mod tests {
 
     #[test]
     fn block_matches_site_templates() {
-        let b = rules_block().trim_end();
+        // Windows checkout satır sonlarını CRLF yapmış olabilir: iki tarafı da LF'ye indirip karşılaştır.
+        let normalized = rules_block().replace("\r\n", "\n");
+        let b = normalized.trim_end();
         for t in [
             include_str!("../../../docs/site/agents/CLAUDE.md"),
             include_str!("../../../docs/site/agents/AGENTS.md"),

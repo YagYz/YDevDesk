@@ -1,0 +1,4 @@
+# Ajan kural metni ve site şablonları her platformda LF kalır: Windows'ta CRLF'e çevrilirse
+# uygulamaya gömülen blok ile şablonlar birebir eşleşmez ve kullanıcı dosyalarına CRLF'li blok yazılır.
+src-tauri/src/knowledge/agent_rules.md text eol=lf
+docs/site/agents/*.md text eol=lf
