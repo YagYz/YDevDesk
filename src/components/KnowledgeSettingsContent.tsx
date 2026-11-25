@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { Brain, Loader2 } from "lucide-react";
+import { Brain, ExternalLink, Loader2 } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { KNOWLEDGE_DOCS_URL } from "../lib/releaseNotes";
 import { api } from "../lib/tauri";
 import { ErrorBanner } from "./ui";
+import { KnowledgeAgentSetup } from "./KnowledgeAgentSetup";
 import type { KnowledgeRunMode, KnowledgeSettings, KnowledgeStatus, KnowledgeStorage } from "../types";
 
 const STORAGE_OPTIONS: { id: KnowledgeStorage; label: string; hint: string; needsHub: boolean }[] = [
@@ -87,6 +90,13 @@ export function KnowledgeSettingsContent() {
         <Brain className="w-4 h-4 text-[var(--accent)] shrink-0" />
         <div className="font-medium text-[var(--txt-main)]">Bilgi Ağı</div>
         {saved && <span className="text-[10px] text-[var(--ok)]">Kaydedildi</span>}
+        <button
+          type="button"
+          onClick={() => openUrl(KNOWLEDGE_DOCS_URL).catch(() => {})}
+          className="ml-auto inline-flex items-center gap-1 text-[10px] text-[var(--accent)] hover:underline cursor-pointer"
+        >
+          <ExternalLink className="w-3 h-3" /> Nasıl çalışır? Ayrıntılar (site)
+        </button>
       </div>
 
       <div className="rounded-lg border border-[var(--border)] p-3 space-y-2">
@@ -163,6 +173,8 @@ export function KnowledgeSettingsContent() {
         </div>
         <div className="text-[10px] text-[var(--txt-dim)]">Boş bırakılırsa varsayılan konum kullanılır.</div>
       </div>
+
+      <KnowledgeAgentSetup />
 
       {status && (
         <div className="text-[11px] text-[var(--txt-muted)] font-mono">

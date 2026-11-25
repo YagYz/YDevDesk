@@ -386,3 +386,30 @@ export type DeviceTelemetrySnapshot = {
 export type SyncPreferences = {
   sync_layout: boolean;
 };
+
+export type AgentSetupId = "claude" | "codex" | "agy";
+
+export type AgentSetupStatus = {
+  id: AgentSetupId;
+  cli_found: boolean;
+  rules_path: string;
+  rules_installed: boolean;
+  mcp_installed: boolean;
+  note?: string | null;
+};
+
+export type AgentPreview = {
+  id: AgentSetupId;
+  rules_path: string;
+  rules_action: "add" | "update" | "none";
+  mcp_target: string;
+  mcp_action: "add" | "update" | "none" | "error";
+  mcp_snippet: string;
+  error?: string | null;
+};
+
+export type AgentApplyResult = {
+  id: AgentSetupId;
+  ok: boolean;
+  message: string;
+};

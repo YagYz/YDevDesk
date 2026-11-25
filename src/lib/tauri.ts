@@ -1,8 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  AgentApplyResult,
   AgentEnvironmentStatus,
   AgentInstallResult,
   AgentMarkdownFile,
+  AgentPreview,
+  AgentSetupStatus,
   AgentStatus,
   DeviceFlowPollResult,
   DeviceFlowStart,
@@ -52,6 +55,10 @@ export const api = {
   knowledgeStatus: () => invoke<KnowledgeStatus>("knowledge_status"),
   knowledgeAdd: (service: string, title: string, summary: string) =>
     invoke<unknown>("knowledge_add", { service, title, summary }),
+  agentSetupStatus: () => invoke<AgentSetupStatus[]>("agent_setup_status"),
+  agentSetupPreview: (agents: string[]) => invoke<AgentPreview[]>("agent_setup_preview", { agents }),
+  agentSetupApply: (agents: string[]) => invoke<AgentApplyResult[]>("agent_setup_apply", { agents }),
+  agentSetupRemove: (agents: string[]) => invoke<AgentApplyResult[]>("agent_setup_remove", { agents }),
   tasks: (cfg: HomelabConfig) =>
     invoke<any>("fetch_homelab_tasks", { url: cfg.ydevhub_url, key: cfg.ydevhub_key }),
   createTask: (cfg: HomelabConfig, title: string, priority: string) =>
